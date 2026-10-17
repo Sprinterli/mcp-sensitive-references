@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp-sensitive-references-prototype"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Protocol-level feasibility prototype for MCP Sensitive References"
+
+[project.optional-dependencies]
+mcp-demo = ["mcp>=1.21,<2"]
+resolver-http-demo = ["fastapi>=0.121", "pyjwt[crypto]>=2.10", "requests>=2.31", "uvicorn>=0.38"]
+schema-validation = ["jsonschema>=4.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
