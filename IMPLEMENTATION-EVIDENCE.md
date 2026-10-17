@@ -22,7 +22,8 @@ or cross-server delegation.
 
 ## Implementation references
 
-[maisecrets](https://github.com/Mcpgate-de/maisecrets) and MCPGate informed the design through prior
-implementation experience. They are not the protocol, nor are their product mechanics proposed as core
-requirements. Client-Vault provides historical evidence for out-of-model resolution, first-sighting and
-origin binding, stale-reference protection, fail-closed behavior, and separate resolver authorization.
+[maisecrets](https://github.com/Mcpgate-de/maisecrets) and
+[MCPGate](https://github.com/Mcpgate-de/mcpgate) informed the design through prior implementation
+experience. They are not the protocol, nor are their product mechanics proposed as core requirements.
+Client-Vault provides historical evidence for out-of-model resolution, first-sighting and origin binding,
+stale-reference protection, fail-closed behavior, and separate resolver authorization.

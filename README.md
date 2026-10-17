@@ -30,7 +30,7 @@ A Sensitive Reference is an opaque identifier issued by an MCP server in place o
 value. It lets an agent refer to that value without receiving its plaintext. An authorized non-model
 component associated with the issuer can later resolve it.
 
-A Sensitive Reference is not a secret. Possession alone must not authorize resolution.
+A Sensitive Reference is not an authorization grant. Possession alone must not authorize resolution.
 
 ## Core security property
 
@@ -105,3 +105,7 @@ host provenance, protected sinks, resolver profiles, and extension fit is welcom
 
 This repository is independent pre-SEP design work. It does not imply endorsement by Anthropic, OpenAI,
 MCP maintainers, or an MCP working group.
+
+## License
+
+[Apache-2.0](LICENSE)

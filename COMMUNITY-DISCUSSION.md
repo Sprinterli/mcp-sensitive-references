@@ -5,8 +5,9 @@
 MCP servers can expose customer records, business identifiers, health data, secrets, and other sensitive
 values. An agent can need to preserve, route, format, or use those values without needing their plaintext.
 
-Today, a server can return plaintext or redact it. Plaintext enters model context. Redaction can prevent a
-requested artifact or action. We are exploring an optional MCP extension called Sensitive References.
+Today, common patterns return plaintext, redact the value, or transform context before model use.
+Plaintext enters model context. Redaction or transformation can prevent a requested artifact or action.
+We are exploring an optional MCP extension called Sensitive References.
 
 ```text
 email = ⟦sref:email:01JCK7KF9X4Y3M4N6Q6YB2D8P0⟧

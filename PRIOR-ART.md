@@ -2,23 +2,27 @@
 
 ## Client secret references
 
-Secret managers and client-side secret references can avoid displaying a stored secret. Sensitive References
-focus on issuer-held values and authenticated issuer provenance in an MCP workflow.
+[maisecrets](https://github.com/Mcpgate-de/maisecrets) and similar client-side secret-reference systems can
+avoid displaying a stored secret. Sensitive References focus on issuer-held values and authenticated issuer
+provenance in an MCP workflow.
 
-## Context redaction and middleware
+## Context redaction and message transformation
 
-Redaction can prevent plaintext from reaching a model. This proposal adds a reference that a later protected
-sink can materialize after separate authorization.
+[MCP Python SDK interceptor API](https://py.sdk.modelcontextprotocol.io/advanced/middleware/) can observe,
+transform, or refuse MCP messages. Redaction can prevent plaintext from reaching a model. This proposal adds
+a reference that a later protected sink can materialize after separate authorization.
 
 ## Elicitation and private input
 
-Private-input flows can collect values without placing them in ordinary model content. They address a
-different direction: user-to-host input rather than a server-held value returned by an MCP server.
+[MCP elicitation](https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation) can collect user input
+through a client flow. It addresses a different direction: user-to-host input rather than a server-held
+value returned by an MCP server.
 
 ## OAuth and sender constraint
 
-OAuth scopes, audience checks, PKCE, and sender-constrained tokens such as DPoP can protect resolver
-authorization. This proposal does not replace them. A resolver profile can use them.
+[MCP authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization) and
+[OAuth DPoP](https://www.rfc-editor.org/rfc/rfc9449) provide authorization and sender-constraint tools.
+This proposal does not replace them. A resolver profile can use them.
 
 ## DLP, NER, and tokenization
 
