@@ -47,6 +47,7 @@ server and the test host implement it. It replaces nothing in concept 0.5. The c
 | A4 | The host checks `state`. | Not applicable | `test_a_callback_with_another_state_is_refused` |
 | A5 | The host checks the RFC 9207 `iss` parameter when it is present or advertised. | The server adds `iss` to the redirect in its source. **Not yet tested.** | `test_a_callback_from_another_issuer_is_refused` |
 | A6 | Without a signed-in session, the server shows no consent page and issues no code. | `test_without_a_session_there_is_no_consent_page_and_no_code` | — |
+| A8 | The server issues a code of this profile only to a loopback redirect URI (RFC 8252 section 7.3), because the only sink profile writes a local file. A web redirect that the server accepts for other clients gets no consent page and no code. | `test_a_client_whose_redirect_is_not_loopback_gets_no_page_and_no_code` | The host listens on loopback: `test_interactive_authorization_materializes_and_reports_no_secret` |
 | A7 | A principal that the server does not enable gets `access_denied` and no consent page. | `test_a_principal_not_on_the_allowlist_is_denied_without_a_consent_page` | — |
 
 ## 4. Consent
@@ -59,7 +60,9 @@ server and the test host implement it. It replaces nothing in concept 0.5. The c
 | C4 | A consent post without an `Origin` header gives nothing. | `test_a_consent_post_without_an_origin_header_grants_nothing` | — |
 | C5 | The consent page cannot be framed (`frame-ancestors 'none'`). | `test_the_first_authorization_shows_a_consent_page_and_issues_no_code` | — |
 | C6 | The consent bounds the whole authorization. A withdrawn or expired consent stops refresh and every live access token. | `test_a_withdrawn_or_expired_consent_stops_refresh_and_the_live_token` | — |
-| C7 | The consent lives 180 days. | Read in the server source (`CONSENT_TTL_SECONDS`). **Not yet tested.** | — |
+| C7 | The consent lives 180 days. The stored grant time decides, not only a storage expiry, so a lost expiry or a restored copy cannot extend it. | `test_a_consent_older_than_its_lifetime_is_no_consent_even_without_a_ttl` | — |
+| C9 | A principal that the server disables loses every consent. A later enablement needs a new consent. The deletion of a user withdraws the consents and the enablement. | `test_taking_a_principal_off_the_allowlist_withdraws_its_consent_for_good`, `test_forgetting_a_user_withdraws_every_consent_and_the_listing` | — |
+| C10 | The answer on the consent page checks the client registration again. A client that was deleted after the page was shown gets no consent and no code. | `test_a_consent_for_a_client_deleted_after_the_page_grants_nothing` | — |
 | C8 | The server asks for no consent per reference or per tool call. | Plan section 6, M4a. **Not verified** by a test. | — |
 
 ## 5. Tokens
@@ -107,9 +110,12 @@ Success: `200` with `{"values": {"<reference>": "<value>"}}` and `Cache-Control:
 | R6 | The host accepts a 200 answer only if its key set is exactly the batch. | Not applicable | `test_an_incomplete_or_extra_batch_writes_nothing` |
 | R7 | The host does not follow a redirect from the resolve endpoint. | Not applicable | `test_a_redirect_from_the_resolve_endpoint_is_not_followed` |
 | R8 | An unreachable endpoint writes nothing. | Not applicable | `test_an_unreachable_resolve_endpoint_writes_nothing` |
-| R9 | The server limits a principal to 1000 values per day and answers 429 after that. | Read in the server source (`DAILY_VALUE_QUOTA`). **Not yet tested.** | — |
+| R9 | The server limits a principal to 1000 values per day and answers 429 after that. The counter lives on storage that does not evict. | `test_the_daily_quota_refuses_the_batch_that_crosses_it`, `test_every_key_of_the_profile_lives_on_the_auth_backend` | — |
 | R10 | The server writes one audit event per resolve with hashed reference ids and a hashed client id, and no value. | Plan section 6, M4a, "Resolve". **Not yet tested** in the cited test module. | — |
 | R11 | A token without the resolve scope gives `403 insufficient_scope`. | Read in the server source (`validate`). **Not yet tested.** | — |
+| R12 | A token for another audience resolves nothing. | `test_a_token_for_another_audience_resolves_nothing` | — |
+| R13 | A reference whose kind differs from the kind of the stored value counts as unknown. | `test_a_reference_with_the_wrong_kind_does_not_resolve` | — |
+| R14 | A request body over 64 KiB gives 413 and no value. | `test_a_body_over_the_limit_is_refused_before_it_is_read` | — |
 
 ## 7. Error codes
 
