@@ -129,3 +129,20 @@ its own issuer (RFC 8414 section 3.3).
 RFC 9728 allows a list of authorization servers. The profile does not say which one issues resolver
 tokens. If the list has more than one entry, the host refuses to select one and requires
 `--authorization-server`.
+
+## F12. The issuer identity is the protected resource, not the URL that was called
+
+The host records the issuer of a reference and later resolves it only at that issuer. By default the host
+uses the MCP URL. A server may publish its RFC 9728 metadata for a parent resource, for example its origin,
+so that one authorization covers several endpoints. The `resource` value then differs from the MCP URL, and
+the host cannot tell from the profile which value is the issuer. The host takes the issuer from
+`--resource` and refuses to run when the MCP URL does not lie under it. The concept should define the
+issuer as the RFC 9728 `resource` value.
+
+## F13. Where a host learns the resolve scope
+
+RFC 8414 and RFC 9728 list scopes in `scopes_supported`. Many MCP clients request every scope listed there. A
+server that lists the resolve scope there makes those clients request it together with their agent scopes,
+and the profile requires that such a mixed request gets neither. The tested server therefore names the
+scope only in its discovery object, and the host reads it from there (`--resolve-scope` overrides). The
+concept should name the place.
