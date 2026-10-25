@@ -581,8 +581,9 @@ class EndToEndTests(unittest.TestCase):
         self.dir = Path(tempfile.mkdtemp(prefix="sref-m4b-e2e-"))
         self.dest = self.dir / "out.txt"
 
-    def run_host(self, settings):
+    def run_host(self, settings, *extra):
         runner, url = _serve_mcp(f"mail {self.alice}", settings)
+        extra = [a.replace("{origin}", url.rsplit("/", 1)[0]) for a in extra]
         self.addCleanup(setattr, runner, "should_exit", True)
         printed = []
         saved = (mcp_host.open_browser, os.environ.get("MCP_TOKEN"), os.environ.get("SREF_SENTINELS"))
@@ -596,7 +597,7 @@ class EndToEndTests(unittest.TestCase):
                 "--url", url, "--extension-id", "org.example/sensitive-references", "--tool", "read",
                 "--expect-negotiation", "--resolve-into", str(self.dest),
                 "--resolve-endpoint", f"{self.fake.base}/resolve", "--authorization-server", self.fake.base,
-                "--resolver-token-cache", str(self.dir / "tokens.json"), "--timeout", "10"])
+                "--resolver-token-cache", str(self.dir / "tokens.json"), "--timeout", "10", *extra])
         finally:
             builtins.print = original_print
             mcp_host.open_browser = saved[0]
@@ -620,6 +621,23 @@ class EndToEndTests(unittest.TestCase):
             self.assertNotIn(secret, output)
         self.assertNotIn(f"Bearer {AGENT_TOKEN}", self.fake.authorization_headers)
 
+    def test_a_configured_parent_resource_is_the_issuer(self):
+        # The server publishes its metadata for the origin, not for /mcp.
+        code, output = self.run_host(self.PROFILES, "--resource", "{origin}")
+        report = json.loads(output)
+
+        self.assertEqual(code, 0, report["failures"])
+        self.assertEqual(self.dest.read_text(), "alice@example.com\n")
+
+    def test_a_resource_the_mcp_url_is_not_under_stops_the_host(self):
+        code, output = self.run_host(self.PROFILES, "--resource", "http://127.0.0.1:1/other")
+        report = json.loads(output)
+
+        self.assertEqual(code, 1)
+        self.assertIn("the MCP URL is not under the configured resource", report["failures"])
+        self.assertFalse(self.dest.exists())
+        self.assertEqual((self.fake.authorize_requests, self.fake.resolve_batches), ([], []))
+
     def test_without_advertised_profiles_the_host_does_not_resolve(self):
         code, output = self.run_host({"versions": ["1"]})
         report = json.loads(output)
@@ -631,6 +649,17 @@ class EndToEndTests(unittest.TestCase):
 
 
 class HostOptionTests(unittest.TestCase):
+    def test_the_mcp_url_must_lie_under_the_resource(self):
+        cases = [("https://s.example/mcp", "https://s.example", True),
+                 ("https://s.example/mcp", "https://s.example/", True),
+                 ("https://s.example/mcp", "https://s.example/mcp", True),
+                 ("https://s.example/mcpx", "https://s.example/mcp", False),
+                 ("https://s.example/mcp", "https://t.example", False),
+                 ("https://s.example/mcp", "http://s.example", False)]
+        for url, resource, expected in cases:
+            with self.subTest(url=url, resource=resource):
+                self.assertIs(mcp_host._within(url, resource), expected)
+
     def test_a_resolving_host_declares_both_profiles(self):
         self.assertEqual(mcp_host.RESOLVING_HOST_SETTINGS["resolver_profiles"], ["oauth-resolver-1"])
         self.assertEqual(mcp_host.RESOLVING_HOST_SETTINGS["sink_profiles"], ["local-file-1"])

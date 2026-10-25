@@ -389,6 +389,15 @@ async def run(args: argparse.Namespace) -> HostReport:
     # Only the public part of the URL leaves this function: in the report and as the issuer.
     endpoint = public_endpoint(args.url)
     report = HostReport(server=endpoint, declared=declared)
+    # The issuer is the protected resource. By default that is the MCP URL; a
+    # server that publishes its RFC 9728 metadata for a parent resource is
+    # named with --resource, and the MCP URL must lie under it.
+    issuer = endpoint
+    if getattr(args, "resource", None):
+        issuer = public_endpoint(args.resource)
+        if not _within(endpoint, issuer):
+            report.failures.append("the MCP URL is not under the configured resource")
+            return report
     provenance = ProvenanceStore()
     resolving = bool(getattr(args, "resolve_into", None))
     host_settings = dict(RESOLVING_HOST_SETTINGS if resolving else HOST_SETTINGS)
@@ -413,7 +422,7 @@ async def run(args: argparse.Namespace) -> HostReport:
                 negotiated = report.negotiated_version is not None
 
                 first = await session.call_tool(args.tool, json.loads(args.arguments))
-                call = inspect_result(args.tool, first, issuer=endpoint, negotiated=negotiated,
+                call = inspect_result(args.tool, first, issuer=issuer, negotiated=negotiated,
                                       provenance=provenance, sentinels=sentinels,
                                       refusal_pattern=args.refusal_pattern)
                 report.calls.append(call)
@@ -431,7 +440,7 @@ async def run(args: argparse.Namespace) -> HostReport:
                     else:
                         filled = template.replace("{ref}", usable[0]) if usable else template
                         second = await session.call_tool(args.then_tool, json.loads(filled))
-                        call = inspect_result(args.then_tool, second, issuer=endpoint, negotiated=negotiated,
+                        call = inspect_result(args.then_tool, second, issuer=issuer, negotiated=negotiated,
                                               provenance=provenance, sentinels=sentinels,
                                               refusal_pattern=args.refusal_pattern)
                         report.calls.append(call)
@@ -441,10 +450,19 @@ async def run(args: argparse.Namespace) -> HostReport:
     if resolving:
         # After the MCP session: an interactive authorization can take minutes.
         report.materialization = materialize(
-            issuer=endpoint, references=first_references, provenance=provenance, agreed=agreed,
+            issuer=issuer, references=first_references, provenance=provenance, agreed=agreed,
             config=resolve_config(args), sentinels=sentinels, agent_token=token or None)
         _check_materialization(report, report.materialization)
     return report
+
+
+def _within(url: str, resource: str) -> bool:
+    """``url`` is ``resource`` or a path below it, on the same origin."""
+    a, b = urlsplit(url), urlsplit(resource)
+    if (a.scheme, a.netloc) != (b.scheme, b.netloc):
+        return False
+    base = b.path.rstrip("/")
+    return a.path == b.path or a.path.startswith(base + "/")
 
 
 def _open_browser(url: str) -> None:
@@ -498,6 +516,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     resolve.add_argument("--materialize-template", default="{ref}\n",
                          help="text written once per reference; {ref} is replaced by the reference")
     resolve.add_argument("--resolve-endpoint", help="the resolve endpoint (default: protected-resource metadata)")
+    resolve.add_argument("--resource", help="the protected-resource identifier (RFC 9728) when the server publishes "
+                                            "its metadata for a parent of the MCP URL; default: the MCP URL")
     resolve.add_argument("--resolve-scope", help=f"the resolve scope (default: metadata, else {RESOLVE_SCOPE})")
     resolve.add_argument("--authorization-server",
                          help="the authorization server issuer (default: the only one in the metadata)")
