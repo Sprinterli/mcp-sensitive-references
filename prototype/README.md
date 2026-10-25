@@ -74,6 +74,42 @@ reference failure (`--refusal-pattern`; the default matches the failure reasons 
 server may report a refused resolution inside a successful result. The report holds the endpoint without
 credentials, query or fragment, counts and verdicts; never a token, a sentinel value or a server message.
 
+### Materialization through a resolver (`--resolve-into`)
+
+With `--resolve-into PATH`, the host also resolves references into a local file. It uses the
+`oauth-resolver-1` and `local-file-1` profiles of `EXTENSION-PROFILE-DRAFT.md`. After the MCP session, the host
+writes `--materialize-template` (default `{ref}` and a newline) once for each reference of the first call that
+has exactly one trusted issuer. It writes through `ProtectedFileSink`, so a failure leaves the file as it was.
+
+- The host declares both profiles. It resolves only if both are in the negotiated intersection.
+- The resolve endpoint is `--resolve-endpoint`. Without it, the host reads the provisional `sensitive_references`
+  field of the RFC 9728 protected-resource metadata of the MCP URL. A discovered endpoint must be on the origin of
+  the resource. The metadata `resource` must be the MCP URL exactly.
+- The resolve scope is `--resolve-scope`, else the metadata value, else `sensitive-references.resolve`.
+- The resolver token is a second credential. It comes from the cache file (`--resolver-token-cache`, mode 0600),
+  from a refresh, or from a new authorization: dynamic client registration, Authorization Code + PKCE S256, the
+  `resource` indicator, the resolve scope only, and a redirect to `127.0.0.1`. The host opens the browser and waits
+  for the redirect. Use `--no-browser` to print the page URL to stderr, and `--no-interactive` to use the cache only.
+- The host never sends the MCP agent token to the resolve endpoint. It does not follow redirects. After a 401, it
+  gets one new token and tries once again.
+- The report holds `materialized`, the count of sentinel values in the file, whether the model-facing content still
+  holds the references, the token source (`cache`, `refresh`, `interactive`) and a failure code. It never holds a
+  reference, a value or a credential.
+
+```bash
+export MCP_TOKEN=...                  # the agent token, for the MCP endpoint only
+export SREF_SENTINELS='a@example.com' # values that must reach the file, never the report
+python3 demo/mcp_host.py --url https://server.example/mcp --extension-id <identifier> \
+    --tool <read tool> --arguments '{...}' --expect-negotiation \
+    --resolve-into ./out.txt --resolver-token-cache ~/.config/sref/resolver-tokens.json
+# Optional: --resolve-endpoint URL --resolve-scope SCOPE --authorization-server ISSUER
+#           --resolver-client-id ID --materialize-template 'To: {ref}\n' --no-browser --no-interactive
+```
+
+The tests in `tests/test_mcp_host_resolve.py` run offline. A local server plays the protected-resource metadata,
+the authorization server and the resolve endpoint. Two tests run `mcp_host.main` against a real MCP SDK 2.x server.
+The protocol gaps that this work found are in `M4-FINDINGS.md`.
+
 ## Mechanics demonstrated
 
 - `DemoMcpServer.list_customers()` returns normal MCP-shaped `content` and `structuredContent`; sensitive string fields contain canonical `⟦sref:kind:opaque-id⟧` tokens.
@@ -101,3 +137,5 @@ credentials, query or fragment, counts and verdicts; never a token, a sentinel v
 - `src/sensitive_references/http_resolver.py` — host adapter that calls only issuer-configured resolver endpoints and rejects partial responses.
 - `src/sensitive_references/output_guard.py` — re-redacts only values from the current protected operation if a downstream action echoes them.
 - `src/sensitive_references/capabilities.py` — version/profile intersection before the host records provenance.
+- `src/sensitive_references/resolver_client.py` — host-side `oauth-resolver-1` client: resource and authorization-server discovery, token cache, PKCE with a loopback redirect, and the resolve call.
+- `M4-FINDINGS.md` — protocol gaps found when the test host materialized references.

@@ -29,6 +29,22 @@ A follow-up call may pass a reference the host observed (``{ref}`` in
 ``--then-arguments``); the host sends only a reference with exactly one trusted
 issuer, and checks the result the same way.
 
+With ``--resolve-into PATH`` the host also materializes: after the MCP
+session it writes ``--materialize-template`` (default ``{ref}`` and a newline)
+once for each reference of the first call that has exactly one trusted issuer.
+It writes through ``ProtectedFileSink`` and resolves through the resolve
+endpoint of that issuer (``oauth-resolver-1``, ``local-file-1``):
+
+* it resolves only when both profiles are in the negotiated intersection;
+* the resolve endpoint comes from ``--resolve-endpoint`` or from the
+  ``sensitive_references`` field of the RFC 9728 protected-resource metadata
+  (a provisional name; a discovered endpoint must be on the resource origin);
+* the resolver token is a second credential: a cached token (mode 0600), a
+  refreshed one, or a new Authorization Code + PKCE S256 authorization with
+  dynamic client registration and a 127.0.0.1 loopback redirect. The agent
+  token never goes to the resolve endpoint;
+* a batch writes all or nothing. The report holds counts and verdicts only.
+
 Nothing here is specific to one server. The extension identifier is not fixed
 by concept 0.5, so it is configuration (``--extension-id``). Sentinel values are
 read from the environment and never printed; the report holds counts and
@@ -64,10 +80,27 @@ from sensitive_references.capabilities import (  # noqa: E402
 from sensitive_references.provenance import AmbiguousReference, UnknownReference  # noqa: E402
 from sensitive_references.reference import _TOKEN_RE as CANONICAL_TOKEN  # noqa: E402
 from sensitive_references.reference import find_tokens  # noqa: E402
+from sensitive_references.resolver import ResolutionError  # noqa: E402
+from sensitive_references.resolver_client import (  # noqa: E402
+    RESOLVER_PROFILE,
+    SINK_PROFILE,
+    OAuthHttpResolver,
+    OAuthResolverCredential,
+    ResolveEndpoint,
+    ResolverClientError,
+    TokenCache,
+    discover_protected_resource,
+    origin,
+    require_secure,
+)
+from sensitive_references.oauth_profile import RESOLVE_SCOPE  # noqa: E402
+from sensitive_references.sink import ProtectedFileSink  # noqa: E402
 
 #: Anything that starts like a reference; a canonical token must match exactly.
 _REFERENCE_LIKE = re.compile(r"(?i)sref\s*:")
 HOST_SETTINGS = {"versions": ["1"]}
+#: The settings a host declares when it can resolve into a local file.
+RESOLVING_HOST_SETTINGS = {"versions": ["1"], "resolver_profiles": [RESOLVER_PROFILE], "sink_profiles": [SINK_PROFILE]}
 
 #: A structured failure code that names one of the failure reasons of concept
 #: 0.5 for a reference (``PII_REFERENCE_UNKNOWN``, ``reference_revoked``).
@@ -104,6 +137,7 @@ class HostReport:
     advertised: bool = False
     negotiated_version: str | None = None
     calls: list[CallReport] = field(default_factory=list)
+    materialization: "MaterializeReport | None" = None
     failures: list[str] = field(default_factory=list)
 
     @property
@@ -199,6 +233,150 @@ def _check(report: HostReport, call: CallReport, *, expect_success: bool = False
         report.failures.append(f"{call.tool}: canonical tokens without negotiation")
 
 
+@dataclass
+class ResolveConfig:
+    """What ``--resolve-into`` needs. Every server-specific value is optional."""
+
+    destination: str
+    template: str = "{ref}\n"
+    resolve_endpoint: str | None = None
+    resolve_scope: str | None = None
+    authorization_server: str | None = None
+    client_id: str | None = None
+    token_cache: str | None = None
+    interactive: bool = True
+    open_browser: Any = None
+    authorization_timeout: float = 300.0
+    timeout: float = 30.0
+
+
+@dataclass
+class MaterializeReport:
+    """Counts and verdicts only: never a token, a value or a credential."""
+
+    destination: str
+    materialized: bool = False
+    references_sent: int = 0
+    references_withheld: int = 0
+    resolve_requests: int = 0
+    resolver_token_source: str | None = None
+    sentinels_in_file: int | None = None
+    model_content_keeps_reference: bool | None = None
+    sentinels_in_model_content: int | None = None
+    failure: str | None = None
+
+
+def resolution_negotiated(agreed: Any) -> bool:
+    """Both profiles are in the negotiated intersection."""
+    return (agreed is not None and RESOLVER_PROFILE in agreed.resolver_profiles
+            and SINK_PROFILE in agreed.sink_profiles)
+
+
+def _resolver_setup(issuer: str, config: ResolveConfig) -> tuple[str, str, str]:
+    """The resolve endpoint, the authorization server and the resolve scope for ``issuer``.
+
+    An explicit option wins over discovery. A discovered endpoint must be on the
+    origin of the protected resource; the metadata must name ``issuer`` itself.
+    """
+    try:
+        metadata = discover_protected_resource(issuer, timeout=config.timeout)
+    except ResolverClientError as error:
+        # Without metadata the host can still go on when both values are configured.
+        if error.code != "unreachable" or not (config.resolve_endpoint and config.authorization_server):
+            raise
+        metadata = None
+    endpoint = config.resolve_endpoint
+    if endpoint is None:
+        if metadata is None or metadata.resolve_endpoint is None:
+            raise ResolverClientError("no_resolve_endpoint", "no resolve endpoint configured or discovered")
+        if origin(metadata.resolve_endpoint) != origin(issuer):
+            raise ResolverClientError("cross_origin_endpoint",
+                                      "the discovered resolve endpoint is not on the origin of the protected resource")
+        if metadata.resolver_profiles is not None and RESOLVER_PROFILE not in metadata.resolver_profiles:
+            raise ResolverClientError("profile_not_offered", "the metadata does not offer the resolver profile")
+        if metadata.sink_profiles is not None and SINK_PROFILE not in metadata.sink_profiles:
+            raise ResolverClientError("profile_not_offered", "the metadata does not offer the sink profile")
+        endpoint = metadata.resolve_endpoint
+    require_secure(endpoint, "resolve endpoint")
+    server = config.authorization_server
+    if server is None:
+        servers = metadata.authorization_servers if metadata else ()
+        if len(servers) != 1:
+            raise ResolverClientError("authorization_server",
+                                      "zero or several authorization servers; set --authorization-server")
+        server = servers[0]
+    scope = config.resolve_scope or (metadata.resolve_scope if metadata else None) or RESOLVE_SCOPE
+    return endpoint, server, scope
+
+
+def materialize(*, issuer: str, references: list[str], provenance: ProvenanceStore, agreed: Any,
+                config: ResolveConfig, sentinels: list[str], agent_token: str | None) -> MaterializeReport:
+    """Write ``config.template`` once per trusted reference through the protected sink.
+
+    Only references with exactly one trusted issuer go into the content. The sink
+    resolves the whole content before it writes, so a failure leaves the
+    destination as it was.
+    """
+    destination = Path(config.destination).expanduser().resolve()
+    report = MaterializeReport(destination=str(destination))
+    usable = [r for r in dict.fromkeys(references) if _trusted(provenance, r)]
+    report.references_withheld = len(set(references)) - len(usable)
+    if not resolution_negotiated(agreed):
+        report.failure = "the resolver and sink profiles were not negotiated"
+        return report
+    if "{ref}" not in config.template:
+        report.failure = "the template holds no {ref}"
+        return report
+    if not usable:
+        report.failure = "no reference with exactly one trusted issuer"
+        return report
+    content = "".join(config.template.replace("{ref}", ref) for ref in usable)
+    resolver = None
+    credential = None
+    try:
+        endpoint, server, scope = _resolver_setup(issuer, config)
+        credential = OAuthResolverCredential(
+            resource=issuer, authorization_server=server, scope=scope, cache=TokenCache(config.token_cache),
+            open_browser=config.open_browser, interactive=config.interactive, client_id=config.client_id,
+            authorization_timeout=config.authorization_timeout, timeout=config.timeout)
+        # The endpoint belongs to this issuer only; a reference from another issuer finds none.
+        resolver = OAuthHttpResolver({issuer: ResolveEndpoint(endpoint, credential)},
+                                     agent_token=agent_token, timeout=config.timeout)
+        sink = ProtectedFileSink(provenance, resolver, principal="resolver-token-subject")
+        result = sink.write(destination, content)
+    except ResolverClientError as error:
+        report.failure = f"resolution failed: {error.code}"
+    except (UnknownReference, AmbiguousReference):
+        report.failure = "the content holds a reference without exactly one trusted issuer"
+    except ResolutionError:
+        report.failure = "resolution failed"
+    except OSError as error:
+        report.failure = f"the file was not written: {type(error).__name__}"
+    else:
+        report.materialized = True
+        report.references_sent = len({ref.token for ref in find_tokens(content)})
+        written = destination.read_text(encoding="utf-8")
+        report.sentinels_in_file = sum(written.count(v) for v in sentinels if v)
+        report.model_content_keeps_reference = all(ref in result.model_facing_content for ref in usable)
+        report.sentinels_in_model_content = sum(result.model_facing_content.count(v) for v in sentinels if v)
+    finally:
+        if resolver is not None:
+            report.resolve_requests = resolver.requests
+        if credential is not None:
+            report.resolver_token_source = credential.source
+    return report
+
+
+def _check_materialization(report: HostReport, m: MaterializeReport) -> None:
+    if m.failure:
+        report.failures.append(f"materialize: {m.failure}")
+        return
+    if not m.model_content_keeps_reference:
+        report.failures.append("materialize: the model-facing content lost a reference")
+    if m.sentinels_in_model_content:
+        report.failures.append("materialize: a sentinel value reached the model-facing content")
+
+
 async def run(args: argparse.Namespace) -> HostReport:
     import httpx2
     from mcp import ClientSession
@@ -212,7 +390,11 @@ async def run(args: argparse.Namespace) -> HostReport:
     endpoint = public_endpoint(args.url)
     report = HostReport(server=endpoint, declared=declared)
     provenance = ProvenanceStore()
-    extensions = {args.extension_id: dict(HOST_SETTINGS)} if declared else {}
+    resolving = bool(getattr(args, "resolve_into", None))
+    host_settings = dict(RESOLVING_HOST_SETTINGS if resolving else HOST_SETTINGS)
+    extensions = {args.extension_id: host_settings} if declared else {}
+    agreed = None
+    first_references: list[str] = []
 
     async with httpx2.AsyncClient(headers=headers, timeout=args.timeout) as http:
         async with streamable_http_client(args.url, http_client=http) as (read, write, *_):
@@ -222,7 +404,7 @@ async def run(args: argparse.Namespace) -> HostReport:
                 report.advertised = server_ext is not None
                 if declared and server_ext is not None:
                     try:
-                        agreed = negotiate(SensitiveReferencesCapabilities.from_settings(HOST_SETTINGS),
+                        agreed = negotiate(SensitiveReferencesCapabilities.from_settings(host_settings),
                                            SensitiveReferencesCapabilities.from_settings(server_ext))
                     except CapabilitySettingsError:
                         report.failures.append("server settings rejected")
@@ -236,6 +418,7 @@ async def run(args: argparse.Namespace) -> HostReport:
                                       refusal_pattern=args.refusal_pattern)
                 report.calls.append(call)
                 _check(report, call, expect_success=args.expect_success)
+                first_references = [ref.token for text in model_visible(first) for ref in find_tokens(text)]
 
                 if args.then_tool:
                     references = sorted({ref.token for text in model_visible(first) for ref in find_tokens(text)})
@@ -255,7 +438,39 @@ async def run(args: argparse.Namespace) -> HostReport:
                         _check(report, call, expect_success=args.expect_success)
     if declared and args.expect_negotiation and not report.negotiated_version:
         report.failures.append("the extension was not negotiated")
+    if resolving:
+        # After the MCP session: an interactive authorization can take minutes.
+        report.materialization = materialize(
+            issuer=endpoint, references=first_references, provenance=provenance, agreed=agreed,
+            config=resolve_config(args), sentinels=sentinels, agent_token=token or None)
+        _check_materialization(report, report.materialization)
     return report
+
+
+def _open_browser(url: str) -> None:
+    import webbrowser
+
+    # The URL holds no secret (PKCE sends only the challenge); stderr keeps it out of the report.
+    print(f"Open this page to authorize the resolver: {url}", file=sys.stderr)
+    webbrowser.open(url)
+
+
+def _print_url(url: str) -> None:
+    print(f"Open this page to authorize the resolver: {url}", file=sys.stderr)
+
+
+def resolve_config(args: argparse.Namespace) -> ResolveConfig:
+    return ResolveConfig(
+        destination=args.resolve_into, template=args.materialize_template,
+        resolve_endpoint=args.resolve_endpoint, resolve_scope=args.resolve_scope,
+        authorization_server=args.authorization_server, client_id=args.resolver_client_id,
+        token_cache=args.resolver_token_cache, interactive=not args.no_interactive,
+        open_browser=_print_url if args.no_browser else open_browser,
+        authorization_timeout=args.authorization_timeout, timeout=args.timeout)
+
+
+#: Replaced in tests; a real run opens the system browser.
+open_browser = _open_browser
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -277,6 +492,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--sentinels-env", default="SREF_SENTINELS",
                         help="environment variable with comma-separated values that must not appear")
     parser.add_argument("--timeout", type=float, default=30.0)
+    resolve = parser.add_argument_group("materialization (oauth-resolver-1 and local-file-1)")
+    resolve.add_argument("--resolve-into", metavar="PATH",
+                         help="after the first call, write the template for each observed reference to this file")
+    resolve.add_argument("--materialize-template", default="{ref}\n",
+                         help="text written once per reference; {ref} is replaced by the reference")
+    resolve.add_argument("--resolve-endpoint", help="the resolve endpoint (default: protected-resource metadata)")
+    resolve.add_argument("--resolve-scope", help=f"the resolve scope (default: metadata, else {RESOLVE_SCOPE})")
+    resolve.add_argument("--authorization-server",
+                         help="the authorization server issuer (default: the only one in the metadata)")
+    resolve.add_argument("--resolver-client-id", help="a registered client; without it the host uses dynamic registration")
+    resolve.add_argument("--resolver-token-cache", metavar="PATH",
+                         help="file for the resolver token (mode 0600); without it the token is not kept")
+    resolve.add_argument("--no-interactive", action="store_true",
+                         help="use only a cached or refreshed resolver token; never open an authorization page")
+    resolve.add_argument("--no-browser", action="store_true",
+                         help="print the authorization page URL to stderr instead of opening a browser")
+    resolve.add_argument("--authorization-timeout", type=float, default=300.0)
     return parser.parse_args(argv)
 
 
