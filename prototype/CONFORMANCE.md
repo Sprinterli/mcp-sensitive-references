@@ -18,6 +18,8 @@ This matrix records prototype evidence only. It is not a standards conformance c
 | OAuth claims bind resolver to resource, subject, scope, and expiry | `test_oauth_profile.py` |
 | PKCE is S256, state-checked, and resource-bound | `test_oidc_and_resolve_http.py`; `keycloak_pkce_probe.py` |
 | Resource endpoint rejects an invalid mixed batch without plaintext response | `test_resolve_endpoint_is_subject_bound_and_has_no_partial_success` |
+| A host checks negotiation, provenance and canonical form on real MCP results | `demo/mcp_host.py`; checks in `tests/test_mcp_host.py` |
+| A host that declared nothing sees no canonical token | `demo/mcp_host.py --legacy`; `test_without_negotiation_no_provenance_is_recorded_and_a_token_fails` |
 | Real external-AS/JWKS/HTTP resolver path works | `demo/keycloak_oidc_probe.py` against local Keycloak |
 | Authorization Code + PKCE token supports subject-bound resolution | `demo/keycloak_pkce_probe.py` against local Keycloak |
 

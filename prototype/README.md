@@ -36,6 +36,44 @@ PYTHONPATH=src python3 demo/keycloak_oidc_probe.py
 PYTHONPATH=src python3 demo/keycloak_pkce_probe.py
 ```
 
+## Independent MCP test host
+
+`demo/mcp_host.py` is a host for any MCP server that implements the extension. It connects by URL with the
+MCP SDK client, declares the extension (or, with `--legacy`, nothing), and checks every tool result as a host
+receives it, before a model sees it:
+
+- the server advertised the extension with a version the host declared;
+- each canonical token gets a trusted observation with its issuer: the server URL the host connected to, without
+  credentials, query or fragment. **This issuer identity is experimental.** A URL is a locator, not an
+  independently verified issuer identity (a TLS origin at best); which identity a host should record is an open
+  question, and the RFC 9728 resource identifier is one candidate;
+- every reference-like string in the result is a canonical token, and no sentinel value appears;
+- a host that declared nothing sees no canonical token.
+
+A second call may pass an observed reference (`{ref}` in `--then-arguments`); only a reference with exactly one
+trusted issuer is sent. The extension identifier is not fixed by concept 0.5, so it is a required option.
+Credentials and sentinel values come from the environment and are never printed; the report holds counts and
+verdicts.
+
+```bash
+python3 -m venv .venv-host && . .venv-host/bin/activate
+pip install -e '.[mcp-host]'
+export MCP_TOKEN=...                 # the server's bearer token
+export SREF_SENTINELS='a@example.com' # values that must never reach the model
+python3 demo/mcp_host.py --url https://server.example/mcp --extension-id <identifier> \
+    --tool <read tool> --arguments '{...}' --expect-negotiation \
+    --then-tool <write tool> --then-arguments '{"text": "to {ref}"}'
+python3 demo/mcp_host.py --legacy --url https://server.example/mcp --extension-id <identifier> --tool <read tool>
+```
+
+The host's checks are tested without a network in `tests/test_mcp_host.py`. In a run against one server every
+token has that one issuer, so the live run shows that observations are recorded only after negotiation; the
+fail-closed path for a token seen from two issuers is shown by the unit test. With `--expect-success`, a
+call fails the run when it returns `isError` or when a structured field (`error_code`, `code`, `error`) names a
+reference failure (`--refusal-pattern`; the default matches the failure reasons of concept 0.5), because a
+server may report a refused resolution inside a successful result. The report holds the endpoint without
+credentials, query or fragment, counts and verdicts; never a token, a sentinel value or a server message.
+
 ## Mechanics demonstrated
 
 - `DemoMcpServer.list_customers()` returns normal MCP-shaped `content` and `structuredContent`; sensitive string fields contain canonical `⟦sref:kind:opaque-id⟧` tokens.

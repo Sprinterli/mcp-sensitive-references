@@ -10,6 +10,9 @@ description = "Protocol-level feasibility prototype for MCP Sensitive References
 
 [project.optional-dependencies]
 mcp-demo = ["mcp>=1.21,<2"]
+# The test host speaks the stateless MCP core (per-request capabilities), which needs SDK 2.x.
+# Install it in its own environment: mcp-demo pins the 1.x SDK.
+mcp-host = ["mcp>=2.3,<3"]
 resolver-http-demo = ["fastapi>=0.121", "pyjwt[crypto]>=2.10", "requests>=2.31", "uvicorn>=0.38"]
 schema-validation = ["jsonschema>=4.0"]
 
