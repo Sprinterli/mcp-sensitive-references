@@ -31,7 +31,8 @@ It did not run.
 The reference server tests were not run for this package. This package read 25 test functions in the
 resolver consent module and counted 26 test functions in the module for negotiated canonical references,
 at revision `e5268633f`. Several functions are parametrized, so the number of test cases is larger. The
-exact number of cases is **not verified**.
+exact number of cases is **not verified**. After the second server review, the implementer reported 58 passing
+test cases in the consent module at revision `b6a46eb81`; this package did not run them.
 
 ## End-to-end runs
 
@@ -45,6 +46,7 @@ runs. It records them as reported.
 | E1, first run | One consent page. The file held the synthetic value once and no reference. The model-visible content kept the reference. Zero sentinel values in model-visible content. |
 | E2, second run | The host used the cached token. Zero consent pages. |
 | E3, forged reference | A forged reference in the template produced no file. |
+| E7, second round at `b6a46eb81`, resolve endpoint from discovery | Seven scenarios. The first run, a cached run and a run after a new consent materialize as in E1. A forged reference and another user's reference in the template: the host refuses before any resolve request, no file. A withdrawn consent: one resolve request, `unauthorized`, no file. A revocation between the tool call and the write: one resolve request, `unresolvable`, no file. |
 
 **Production, synthetic data:**
 
@@ -102,7 +104,7 @@ Legend: **S** server-side evidence (reference server test, read, not re-run). **
 | Batch limit 1 to 100 (SC-09) | `test_a_request_outside_the_profile_is_refused` (`too_many`, `empty`) | `test_more_than_100_references_go_in_batches_of_100` | — |
 | Ineligible sink refused (SC-10) | `test_a_request_outside_the_profile_is_refused` (`sink`) | — | — |
 | Error codes without values (SC-11) | `test_a_batch_with_one_reference_that_does_not_resolve_returns_no_value`, `test_removing_a_principal_from_the_allowlist_stops_a_live_token` | `test_a_revoked_reference_in_a_batch_writes_nothing` | — |
-| Daily quota, 429 | Not yet tested | — | — |
+| Daily quota, 429 | `test_the_daily_quota_refuses_the_batch_that_crosses_it` | — | — |
 | Resolve audit without values | Not yet tested | — | — |
 | Sender-constrained tokens | Not implemented | Not implemented | — |
 
@@ -123,7 +125,7 @@ Legend: **S** server-side evidence (reference server test, read, not re-run). **
 ## Gaps that this matrix shows
 
 - No server test checks that the MCP URL and the RFC 9728 `resource` agree (P16).
-- No test covers PKCE S256 enforcement at the server, the quota, the audit event, the 30-second expiry
+- No test covers PKCE S256 enforcement at the server, the audit event, the 30-second expiry
   margin of the host, or the duplicate removal of the host.
 - No end-to-end run used a second, independent server or a second, independent host.
 - `test_mcp_sdk_demo` does not run with SDK 2.x.
