@@ -1,8 +1,9 @@
 # Proposed changes to concept 0.5
 
 **Status: proposed change. Not concept text.** Each entry below proposes a change to concept 0.5. The
-concept files in the repository root do not change. If the community accepts an entry, a later concept
-version can take its text.
+concept files in the repository root do not change. One root change exists: commit `f9d34b4` adds a link
+to this package in the root `README.md`. It changes no concept text. If the community accepts an entry, a
+later concept version can take its text.
 
 Each entry has four parts:
 
@@ -11,9 +12,10 @@ Each entry has four parts:
 - **Proposed text:** normative text with MUST, SHOULD and MAY in the sense of RFC 2119 and RFC 8174.
 - **Compatibility:** the effect on an implementation that follows concept 0.5 today.
 
-Notation. "Reference server test `x`" means a test of the reference server at revision `e5268633f`. This
-package read that test and did not run it. "Host test `x`" means a test in `prototype/tests/` that last ran on
-2026-10-26 (see [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#test-run)).
+Notation. "Reference server test `x`" means a test of the reference server at revision R1, or at revision
+R2 where the text says so. R1 and R2 are labels for two non-public revisions ([README.md](README.md#sources-and-versions)).
+This package read that test and did not run it. "Host test `x`" means a test in `prototype/tests/` at the
+tested commit (see [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#test-run)).
 
 ## Merged findings
 
@@ -69,7 +71,16 @@ RFC 9728 does not allow a `resource` value of which the MCP URL is only a path b
 - P16: the reference server names the base URL as `resource` for compatibility with an existing client.
   This is a deviation from RFC 9728 section 3.3.
 - Host test `test_metadata_for_another_resource_is_refused`: the host refuses metadata whose `resource`
-  is not the issuer, as an exact string.
+  is not the issuer.
+- Host tests `test_a_near_miss_of_the_issuer_is_refused` (trailing slash, parent path, host case, explicit
+  port 443, scheme case, percent-encoding), `test_an_issuer_with_upper_case_is_not_lowered_to_match`,
+  `test_identical_metadata_is_accepted` and `test_the_issuer_string_is_kept_as_given`: the host keeps the
+  issuer string as given and compares it as an exact string.
+- Host tests `test_the_endpoint_and_scope_come_from_discovery` (path-inserted well-known URL),
+  `test_metadata_named_in_the_www_authenticate_challenge_is_used`,
+  `test_challenge_metadata_for_another_resource_is_refused` and
+  `test_root_metadata_is_not_a_fallback_for_a_resource_with_a_path`: the host uses only the two discovery
+  mechanisms of RFC 9728.
 
 **Proposed text.**
 
@@ -79,7 +90,10 @@ RFC 9728 does not allow a `resource` value of which the MCP URL is only a path b
 > identities as exact strings. A host MUST NOT normalize case, a trailing slash, a default port or a
 > percent-encoding before it compares. If the metadata `resource` is not identical to the URL of the MCP
 > endpoint, the host MUST NOT use the metadata, MUST NOT record an observation with that issuer and MUST
-> NOT resolve.
+> NOT resolve. A host MUST get the metadata only from the well-known URL that RFC 9728 section 3.1 builds
+> from the MCP URL, or from the URL in the `resource_metadata` parameter of a `WWW-Authenticate` answer of
+> the MCP endpoint (RFC 9728 section 5.1). A host MUST NOT try another URL, for example the well-known URL
+> at the origin root for an MCP URL with a path.
 
 The proposed text does not permit a `resource` value of which the MCP URL is a path below. An earlier
 version of this entry permitted it. That rule is not compatible with RFC 9728 section 3.3, and this
@@ -129,20 +143,31 @@ agent token authenticates the extension settings, while the resolver token is a 
 - Reference server test `test_an_empty_allowlist_switches_the_resolver_off`: the object is absent while
   the profile is off.
 - Host test `test_the_endpoint_and_scope_come_from_discovery`.
+- Host tests `test_a_discovery_object_without_a_mandatory_member_is_refused` (one case per member),
+  `test_a_discovery_object_with_a_malformed_member_is_refused` (one case per member, and an object that
+  is not a JSON object), `test_a_discovery_object_without_the_negotiated_profiles_is_refused` and
+  `test_a_configured_endpoint_does_not_excuse_a_bad_discovery_object`.
 
 **Proposed text.**
 
 > A server that offers `oauth-resolver-1` MUST publish a `sensitive_references` object in its RFC 9728
-> protected-resource metadata. The object MUST contain `resolve_endpoint`, `resolve_scope`,
-> `resolver_profiles` and `sink_profiles`. The object MAY contain `status`. A server MUST NOT publish the
-> object while it does not accept resolve requests. A host MAY use an operator-configured endpoint
-> instead of the discovered one. An operator-configured endpoint takes precedence.
+> protected-resource metadata. The object MUST contain `resolve_endpoint` (a URL string), `resolve_scope`
+> (a non-empty string), `resolver_profiles` (an array of strings) and `sink_profiles` (an array of
+> strings). The object MAY contain `status`. A server MUST NOT publish the object while it does not accept
+> resolve requests.
+>
+> If the metadata holds the object, a host MUST refuse the object, and MUST NOT resolve, if a mandatory
+> member is absent or has another type, or if the object does not list the resolver profile and the sink
+> profile that the host and the server negotiated. A host MUST NOT put a default value in place of a
+> missing or malformed member. A host MAY use an operator-configured endpoint or scope instead of a
+> discovered value of a valid object. An operator-configured value MUST NOT make a refused object
+> acceptable.
 
 Example:
 
 ```json
 {
-  "resource": "https://mcp.example.com/",
+  "resource": "https://mcp.example.com/mcp",
   "authorization_servers": ["https://mcp.example.com"],
   "scopes_supported": ["mcp"],
   "sensitive_references": {
@@ -155,7 +180,9 @@ Example:
 }
 ```
 
-**Compatibility.** No conflict with concept 0.5, which leaves discovery open. The field name
+**Compatibility.** No conflict with concept 0.5, which leaves discovery open. A host without the object
+can use operator configuration only. The test host calls this "configuration mode" and does not claim
+SC-02 conformance in it (`prototype/README.md`). The field name
 `sensitive_references` is not registered in the IANA "OAuth Protected Resource Metadata" registry. A SEP
 must register it or choose another location (see [SEP-READINESS.md](SEP-READINESS.md)).
 
@@ -178,8 +205,10 @@ mixes the resolve scope with agent scopes gets neither, so such a client fails.
 > A server MUST name the resolve scope in `sensitive_references.resolve_scope`. A server SHOULD NOT list
 > the resolve scope in `scopes_supported` of its RFC 9728 or RFC 8414 metadata. An authorization server
 > MUST refuse an authorization request that names the resolve scope together with any scope other than
-> `openid`. It MUST answer with `invalid_scope`. A host MUST request the resolve scope alone. If a token
-> response names a scope set without the resolve scope, the host MUST NOT use the token.
+> `openid`. It MUST answer with `invalid_scope`. A host MUST request no scope other than the resolve
+> scope and, optionally, `openid`. If a token response names a scope set without the resolve scope, the
+> host MUST NOT use the token. If a token response has no `scope` parameter, the granted scope is the
+> requested scope (RFC 6749 section 5.1), and the host MAY use the token.
 
 **Compatibility.** A generic MCP client that requests every scope in `scopes_supported` keeps working,
 because the resolve scope is not there. A deployment that lists the resolve scope in `scopes_supported`
@@ -253,18 +282,37 @@ section 6, Gate A finding HIGH).
   `test_a_withdrawn_or_expired_consent_stops_refresh_and_the_live_token`.
 - End-to-end run of 2026-10-25: one consent page on the first run, zero on the second run with a cached
   token (see [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#end-to-end-runs)).
+- The reference server binds the approval to the pair of subject and client. The binding to resource,
+  resolve scope and sink-profile set, and the names of resource and profiles on the consent page, are
+  **not verified**: this package found no reference server test for them.
 
 **Proposed text.**
 
 > An authorization server MUST get an explicit approval from the user before it issues the first
-> authorization code with the resolve scope to a client. The approval applies to one pair of subject and
-> client. The approval covers resolution of every reference of that subject into the sink profiles that
-> the server offers. An authorization server MUST NOT issue a resolver code on the basis of a browser
-> session alone. The consent page MUST resist framing and cross-site request forgery. A withdrawn or
-> expired approval MUST stop the refresh of resolver tokens and MUST stop every live resolver access token
-> of that pair. An authorization server SHOULD NOT ask for consent per reference or per tool call.
+> authorization code with the resolve scope to a client. The consent page MUST name the client, the
+> protected resource (its RFC 9728 `resource` value) and the sink profiles that the approval covers.
+>
+> The authorization server MUST store the approval bound to the tuple of subject, client, resource,
+> resolve scope and the set of sink profiles that the consent page showed. The approval covers resolution
+> of every reference of that subject at that resource into those sink profiles only. An approval does not
+> cover a sink profile that the server offers later, another resource or a broader scope. For such a
+> request, the authorization server MUST get a new decision from the user.
+>
+> An authorization server MUST NOT issue a resolver code on the basis of a browser session alone. The
+> authorization server MUST send the consent page with a policy that forbids every framing origin, for
+> example `Content-Security-Policy: frame-ancestors 'none'`. The consent post MUST carry a single-use nonce
+> that the server bound to the browser session and to the authorization request, and an `Origin` header
+> equal to the origin of the authorization server. If the nonce is absent, unknown, already used or bound
+> to another session or request, or if the `Origin` header is absent or different, the authorization
+> server MUST NOT record an approval and MUST NOT issue a code.
+>
+> A withdrawn or expired approval MUST stop the refresh of resolver tokens and MUST stop every live
+> resolver access token that the approval covered. An authorization server SHOULD NOT ask for consent per
+> reference or per tool call.
 
 **Compatibility.** A server that issues resolver tokens without consent today must add a consent step. A
+server that binds the approval to subject and client only must add resource, scope and profile set to the
+stored approval. It then asks again when it offers a new sink profile. A
 host that registers a new client (RFC 7591) for each interactive authorization causes a new consent each
 time, because each loopback port gives a new redirect URI (F5). See OQ-4 in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md). SC-20 requires that the authorization server accepts any loopback
@@ -306,6 +354,9 @@ authorization server mix-up is possible.
 
 - F10 and F11 in `prototype/M4-FINDINGS.md`.
 - Host tests `test_a_callback_with_another_state_is_refused` and `test_a_callback_from_another_issuer_is_refused`.
+- Host tests `test_a_callback_without_iss_is_refused_when_the_server_advertises_iss`,
+  `test_a_callback_without_iss_is_accepted_when_the_server_does_not_advertise_iss` and
+  `test_a_wrong_iss_is_refused_also_when_the_server_does_not_advertise_iss`.
 - The host also checks RFC 8414 section 3.3 issuer equality, PKCE S256 in
   `code_challenge_methods_supported`, and the number of authorization servers. These checks are in
   `prototype/src/sensitive_references/resolver_client.py` and `prototype/demo/mcp_host.py`. **Not verified
@@ -314,9 +365,11 @@ authorization server mix-up is possible.
 **Proposed text.**
 
 > A host MUST use Authorization Code with PKCE S256 and the `resource` parameter (RFC 8707). A host MUST
-> check `state`. If the authorization response has an `iss` parameter, or the authorization server
-> metadata has `authorization_response_iss_parameter_supported: true`, the host MUST compare `iss` with the
-> issuer of the authorization server (RFC 9207). A host MUST refuse authorization server metadata whose
+> check `state`. If the authorization response has an `iss` parameter, the host MUST compare it with the
+> issuer of the authorization server and MUST refuse the response if they differ (RFC 9207). If the
+> authorization server metadata has `authorization_response_iss_parameter_supported: true` and the
+> authorization response has no `iss` parameter, the host MUST refuse the response (RFC 9207 section 2.4).
+> A host MUST refuse authorization server metadata whose
 > `issuer` is not the requested issuer (RFC 8414 section 3.3). If the RFC 9728 metadata lists more than one
 > authorization server, the host MUST NOT select one automatically.
 
@@ -342,8 +395,11 @@ The profile also does not say if a duplicate reference is valid.
 **Proposed text.**
 
 > A server MUST accept at least 100 references in one resolve request. A server MAY publish a larger
-> limit as `sensitive_references.max_references`. A host SHOULD send all references of one sink write in
-> one request. If the host must split the references, the host MUST NOT write the sink until every request
+> limit as `sensitive_references.max_references`, an integer of 100 or more. The effective limit of a
+> server is its published `max_references`, or 100 if it publishes none. A server MUST answer a request
+> with more references than its effective limit with `413 too_many_references`. A host MUST NOT send more
+> references than the effective limit in one request. A host SHOULD send all references of one sink write
+> in one request if the effective limit permits it. If the host must split the references, the host MUST NOT write the sink until every request
 > succeeded. The host MUST discard all values if one request fails. A host SHOULD remove duplicate
 > references before it sends a request. A server MUST treat a duplicate reference as one reference.
 
@@ -385,13 +441,13 @@ change what it sends. See OQ-6 for the choice between a label and a hash.
 ## SC-11. Error format of the resolve endpoint
 
 **Problem.** The profile says only that a failure returns no plaintext values (F9). A host cannot
-interpret a code that a standard does not define. Before commit `dd7afe2`, the reference server and the
-fake server in the host tests used different codes for the same case. For example, a batch that was too
+interpret a code that a standard does not define. An earlier version of the fake server in the host
+tests used other codes than the reference server for the same case. For example, a batch that was too
 large gave `too_many_references` at the reference server and `batch_too_large` at the fake server. A
 reference of another user gave `409 unresolvable` with the reason `unknown` at the reference server and
 `403 forbidden` at the fake server.
 
-Since commit `dd7afe2`, the fake server (`prototype/tests/test_mcp_host_resolve.py`, `FakeServer`) uses the
+At the tested commit, the fake server (`prototype/tests/test_mcp_host_resolve.py`, `FakeServer`) uses the
 codes below: `400 invalid_request` for an empty batch, `401 invalid_token`, `413 too_many_references`, and
 `409 unresolvable` with the reasons `unknown` and `revoked`. It reports a reference of another principal
 as `unknown`, as the reference server does.
@@ -425,12 +481,14 @@ as `unknown`, as the reference server does.
 > | 413 | `too_many_references` | The batch exceeds the limit. |
 > | 429 | `quota_exceeded` | The principal exceeded a rate or a quota. |
 >
-> A host MUST treat only 401 as a reason to get a new token. A host MUST NOT show a server message to the
-> model.
+> A 401 answer MUST also carry a `WWW-Authenticate` header with the `Bearer` scheme (RFC 6750 section 3).
+> A 403 `insufficient_scope` answer SHOULD carry it with `error="insufficient_scope"`. A host MUST treat
+> only 401 as a reason to get a new token. A host MUST NOT show a server message to the model.
 
-**Compatibility.** The codes are the codes of the reference server (read in its source). Since commit
-`dd7afe2`, the fake server in the host tests uses the same codes for the cases that it plays (400, 401,
-409, 413). The fake server does not play 403 or 429. The host fails closed for every non-200 answer, also
+**Compatibility.** The codes are the codes of the reference server (read in its source). The fake server
+in the host tests uses the same codes for the cases that it plays (400, 401, 409, 413). The fake server
+does not play 403 or 429, and its resolve endpoint sends no `WWW-Authenticate` header. Whether the
+reference server sends the header on its resolve endpoint is **not verified**. The host fails closed for every non-200 answer, also
 for a code that it does not know. The `expired` reason is new (see SC-13).
 
 One name stays different on purpose. If the host has no valid resolver token and must not start an
@@ -493,9 +551,12 @@ registry accepted a plaintext record and a ciphertext copied from another user (
 
 **Proposed text.**
 
-> An issuer MUST store its reference bindings with integrity protection. An issuer MUST bind each stored
-> record to its principal, so that a record copied from another principal does not resolve. A revocation
-> MUST survive a replay of an older record of the same principal.
+> An issuer MUST protect each stored reference binding with a message authentication code or an
+> authenticated-encryption tag. The issuer MUST compute it over the record and its principal, with a key
+> that is not stored with the records. An issuer MUST verify the record before each resolution. If the
+> verification fails, the issuer MUST treat the reference as unknown, MUST NOT resolve it, and MUST NOT
+> return any part of the record. A record copied from another principal therefore does not resolve. A
+> revocation MUST survive a replay of an older record of the same principal.
 
 **Compatibility.** No conflict with the wire. Server storage changes only.
 
@@ -546,8 +607,8 @@ the reference server failed for this reason (plan section 6, M3).
 
 **Proposed text.**
 
-> A negotiated server MUST NOT emit text in a tool result that starts with the token marker `⟦sref:` and
-> is not a canonical token that the server issued. A server MUST describe references in words in its
+> A negotiated server MUST NOT emit text in a tool result that contains the token marker `⟦sref:` at any
+> position, except inside a canonical token that the server issued. A server MUST describe references in words in its
 > own notices.
 
 **Compatibility.** No conflict. A server must change its own documentation strings.
@@ -575,8 +636,10 @@ guard on ten model-visible paths, V1 to V10).
 > the reference is not the authenticated principal, or if the principal is not authorized for the tool and
 > the action. This profile requires no user confirmation in addition to that decision.
 >
-> An issuer-side sink MUST also check that the token is exact, that the issuer issued it, and that it is
-> current. A failure of one reference MUST refuse the whole call. The issuer MUST replace each resolved
+> An issuer-side sink MUST also check that the token is exact and that it is current. A reference is
+> current if the issuer issued it, it did not expire (SC-13), the issuer did not revoke it, and it is still
+> bound to the authenticated principal of the call as its owner. A failure of one reference MUST refuse
+> the whole call. The issuer MUST replace each resolved
 > value with its reference in every model-visible result of the call, including error results.
 
 The authorization decision is the existing decision of the issuer for the tool execution: the issuer
@@ -621,9 +684,9 @@ a host and a server from completing the flow together (IMPLEMENTATION-GUIDE.md, 
 
 1. The consent page had the Content Security Policy `form-action 'self'`. The browser blocked the 302
    redirect to the loopback redirect URI after the consent post.
-2. A widely used browser ignores an IPv6 literal as a policy source. A server that lists the client origin
-   in its policy cannot serve a client at `http://[::1]:port` in that way. The reference server refuses
-   `[::1]` for the resolver client.
+2. In the tested browser, a policy that listed the IPv6 loopback origin `http://[::1]:port` still blocked
+   the redirect to it. A policy with `http://127.0.0.1:port` let the redirect through. The reference
+   server refuses `[::1]` for the resolver client. IMPLEMENTATION-GUIDE.md, lesson L-b, names the browser.
 3. Exact port matching broke a host that reused a client with a new loopback port. RFC 8252 section 7.3
    requires that the authorization server accepts any port.
 
@@ -637,9 +700,12 @@ a host and a server from completing the flow together (IMPLEMENTATION-GUIDE.md, 
 
 **Proposed text.**
 
-> An authorization server MUST accept a loopback redirect URI of a resolver client with any port (RFC 8252
-> section 7.3). It MUST compare the scheme, the host and the path of such a URI, and MUST NOT compare the
-> port. An authorization server MUST accept the IPv4 loopback literal `127.0.0.1` as the host of a
+> An authorization server MUST compare a redirect URI of a resolver client with the registered redirect
+> URIs of that client by exact simple string comparison (RFC 3986 section 6.2.1). There is one exception:
+> if the registered URI is a loopback IP redirect URI, the port of the requested URI MAY differ, and the
+> authorization server MUST accept any port there (RFC 8252 section 7.3, RFC 9700 section 2.1). Every
+> other part of the URI, including the scheme, the host, the path and the query, MUST match exactly. An
+> authorization server MUST accept the IPv4 loopback literal `127.0.0.1` as the host of a
 > loopback redirect URI. A host SHOULD use `127.0.0.1`. An authorization server MAY refuse the IPv6
 > literal `[::1]`. If it refuses it, it MUST refuse it at client registration or at the authorization
 > request, before the consent page. An authorization server MUST NOT let its own response policy, for
