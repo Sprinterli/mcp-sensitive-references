@@ -65,6 +65,12 @@ All changes stay proposals. None of them is concept text.
   the host stops, unless an operator states that the server has none. SC-04 refuses a configured endpoint
   on another origin. D10 requires S256 in the authorization server metadata. SC-12 gets a schema. The
   profile titles say "proposed, with implementation evidence".
+- **Fourth review round.** The fetch policy of SC-01 defines a non-public address by the IANA
+  special-purpose registries, has no automatic exception for a local MCP URL, and forbids redirects and
+  environment proxies for each request of the discovery and the authorization. SC-07 names the attacker
+  boundary of the token cache. SC-10 requires `destination`. SC-11 defines protected data by exact
+  representations and encodings. SC-12 states the `reasons` key without the `reference_` prefix. SC-20
+  requires a `form-action` directive and names its restriction of RFC 8252 section 7.3.
 - **OPEN-QUESTIONS.md** labels each recommendation as a provisional v1 design decision. OQ-7 now permits
   durable host provenance, and loss of trustworthy provenance must fail closed. SEP-READINESS.md follows.
 
@@ -86,7 +92,7 @@ with `local-file-1`. This package is milestone M6.
 | Source | Version |
 |---|---|
 | Concept 0.5 (the root files) | this repository. Unchanged on this branch, except the link in the root `README.md` (commit `f9d34b4`). |
-| The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `fd7a9f2` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`) |
+| The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `c5e1eba` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`) |
 | The reference server plan, sections 4 to 8 | reference server revision R1 (not public) |
 | The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2. |
 
@@ -103,8 +109,8 @@ above. A row that cites a reference server test is "read, not re-run".
 the published history of the branch `m7-consolidation`. That branch is published as it is, without a
 squash, so the hashes stay valid.
 
-The prototype test suite last ran on 2026-10-26 at commit `fd7a9f2` (branch `m7-consolidation`) with
-Python 3.14.8 and MCP Python SDK 2.3.0: 112 tests passed. SDK 1.x was not tested (see
+The prototype test suite last ran on 2026-10-26 at commit `c5e1eba` (branch `m7-consolidation`) with
+Python 3.14.8 and MCP Python SDK 2.3.0: 121 tests passed. SDK 1.x was not tested (see
 [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#test-run)).
 
 ## Naming in this package
