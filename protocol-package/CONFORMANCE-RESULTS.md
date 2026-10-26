@@ -103,7 +103,7 @@ Legend: **S** server-side evidence (reference server test, read, not re-run). **
 | Whole-batch resolution (SC-09) | `test_a_batch_with_one_reference_that_does_not_resolve_returns_no_value` | `test_a_partially_invalid_batch_writes_nothing`, `test_an_incomplete_or_extra_batch_writes_nothing` | — |
 | Batch limit 1 to 100 (SC-09) | `test_a_request_outside_the_profile_is_refused` (`too_many`, `empty`) | `test_more_than_100_references_go_in_batches_of_100` | — |
 | Ineligible sink refused (SC-10) | `test_a_request_outside_the_profile_is_refused` (`sink`) | — | — |
-| Error codes without values (SC-11) | `test_a_batch_with_one_reference_that_does_not_resolve_returns_no_value`, `test_removing_a_principal_from_the_allowlist_stops_a_live_token` | `test_a_revoked_reference_in_a_batch_writes_nothing` | — |
+| Error codes without values (SC-11) | `test_a_batch_with_one_reference_that_does_not_resolve_returns_no_value`, `test_removing_a_principal_from_the_allowlist_stops_a_live_token` | The fake server uses the SC-11 codes for 400, 401, 409 and 413 (commit `dd7afe2`). `test_a_revoked_reference_in_a_batch_writes_nothing`, `test_a_reference_of_another_user_writes_nothing` (`unresolvable`, reason `unknown`), `test_an_invalid_token_writes_nothing` (`401 invalid_token`; the host reports its own reason `unauthorized`). The fake server does not play 403 or 429. | — |
 | Daily quota, 429 | `test_the_daily_quota_refuses_the_batch_that_crosses_it` | — | — |
 | Resolve audit without values | Not yet tested | — | — |
 | Sender-constrained tokens | Not implemented | Not implemented | — |

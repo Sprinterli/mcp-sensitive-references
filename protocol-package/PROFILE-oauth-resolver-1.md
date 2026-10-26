@@ -131,6 +131,9 @@ Success: `200` with `{"values": {"<reference>": "<value>"}}` and `Cache-Control:
 ## 7. Error codes
 
 The reference server uses the codes in [SPEC-CHANGES.md, SC-11](SPEC-CHANGES.md#sc-11-error-format-of-the-resolve-endpoint).
+Since commit `dd7afe2`, the fake server of the host tests uses the same codes for 400, 401, 409 and 413.
+The host name `unauthorized` is a failure reason in the host report, not a server code (SC-11,
+"Compatibility").
 The authorization endpoint uses the OAuth codes `invalid_request`, `invalid_scope`, `invalid_client`,
 `access_denied` and `login_required`. The token endpoint uses `invalid_grant` and `invalid_target`. These
 codes were read in the server source. The host reports only the code. It accepts a code of at most 64

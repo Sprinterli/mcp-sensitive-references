@@ -20,7 +20,7 @@ Legend: **Done**, **Partial**, **Missing**.
 | Settings schema | Partial | `prototype/schema/sensitive-references-settings.schema.json`. It has no field for limits (SC-09). |
 | Resolver profile text | Partial | [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md) states it as implemented. SC-01 to SC-11 are proposals, not accepted text. |
 | Sink profile text | Partial | [PROFILE-local-file-1.md](PROFILE-local-file-1.md). The destination field is open (OQ-6). |
-| Error codes | Partial | SC-11 and SC-12 propose them. Only the reference server uses the SC-11 codes. |
+| Error codes | Partial | SC-11 and SC-12 propose them. The reference server and the fake server of the host tests use the SC-11 codes (commit `dd7afe2`). No accepted text. |
 | Issuer identity | Partial | SC-01 proposes RFC 9728 `resource`. The reference server deviates from RFC 9728 section 3.3 (P16). |
 | Security considerations | Partial | `SECURITY-MODEL.md` and [THREAT-MODEL.md](THREAT-MODEL.md). No external security review of the protocol text. |
 | Privacy considerations (destination, audit) | Partial | TM-7 and SC-10. No accepted rule. |

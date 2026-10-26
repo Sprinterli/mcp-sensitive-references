@@ -382,12 +382,17 @@ change what it sends. See OQ-6 for the choice between a label and a hash.
 
 ## SC-11. Error format of the resolve endpoint
 
-**Problem.** The profile says only that a failure returns no plaintext values (F9). The reference server
-and the fake server in the host tests use different codes for the same case. For example, a batch that is
-too large gives `too_many_references` at the reference server and `batch_too_large` at the fake server
-(`prototype/tests/test_mcp_host_resolve.py`, `FakeServer`). A reference of another user gives
-`409 unresolvable` with the reason `unknown` at the reference server and `403 forbidden` at the fake server.
-A host cannot interpret a code that a standard does not define.
+**Problem.** The profile says only that a failure returns no plaintext values (F9). A host cannot
+interpret a code that a standard does not define. Before commit `dd7afe2`, the reference server and the
+fake server in the host tests used different codes for the same case. For example, a batch that was too
+large gave `too_many_references` at the reference server and `batch_too_large` at the fake server. A
+reference of another user gave `409 unresolvable` with the reason `unknown` at the reference server and
+`403 forbidden` at the fake server.
+
+Since commit `dd7afe2`, the fake server (`prototype/tests/test_mcp_host_resolve.py`, `FakeServer`) uses the
+codes below: `400 invalid_request` for an empty batch, `401 invalid_token`, `413 too_many_references`, and
+`409 unresolvable` with the reasons `unknown` and `revoked`. It reports a reference of another principal
+as `unknown`, as the reference server does.
 
 **Evidence.**
 
@@ -398,7 +403,8 @@ A host cannot interpret a code that a standard does not define.
   `test_removing_a_principal_from_the_allowlist_stops_a_live_token` (403).
 - The host accepts a code of at most 64 characters from `[A-Za-z0-9_.-]` and treats only 401 as a reason to
   renew (`resolver_client.py`, `OAuthHttpResolver._batch`). Host tests
-  `test_a_revoked_reference_in_a_batch_writes_nothing` and `test_an_expired_token_is_refreshed_once_then_the_run_fails`.
+  `test_a_revoked_reference_in_a_batch_writes_nothing`, `test_a_reference_of_another_user_writes_nothing`
+  (`unresolvable`) and `test_an_expired_token_is_refreshed_once_then_the_run_fails`.
 
 **Proposed text.**
 
@@ -420,9 +426,16 @@ A host cannot interpret a code that a standard does not define.
 > A host MUST treat only 401 as a reason to get a new token. A host MUST NOT show a server message to the
 > model.
 
-**Compatibility.** The codes are the codes of the reference server (read in its source). The fake server
-in the host tests uses other codes, and the host still fails closed for all of them, because the host
-treats every non-200 answer as a failure. The `expired` reason is new (see SC-13).
+**Compatibility.** The codes are the codes of the reference server (read in its source). Since commit
+`dd7afe2`, the fake server in the host tests uses the same codes for the cases that it plays (400, 401,
+409, 413). The fake server does not play 403 or 429. The host fails closed for every non-200 answer, also
+for a code that it does not know. The `expired` reason is new (see SC-13).
+
+One name stays different on purpose. If the host has no valid resolver token and must not start an
+interactive authorization, it fails with its own reason `unauthorized` (host test
+`test_an_invalid_token_writes_nothing`: the server answers `401 invalid_token`, and the host reports
+`unauthorized`). That name is a failure reason of the host, in its report. It is not a code of the resolve
+endpoint, and this entry does not add it to the table.
 
 ## SC-12. A refused reference inside an MCP tool call
 
