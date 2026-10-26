@@ -12,8 +12,9 @@ This package collects the protocol results of two implementations of concept 0.5
 - **The test host.** The independent MCP host in this repository, `prototype/demo/mcp_host.py`. It negotiates
   the extension, records issuer provenance, gets its own resolver token and writes a local file.
 
-The package does not change concept 0.5. The concept files in the repository root stay as they are. Each
-proposal in this folder is a **proposed change**. A reader must not treat a proposal as concept text.
+The package does not change concept 0.5. The concept files in the repository root stay as they are. One
+root change exists: commit `f9d34b4` adds a link to this package in the root `README.md`. It changes no
+concept text. Each proposal in this folder is a **proposed change**. A reader must not treat a proposal as concept text.
 
 ## Files
 
@@ -42,12 +43,20 @@ All changes stay proposals. None of them is concept text.
   separate, non-conformant "known deviation" in SC-01, PROFILE D5 and CONFORMANCE-RESULTS.md.
 - **SC-18** requires an explicit authorization decision for issuer-side resolution. Possession of a
   reference does not authorize it. THREAT-MODEL.md gets TM-10.
-- **SC-11** records that the fake server of the host tests uses the SC-11 codes (commit `dd7afe2`). The
-  host name `unauthorized` is a host failure reason, not a server code.
-- **SC-20** (new) makes three loopback redirect rules normative: any port, the literal `127.0.0.1`, and no
-  server policy that blocks the authorization response.
-- **IMPLEMENTATION-GUIDE.md** gets six lessons from a production run on 2026-10-26.
-- **CONFORMANCE-RESULTS.md** records the tested configuration (Python 3.14.8, `mcp` 2.3.0, 71 tests
+- **SC-11** records that the fake server of the host tests uses the SC-11 codes. The host name
+  `unauthorized` is a host failure reason, not a server code. A 401 answer carries `WWW-Authenticate`.
+- **SC-20** (new) makes the loopback redirect rules normative: exact string comparison of the redirect URI
+  with any port for a loopback IP redirect URI only, the literal `127.0.0.1`, and no server policy that
+  blocks the authorization response.
+- **SC-06** binds an approval to subject, client, resource, resolve scope and the sink profiles that the
+  consent page names. SC-06, SC-14 and SC-18 define "resist framing and CSRF", "integrity" and "current"
+  by observable outcomes.
+- **SC-01, SC-02 and SC-08** in the test host: the issuer string stays as given, discovery uses only the two
+  RFC 9728 mechanisms, an incomplete discovery object stops the host, and a missing `iss` is refused when
+  the server advertises it. Each rule has new host tests.
+- **IMPLEMENTATION-GUIDE.md** gets six lessons from a production run on 2026-10-26. Lessons L-a and L-b
+  name the tested browser.
+- **CONFORMANCE-RESULTS.md** records the tested configuration (Python 3.14.8, `mcp` 2.3.0, 88 tests
   passed; SDK 1.x not tested) and the production runs E8 to E10. The runs are "observed (one operator
   run, not independently reproduced)" and upgrade no row to "verified".
 - **OPEN-QUESTIONS.md** labels each recommendation as a provisional v1 design decision. OQ-7 now permits
@@ -70,16 +79,22 @@ with `local-file-1`. This package is milestone M6.
 
 | Source | Version |
 |---|---|
-| Concept 0.5 and the prototype | this repository, branch `m4-local-file-sink`, commit `fe87dad` |
-| The test host and its tests | the same commit, `prototype/demo/mcp_host.py`, `prototype/tests/` |
-| The reference server plan, sections 4 to 8 | reference server revision `e5268633f` (not public) |
-| The reference server tests that this package cites | the same revision: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions) |
+| Concept 0.5 (the root files) | this repository. Unchanged on this branch, except the link in the root `README.md` (commit `f9d34b4`). |
+| The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `TESTED_COMMIT` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`) |
+| The reference server plan, sections 4 to 8 | reference server revision R1 (not public) |
+| The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2. |
+
+**Evidence labels R1 and R2.** The reference server is not public, so its revision identifiers do not
+help a reader. This package uses two neutral labels instead. **R1** is the revision of the plan and the
+tests that this package read first. **R2** is the later revision after the second server review. At R2
+the implementer ran end-to-end round E7 and reported 58 passing test cases in the consent module. The
+profile rows A8, C7, C9, C10, R9, R12, R13 and R14 cite tests of R2.
 
 This package did not run the reference server tests. It read their names and assertions at the revision
 above. A row that cites a reference server test is "read, not re-run".
 
-The prototype test suite last ran on 2026-10-26 at commit `dd7afe2` (branch `m7-consolidation`) with
-Python 3.14.8 and MCP Python SDK 2.3.0: 71 tests passed. SDK 1.x was not tested (see
+The prototype test suite last ran on 2026-10-26 at commit `TESTED_COMMIT` (branch `m7-consolidation`) with
+Python 3.14.8 and MCP Python SDK 2.3.0: 88 tests passed. SDK 1.x was not tested (see
 [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#test-run)).
 
 ## Naming in this package

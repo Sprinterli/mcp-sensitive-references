@@ -20,7 +20,7 @@ Legend: **Done**, **Partial**, **Missing**.
 | Settings schema | Partial | `prototype/schema/sensitive-references-settings.schema.json`. It has no field for limits (SC-09). |
 | Resolver profile text | Partial | [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md) states it as implemented. SC-01 to SC-11 and SC-20 are proposals, not accepted text. |
 | Sink profile text | Partial | [PROFILE-local-file-1.md](PROFILE-local-file-1.md). The destination field is open (OQ-6). |
-| Error codes | Partial | SC-11 and SC-12 propose them. The reference server and the fake server of the host tests use the SC-11 codes (commit `dd7afe2`). No accepted text. |
+| Error codes | Partial | SC-11 and SC-12 propose them. The reference server and the fake server of the host tests use the SC-11 codes. No accepted text. |
 | Issuer identity | Partial | SC-01 proposes the RFC 9728 `resource` value, identical to the MCP URL (RFC 9728 section 3.3). The reference server is not conformant to SC-01 (known deviation P16). The test host interoperates with it only through a non-conformant operator option. |
 | Security considerations | Partial | `SECURITY-MODEL.md` and [THREAT-MODEL.md](THREAT-MODEL.md). No external security review of the protocol text. |
 | Privacy considerations (destination, audit) | Partial | TM-7 and SC-10. No accepted rule. |
@@ -42,7 +42,7 @@ Legend: **Done**, **Partial**, **Missing**.
 | Item | State | Evidence or gap |
 |---|---|---|
 | One server implementation | Done | The reference server, milestones M0 to M4 (plan section 6). Its source is not public. |
-| One host implementation | Done | `prototype/demo/mcp_host.py`, 35 resolve tests and 13 host tests passed on 2026-10-26. |
+| One host implementation | Done | `prototype/demo/mcp_host.py`, 52 resolve tests and 13 host tests passed on 2026-10-26. |
 | End-to-end run of host and server | Done | E1 to E3 and E7 (local), E4 to E6 (production, synthetic). E8 to E10: materialization in production on 2026-10-26, observed in one operator run, not independently reproduced. See [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#end-to-end-runs). |
 | A second independent server | Missing | No other server implements the extension. |
 | A second independent host | Missing | No general-purpose MCP host supports the extension. A plugin host cannot (P11, SC-19). |
@@ -57,11 +57,11 @@ Legend: **Done**, **Partial**, **Missing**.
 | Item | State | Evidence or gap |
 |---|---|---|
 | Community discussion | Partial | `COMMUNITY-DISCUSSION.md` is a draft. This package does not show that it was posted or what the answers were. **Not verified.** |
-| Community review of the profiles | Missing | No external review of SC-01 to SC-19. |
-| Independent security review of the implementations | Partial | The reference server passed one external review round on M4a (plan section 6, "Review round 1": NO-SHIP, no BLOCKER, four findings fixed). A second round is not recorded in the sources. |
+| Community review of the profiles | Missing | No external review of SC-01 to SC-20. |
+| Independent security review of the implementations | Partial | The reference server had one external review round on M4a (plan section 6, "Review round 1"). Its verdict was NO-SHIP with no BLOCKER, and the implementer fixed four findings. The implementer reported a second review round, after which revision R2 exists (CONFORMANCE-RESULTS.md). This package has no verdict of that round. |
 | Sponsor in the MCP project | **Not verified** | The sources do not mention one. |
-| Vendor-neutral text | Partial | This package is vendor-neutral. The concept files `HOST-INTEGRATION.md`, `IMPLEMENTATION-EVIDENCE.md` and `README.md` name products. |
-| Prototype tests green | Done | 71 of 71 passed on 2026-10-26 with Python 3.14.8 and MCP SDK 2.3.0 (pytest: 71 passed, 26 subtests passed; unittest: 71 OK). MCP SDK 1.x was not tested. |
+| Vendor-neutral text | Partial | The normative text of this package (SPEC-CHANGES.md and the rules of the two profiles) names no product. The evidence names two: Keycloak, only for the prototype probes (PROFILE-oauth-resolver-1.md section 8 and the row above), and Google Chrome, only as the tested browser of lessons L-a and L-b in IMPLEMENTATION-GUIDE.md. The concept files `HOST-INTEGRATION.md`, `IMPLEMENTATION-EVIDENCE.md` and `README.md` name products. |
+| Prototype tests green | Done | 88 of 88 passed on 2026-10-26 with Python 3.14.8 and MCP SDK 2.3.0 at the tested commit (pytest: 88 passed, 51 subtests passed; unittest: 88 OK). MCP SDK 1.x was not tested. |
 
 ## Summary
 

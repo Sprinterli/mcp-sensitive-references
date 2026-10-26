@@ -6,13 +6,15 @@ requirement to the evidence that exists for it on 2026-10-26.
 ## Test run
 
 **Supported, tested configuration (2026-10-26).** Python 3.14.8, MCP Python SDK (`mcp`) 2.3.0,
-`PYTHONPATH=src`, repository commit `dd7afe2` (branch `m7-consolidation`). Commands and results:
+`PYTHONPATH=src`, repository commit `TESTED_COMMIT` (branch `m7-consolidation`). This is "the tested
+commit" of the whole package. The commit after it records this result and changes no code and no test.
+Commands and results:
 
 ```bash
-cd prototype && PYTHONPATH=src python -m pytest -q
-# 71 passed, 26 subtests passed
+cd prototype && PYTHONPATH=src python -m pytest -q -p no:cacheprovider
+# PYTEST_RESULT
 cd prototype && PYTHONPATH=src python -m unittest discover -s tests
-# Ran 71 tests, OK
+# UNITTEST_RESULT
 ```
 
 `demo/mcp_sdk_server.py` imports `MCPServer` (SDK 2.x) and falls back to `FastMCP` (SDK 1.x). Its test reads
@@ -20,7 +22,7 @@ both result shapes. **SDK 1.x was not tested in this run.** Only SDK 2.3.0 is a 
 
 | Test module | Tests | Result |
 |---|---|---|
-| `test_mcp_host_resolve.py` | 35 | 35 passed. Two of them run the host against a real MCP SDK 2.x server. |
+| `test_mcp_host_resolve.py` | 52 | 52 passed. Two of them run the host against a real MCP SDK 2.x server. |
 | `test_mcp_host.py` | 13 | 13 passed |
 | `test_sensitive_references.py` | 13 | 13 passed |
 | `test_oidc_and_resolve_http.py` | 4 | 4 passed |
@@ -29,15 +31,17 @@ both result shapes. **SDK 1.x was not tested in this run.** Only SDK 2.3.0 is a 
 | `test_settings_schema.py` | 1 | 1 passed |
 | `test_mcp_sdk_demo.py` | 1 | 1 passed (SDK 2.x path) |
 
-**Earlier run (2026-10-25), for the record.** At commit `fe87dad` (branch `m4-local-file-sink`) with SDK
-2.3.0, 70 of 71 tests passed. `test_mcp_sdk_demo` did not import, because the module imported
-`mcp.server.fastmcp` only. Commit `dd7afe2` fixed this.
+**Earlier runs, for the record.** On 2026-10-25, at commit `fe87dad` (branch `m4-local-file-sink`) with
+SDK 2.3.0, 70 of 71 tests passed. `test_mcp_sdk_demo` did not import, because the module imported
+`mcp.server.fastmcp` only. Commit `dd7afe2` fixed this, and on 2026-10-26 71 of 71 tests passed at that
+commit. The tested commit above adds 17 host tests (SC-01, SC-02, SC-08).
 
 The reference server tests were not run for this package. This package read 25 test functions in the
 resolver consent module and counted 26 test functions in the module for negotiated canonical references,
-at revision `e5268633f`. Several functions are parametrized, so the number of test cases is larger. The
-exact number of cases is **not verified**. After the second server review, the implementer reported 58 passing
-test cases in the consent module at revision `b6a46eb81`; this package did not run them.
+at revision R1. Several functions are parametrized, so the number of test cases is larger. The exact
+number of cases is **not verified**. After the second server review, the implementer reported 58 passing
+test cases in the consent module at revision R2; this package did not run them. R1 and R2 are labels for
+non-public revisions ([README.md](README.md#sources-and-versions)).
 
 ## End-to-end runs
 
@@ -51,7 +55,7 @@ runs. It records them as reported.
 | E1, first run | One consent page. The file held the synthetic value once and no reference. The model-visible content kept the reference. Zero sentinel values in model-visible content. |
 | E2, second run | The host used the cached token. Zero consent pages. |
 | E3, forged reference | A forged reference in the template produced no file. |
-| E7, second round at `b6a46eb81`, resolve endpoint from discovery | Seven scenarios. The first run, a cached run and a run after a new consent materialize as in E1. A forged reference and another user's reference in the template: the host refuses before any resolve request, no file. A withdrawn consent: one resolve request, `unauthorized`, no file. A revocation between the tool call and the write: one resolve request, `unresolvable`, no file. |
+| E7, second round at revision R2, resolve endpoint from discovery | Seven scenarios. The first run, a cached run and a run after a new consent materialize as in E1. A forged reference and another user's reference in the template: the host refuses before any resolve request, no file. A withdrawn consent: one resolve request, `unauthorized`, no file. A revocation between the tool call and the write: one resolve request, `unresolvable`, no file. |
 
 **Production, synthetic data:**
 
@@ -114,26 +118,30 @@ E10 only says "observed": it is not a verification.
 
 | Requirement | S | H | E |
 |---|---|---|---|
-| Discovery object in RFC 9728 metadata (SC-02) | `test_discovery_publishes_the_endpoint_and_the_profiles_while_on`, `test_every_protected_resource_document_carries_the_discovery_block_while_on` | `test_the_endpoint_and_scope_come_from_discovery` | Not verified. E1 does not say whether the host used discovery or a configured endpoint. |
+| Discovery object in RFC 9728 metadata (SC-02) | `test_discovery_publishes_the_endpoint_and_the_profiles_while_on`, `test_every_protected_resource_document_carries_the_discovery_block_while_on` | `test_the_endpoint_and_scope_come_from_discovery` |
+| An incomplete discovery object stops the host (SC-02) | Not applicable | `test_a_discovery_object_without_a_mandatory_member_is_refused`, `test_a_discovery_object_with_a_malformed_member_is_refused`, `test_a_discovery_object_without_the_negotiated_profiles_is_refused`, `test_a_configured_endpoint_does_not_excuse_a_bad_discovery_object` | — |
+| Discovery only through the two RFC 9728 mechanisms (SC-01) | Not applicable | `test_metadata_named_in_the_www_authenticate_challenge_is_used`, `test_challenge_metadata_for_another_resource_is_refused`, `test_an_insecure_challenge_metadata_url_is_refused`, `test_root_metadata_is_not_a_fallback_for_a_resource_with_a_path` | — | Not verified. E1 does not say whether the host used discovery or a configured endpoint. |
 | Resolve scope not in `scopes_supported` (SC-03) | `test_the_resolve_scope_stays_out_of_scopes_supported` | — | — |
 | Mixed scopes get neither (SC-03) | `test_a_request_that_mixes_the_resolve_scope_with_agent_scopes_gets_neither` | `test_a_token_without_the_resolve_scope_is_refused` | — |
-| Issuer = RFC 9728 `resource`, identical to the MCP URL (SC-01) | **Not conformant** (known deviation P16, see below) | `test_metadata_for_another_resource_is_refused` (default path, exact string) | Not verified |
+| Issuer = RFC 9728 `resource`, identical to the MCP URL (SC-01) | **Not conformant** (known deviation P16, see below) | Default path, exact string: `test_metadata_for_another_resource_is_refused`, `test_a_near_miss_of_the_issuer_is_refused` (trailing slash, parent path, host case, explicit port 443, scheme case, percent-encoding), `test_an_issuer_with_upper_case_is_not_lowered_to_match`, `test_identical_metadata_is_accepted`, `test_the_issuer_string_is_kept_as_given` | Not verified |
 | Discovered endpoint on the resource origin; no redirects (SC-04) | — | `test_a_discovered_cross_origin_endpoint_is_refused`, `test_a_redirect_from_the_resolve_endpoint_is_not_followed` | — |
 | Separate client, Authorization Code + PKCE S256, `resource` | `test_an_unregistered_client_gets_no_resolver_code`. PKCE S256 enforcement: not yet tested. | `test_interactive_authorization_materializes_and_reports_no_secret` | E1; observed: E8 |
-| `state` and RFC 9207 `iss` checks (SC-08) | — | `test_a_callback_with_another_state_is_refused`, `test_a_callback_from_another_issuer_is_refused` | — |
+| `state` and RFC 9207 `iss` checks (SC-08) | — | `test_a_callback_with_another_state_is_refused`, `test_a_callback_from_another_issuer_is_refused`, `test_a_callback_without_iss_is_refused_when_the_server_advertises_iss`, `test_a_callback_without_iss_is_accepted_when_the_server_does_not_advertise_iss`, `test_a_wrong_iss_is_refused_also_when_the_server_does_not_advertise_iss` | — |
 | Separate token class (SC-05) | `test_the_resolver_token_is_its_own_class_and_short_lived`, `test_a_resolver_token_is_refused_where_an_agent_token_is_expected`, `test_an_agent_token_is_refused_at_the_resolve_endpoint`, `test_a_resolver_token_never_reaches_the_agent_suffix_lookup` | `test_the_agent_token_is_never_sent` | — |
-| One-time consent per user and client (SC-06) | `test_the_first_authorization_shows_a_consent_page_and_issues_no_code`, `test_consent_is_asked_once_per_client_then_codes_follow_without_interaction` | — | E1, E2; observed: E8 (one consent), E9 and E10 (no consent page) |
+| One-time consent per approval (SC-06) | `test_the_first_authorization_shows_a_consent_page_and_issues_no_code`, `test_consent_is_asked_once_per_client_then_codes_follow_without_interaction` (subject and client) | — | E1, E2; observed: E8 (one consent), E9 and E10 (no consent page) |
 | Consent cannot be forged (SC-06) | `test_consent_cannot_be_given_without_the_users_own_answer_on_the_page`, `test_a_consent_post_without_an_origin_header_grants_nothing` | — | — |
+| Approval bound to resource, scope and sink-profile set; page names client, resource and profiles (SC-06) | Not verified | Not applicable | — |
 | Consent bounds refresh and access (SC-06) | `test_a_withdrawn_or_expired_consent_stops_refresh_and_the_live_token` | — | — |
 | Refresh rotation bound to the client (SC-07) | `test_refresh_rotates_and_the_old_refresh_token_is_dead`, `test_a_refresh_token_works_only_for_its_own_client` | `test_an_expired_token_is_refreshed_and_rotated` | Observed: E10 (renewal through refresh; rotation not observed) |
 | Token cache 0600, one renewal after 401 (SC-07) | — | `test_a_cache_file_that_others_can_read_is_refused`, `test_an_expired_token_is_refreshed_once_then_the_run_fails` | E2; observed: E9 (token from the cache) |
 | Access token expiry enforced | `test_an_expired_resolver_token_resolves_nothing` | — | — |
 | Whole-batch resolution (SC-09) | `test_a_batch_with_one_reference_that_does_not_resolve_returns_no_value` | `test_a_partially_invalid_batch_writes_nothing`, `test_an_incomplete_or_extra_batch_writes_nothing` | — |
-| Batch limit 1 to 100 (SC-09) | `test_a_request_outside_the_profile_is_refused` (`too_many`, `empty`) | `test_more_than_100_references_go_in_batches_of_100` | — |
+| Batch limit 1 to the effective limit, 100 without `max_references` (SC-09) | `test_a_request_outside_the_profile_is_refused` (`too_many`, `empty`) | `test_more_than_100_references_go_in_batches_of_100` | — |
 | Ineligible sink refused (SC-10) | `test_a_request_outside_the_profile_is_refused` (`sink`) | — | — |
-| Error codes without values (SC-11) | `test_a_batch_with_one_reference_that_does_not_resolve_returns_no_value`, `test_removing_a_principal_from_the_allowlist_stops_a_live_token` | The fake server uses the SC-11 codes for 400, 401, 409 and 413 (commit `dd7afe2`). `test_a_revoked_reference_in_a_batch_writes_nothing`, `test_a_reference_of_another_user_writes_nothing` (`unresolvable`, reason `unknown`), `test_an_invalid_token_writes_nothing` (`401 invalid_token`; the host reports its own reason `unauthorized`). The fake server does not play 403 or 429. | — |
-| Daily quota, 429 | `test_the_daily_quota_refuses_the_batch_that_crosses_it` | — | — |
+| Error codes without values (SC-11) | `test_a_batch_with_one_reference_that_does_not_resolve_returns_no_value`, `test_removing_a_principal_from_the_allowlist_stops_a_live_token` | The fake server uses the SC-11 codes for 400, 401, 409 and 413. `test_a_revoked_reference_in_a_batch_writes_nothing`, `test_a_reference_of_another_user_writes_nothing` (`unresolvable`; the fake server sends the reason `unknown`, the host does not report reasons, and the test does not assert it), `test_an_invalid_token_writes_nothing` (`401 invalid_token`; the host reports its own reason `unauthorized`). The fake server does not play 403 or 429. | — |
+| Daily quota, 429 | `test_the_daily_quota_refuses_the_batch_that_crosses_it` (R2) | — | — |
 | Resolve audit without values | Not yet tested | — | — |
+| `WWW-Authenticate` on a 401 of the resolve endpoint (SC-11) | Not verified | Not applicable (the fake server does not send it) | — |
 | Sender-constrained tokens | Not implemented | Not implemented | — |
 
 ### `local-file-1`
@@ -160,8 +168,8 @@ it (SPEC-CHANGES.md, SC-01).
 
 A test host that resolves against the reference server today needs a tolerance for this deviation. The
 test host has the operator option `--resource`, which accepts an MCP URL under a configured parent
-resource. This file does not record which option each end-to-end run used. That option is an
-implementation choice of the test host. Its
+resource. E8 to E10 used it (see "Production runs of 2026-10-26"). For E1 to E7, this file does not
+record which option each run used. That option is an implementation choice of the test host. Its
 tests (`test_a_configured_parent_resource_is_the_issuer`, `test_a_resource_the_mcp_url_is_not_under_stops_the_host`,
 `test_the_mcp_url_must_lie_under_the_resource`) show the tolerance. They are not evidence for SC-01.
 
@@ -171,5 +179,8 @@ tests (`test_a_configured_parent_resource_is_the_issuer`, `test_a_resource_the_m
   RFC 9728 `resource` are identical.
 - No test covers PKCE S256 enforcement at the server, the audit event, the 30-second expiry
   margin of the host, or the duplicate removal of the host.
+- No test covers the SC-06 binding to resource, scope and profile set, or the SC-20 exact redirect
+  matching. This repository has no authorization server implementation of its own to test them, and
+  the reference server tests that this package read do not cover them.
 - No end-to-end run used a second, independent server or a second, independent host.
 - `test_mcp_sdk_demo` was not run with SDK 1.x.
