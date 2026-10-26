@@ -1,7 +1,9 @@
 # Implementation guide
 
 **Status: experimental.** This guide derives from the findings F1 to F13 and P1 to P16, and from the
-lessons of one production run on 2026-10-26 (last section). Each item names its source. The rules in SPEC-CHANGES.md are proposals. This guide does not make them normative.
+lessons of one production run on 2026-10-26 (last section). Each item names its source. The rules in
+SPEC-CHANGES.md are proposals. This guide does not make them normative. The guide names one product: the
+browser of the tests in lessons L-a and L-b. The normative text stays browser-neutral.
 
 ## For a server implementer
 
@@ -14,12 +16,15 @@ lessons of one production run on 2026-10-26 (last section). Each item names its 
 3. Store bindings with integrity protection, and bind each record to its principal (SC-14, P4).
 4. Keep revocations outside the binding record, so that a replayed record does not undo a revocation
    (plan section 6, M2).
-5. Publish the `sensitive_references` object in every RFC 9728 metadata document while the profile is on.
-   Remove it while the profile is off (SC-02).
+5. Publish the complete `sensitive_references` object (all four mandatory members) in every RFC 9728
+   metadata document of a resource that offers the profile, while the profile is on. Remove it while the
+   profile is off (SC-02).
 6. Name the resolve scope in the discovery object only. Keep it out of `scopes_supported` (SC-03, F13, P15).
-7. Refuse an authorization request that mixes the resolve scope with other scopes (SC-03).
-8. Show a consent page for the first authorization of each pair of user and client. Protect it against
-   framing and cross-site request forgery (SC-06).
+7. Refuse an authorization request that mixes the resolve scope with scopes other than `openid` (SC-03).
+8. Show a consent page for the first authorization of a client. Name the client, the resource and the sink
+   profiles on it. Store the approval for subject, client, resource, resolve scope and the profile set that
+   the page showed. Ask again for a new profile or a broader request. Send `frame-ancestors 'none'`, and
+   require a single-use nonce and a same-origin `Origin` header on the consent post (SC-06).
 9. Check the consent on every refresh and on every resolve (SC-06; plan section 6, Gate A finding HIGH).
 10. Issue resolver tokens as their own class. Refuse them on every MCP path, also on a path that looks up
     a bearer by its suffix (SC-05, TM-3).
@@ -45,7 +50,8 @@ lessons of one production run on 2026-10-26 (last section). Each item names its 
 8. Do not resolve a reference into an issuer-side sink because the caller has it. Resolve it only after
    the authorization decision for the tool execution: the authenticated principal, the authorized tool and
    action, and the owner of the reference (SC-18).
-9. Do not match the port of a loopback redirect URI (SC-20, lesson L-c).
+9. Do not match the port of a loopback IP redirect URI. Match every other part of a redirect URI as an
+   exact string (SC-20, lesson L-c).
 10. Do not copy the raw redirect URI text into a Content Security Policy (lesson L-a).
 
 ## For a host implementer
@@ -56,15 +62,18 @@ lessons of one production run on 2026-10-26 (last section). Each item names its 
    authenticated issuer of each result (SC-19, P11).
 2. Record an observation only from a negotiated, authenticated tool result. Inspect text content and every
    string in `structuredContent` (`prototype/EXTENSION-PROFILE-DRAFT.md`, "Candidate host hooks").
-3. Record the issuer as the RFC 9728 `resource` value. Compare it as an exact string. Require that the
-   `resource` value is identical to the MCP URL (SC-01, F3, F12, RFC 9728 section 3.3). If you add an
+3. Record the issuer as the RFC 9728 `resource` value. Keep the string as given, and compare it as an
+   exact string. Require that the `resource` value is identical to the MCP URL (SC-01, F3, F12, RFC 9728
+   section 3.3). Get the metadata only from the path-inserted well-known URL or from the
+   `resource_metadata` URL of a `WWW-Authenticate` answer of the MCP URL. Do not try the origin root. If you add an
    operator option for a server that deviates, as the test host does with `--resource`, mark it as
    non-conformant.
 4. Resolve only a reference with exactly one trusted issuer, and only at the endpoint of that issuer
    (`local-file-1`, L5, L6).
-5. Use a separate resolver client with Authorization Code, PKCE S256, the `resource` parameter and the
-   resolve scope alone (SC-08).
-6. Check `state`, the RFC 9207 `iss` parameter and the RFC 8414 issuer (SC-08, F10).
+5. Use a separate resolver client with Authorization Code, PKCE S256, the `resource` parameter and no
+   scope other than the resolve scope and, optionally, `openid` (SC-03, SC-08).
+6. Check `state`, the RFC 9207 `iss` parameter and the RFC 8414 issuer. If the server advertises
+   `authorization_response_iss_parameter_supported`, refuse a response without `iss` (SC-08, F10).
 7. Refuse a token response that does not grant the resolve scope (SC-03, F2).
 8. Keep the resolver token in a file that only the user can read. Refuse a file that others can read
    (SC-07, F6).
@@ -88,6 +97,8 @@ lessons of one production run on 2026-10-26 (last section). Each item names its 
 9. Do not register a new client for each authorization if you can keep one client, because each new client
    causes a new consent page (SC-06, F5).
 10. Do not use `[::1]` for the loopback redirect URI. Use `127.0.0.1` (SC-20, lesson L-b).
+11. Do not accept a discovery object without all four mandatory members or without the negotiated
+    profiles. Do not fill a missing member from a default or from configuration (SC-02).
 
 ## Lessons from a production run (2026-10-26)
 
@@ -103,24 +114,34 @@ The consent page posts a form. The server answers the post with a 302 redirect t
 URI of the client. A page Content Security Policy `form-action 'self'` blocks that redirect, because the
 browser checks `form-action` also on the redirect after the form post.
 
+Observed browser behaviour. The tested browser was Google Chrome 155.0.8059.85 on macOS 27.2 (arm64). A
+form POST from a page with the policy `form-action 'self'`, answered with a 302 to
+`http://127.0.0.1:<port>/callback`, was blocked. The console showed: "Sending form data to '<consent
+URL>' violates the following Content Security Policy directive: "form-action 'self'". The request has
+been blocked." The operator saw this interactively. Headless Chrome of the same version reproduced it.
+Other browsers were not tested.
+
 - Server: list in `form-action` exactly the loopback origin of this authorization request, and nothing
-  more. Build the origin from the parsed scheme, host and port of the registered redirect URI. Never copy
-  the raw redirect URI text into the policy: user information or other characters in the URI text can
-  inject policy text.
+  more. Build the origin again from the parsed host and port of the redirect URI of this request, after
+  that URI matched a registered one (SC-20). Never copy the raw redirect URI text into the policy: user
+  information or other characters in the URI text can inject policy text.
 - Normative part: SC-20 requires that the server does not block its own authorization response. A host
   cannot complete the flow if the server blocks it, so both sides depend on this. The way to build the
   policy stays guidance, because the host cannot observe it.
 
 ### L-b. A browser can ignore an IPv6 literal as a policy source
 
-A widely used browser ignores an IPv6 literal (`http://[::1]:port`) as a source in a Content Security
-Policy. A server that lists the client origin in `form-action` therefore cannot serve a client with the
-redirect URI `http://[::1]:port` in that way. The reference server refuses `[::1]` for the resolver
-client.
+Observed browser behaviour. In headless Google Chrome 155.0.8059.85 on macOS 27.2 (arm64), a consent
+page with the policy `form-action 'self' http://[::1]:<port>` still blocked the redirect to
+`http://[::1]:<port>`. With `form-action 'self' http://127.0.0.1:<port>`, the redirect to `127.0.0.1` went
+through. This package did not find the cause. Other browsers were not tested. A server that lists the
+client origin in `form-action` therefore cannot serve a client with the redirect URI
+`http://[::1]:port` in this browser. The reference server refuses `[::1]` for the resolver client.
 
 - Host: use `127.0.0.1` for the loopback redirect URI.
-- Server: accept `127.0.0.1`. If you cannot serve `[::1]`, refuse it at registration with a clear error,
-  not later in the browser.
+- Server: list exactly the loopback origin of this request in `form-action`, built from the parsed host
+  and port (lesson L-a). Accept `127.0.0.1`. Refuse `[::1]` before the consent page, at registration or at
+  the authorization request, with a clear error.
 - Normative part: SC-20 requires that a server accepts `127.0.0.1` and recommends that a host uses it. A
   host and a server must agree on one loopback literal, so this is an interoperability rule.
 
@@ -129,7 +150,9 @@ client.
 RFC 8252 section 7.3 requires that the authorization server accepts a loopback redirect URI with any port.
 Exact port matching breaks a host that registers a client again, or reuses a client, with a new port.
 
-- Server: compare scheme, host and path of a loopback redirect URI. Ignore the port.
+- Server: compare the redirect URI with the registered one as an exact string (RFC 3986 section 6.2.1).
+  For a loopback IP redirect URI, accept any port. Every other part, also the query, must match exactly
+  (RFC 8252 section 7.3, RFC 9700 section 2.1).
 - Host: keep one client, and use a new free port for each authorization.
 - Normative part: SC-20 repeats the RFC 8252 rule for the resolver client. A host that keeps one client
   depends on it (see OQ-4).
@@ -158,8 +181,8 @@ The first post succeeds. The second post fails, and the user sees an error after
 ### L-f. Refresh renews the resolver token without a new consent page
 
 A cached resolver token expired. The host renewed it through the refresh token. No consent page appeared.
-This is the expected behaviour: the consent applies to one pair of user and client (SC-06), and a refresh
-grant has no user interaction (RFC 6749 section 6).
+This is the expected behaviour: the approval covers the same subject, client, resource, scope and
+profile set (SC-06), and a refresh grant has no user interaction (RFC 6749 section 6).
 
 - Host: try the refresh token before an interactive authorization. With `--no-interactive`, a host can
   still renew through refresh.
