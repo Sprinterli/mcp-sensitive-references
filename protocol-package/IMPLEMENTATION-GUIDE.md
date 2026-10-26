@@ -42,6 +42,9 @@ its source. The rules in SPEC-CHANGES.md are proposals. This guide does not make
 6. Do not issue a resolver code on the basis of a browser session alone (SC-06).
 7. Do not advertise `oauth-resolver-1` or `local-file-1` before the resolve endpoint works (plan section 6,
    M4, "Server settings").
+8. Do not resolve a reference into an issuer-side sink because the caller has it. Resolve it only after
+   the authorization decision for the tool execution: the authenticated principal, the authorized tool and
+   action, and the owner of the reference (SC-18).
 
 ## For a host implementer
 

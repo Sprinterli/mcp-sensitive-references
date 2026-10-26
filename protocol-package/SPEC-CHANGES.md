@@ -551,15 +551,31 @@ guard on ten model-visible paths, V1 to V10).
 **Proposed text.**
 
 > An issuer MAY resolve its own references into its own outbound calls ("issuer-side sink"). The rule
-> about the agent token applies to plaintext that leaves the issuer toward the host or the model. An
-> issuer-side sink MUST check that the token is exact, that the issuer issued it, that it belongs to the
-> authenticated principal, and that it is current. A failure of one reference MUST refuse the whole call.
-> The issuer MUST replace each resolved value with its reference in every model-visible result of the
-> call, including error results.
+> about the agent token applies to plaintext that leaves the issuer toward the host or the model.
+>
+> Possession of a reference MUST NOT authorize its resolution. An issuer MUST resolve a reference into an
+> issuer-side sink only after an explicit authorization decision for that tool execution. The decision
+> MUST use the authenticated principal of the call, the tool and the action that the issuer authorized for
+> that principal, and the owner of the reference. The issuer MUST refuse the resolution if the owner of
+> the reference is not the authenticated principal, or if the principal is not authorized for the tool and
+> the action. This profile requires no user confirmation in addition to that decision.
+>
+> An issuer-side sink MUST also check that the token is exact, that the issuer issued it, and that it is
+> current. A failure of one reference MUST refuse the whole call. The issuer MUST replace each resolved
+> value with its reference in every model-visible result of the call, including error results.
+
+The authorization decision is the existing decision of the issuer for the tool execution: the issuer
+authenticates the principal and authorizes the tool and the action before it runs the call. SC-18 adds
+one input to that decision, the owner of the reference. A reference in the arguments is never the
+authorization itself. A copied reference of another principal therefore resolves nothing, also when the
+call is otherwise authorized.
 
 **Compatibility.** This text makes explicit a case that the concept does not cover. A reader who reads the
-agent-token rule as a ban on all resolution under the agent token sees a conflict. The community must
-decide this reading (see OQ-3).
+agent-token rule as a ban on all resolution under the agent token sees a conflict. The provisional v1
+design decision of OQ-3 is option A with these checks. The community must still confirm this reading.
+The earlier text of this entry already required that the reference belongs to the authenticated
+principal (P1). This package did not find a reference server test that shows the refusal of an
+authorized tool call with the reference of another principal. That case is **not verified**.
 
 ## SC-19. Hosts that cannot verify negotiation
 

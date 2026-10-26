@@ -43,7 +43,9 @@ Concept 0.5 says that the agent token "must not automatically grant plaintext re
 
 **Recommendation:** A, with the checks of SC-18. Plaintext in this case goes from the issuer to its own
 connector and never to the host or the model. B adds a grant without a security gain inside one principal
-(plan section 3).
+(plan section 3). Under A, possession of a reference never authorizes resolution: SC-18 requires an
+explicit authorization decision for the tool execution, with the authenticated principal, the authorized
+tool and action, and the owner of the reference.
 
 ## OQ-4. Consent and dynamic client registration with loopback ports (F5)
 

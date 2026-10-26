@@ -169,13 +169,31 @@ got no references).
 The declaration is a claim of the client. A false declaration gives the client canonical tokens but no
 plaintext, because resolution needs a separate consented resolver token.
 
+### TM-10. A copied reference in an issuer-side sink
+
+**Threat.** A model or an attacker copies a reference of another principal into the arguments of a tool
+call. The issuer resolves it into its own outbound call, because the reference is valid and current.
+Possession of the reference then acts as authorization.
+
+**Control.** Possession of a reference does not authorize resolution. The issuer resolves a reference into
+an issuer-side sink only after an explicit authorization decision for the tool execution. The decision uses
+the authenticated principal, the authorized tool and action, and the owner of the reference. A reference of
+another principal resolves nothing. No additional user confirmation is required (SC-18).
+
+**Evidence.** **Not verified.** This package found no reference server test for an authorized tool call
+with the reference of another principal.
+
+**Residual risk.** Inside one principal, the control does not stop an injected instruction that moves a
+value between two tools that the principal is authorized for (see the accepted risks below).
+
 ## Accepted residual risks of the reference server
 
 The plan of the reference server accepts these risks (plan section 0 and section 8). They are not
 consequences of the two profiles, but a reader of a SEP needs them:
 
 - An injected instruction can move a value between authorised tools of the same principal through the
-  issuer-side sink (SC-18).
+  issuer-side sink (SC-18). The authorization decision of SC-18 limits this to references that the
+  principal owns and to tools and actions that the principal is authorized for. It does not stop it.
 - The echo guard recognises a resolved value in known encodings. It does not prove absence. A transformed
   echo passes (plan section 8).
 - A connector that logs its own exception can write a resolved value into a log line before the guard runs.
