@@ -6,16 +6,16 @@ requirement to the evidence that exists for it on 2026-10-26.
 ## Test run
 
 **Supported, tested configuration (2026-10-26).** Python 3.14.8, MCP Python SDK (`mcp`) 2.3.0,
-`PYTHONPATH=src`, repository commit `8394a02` (branch `m7-consolidation`). This is "the tested
+`PYTHONPATH=src`, repository commit `fd7a9f2` (branch `m7-consolidation`). This is "the tested
 commit" of the whole package. The commits after it change only the documentation of
 `protocol-package/`, no code and no test.
 Commands and results:
 
 ```bash
 cd prototype && PYTHONPATH=src python -m pytest -q -p no:cacheprovider
-# 100 passed, 71 subtests passed
+# 112 passed, 124 subtests passed
 cd prototype && PYTHONPATH=src python -m unittest discover -s tests
-# Ran 100 tests, OK
+# Ran 112 tests, OK
 ```
 
 `demo/mcp_sdk_server.py` imports `MCPServer` (SDK 2.x) and falls back to `FastMCP` (SDK 1.x). Its test reads
@@ -23,7 +23,7 @@ both result shapes. **SDK 1.x was not tested in this run.** Only SDK 2.3.0 is a 
 
 | Test module | Tests | Result |
 |---|---|---|
-| `test_mcp_host_resolve.py` | 64 | 64 passed. Four of them run the host against a real MCP SDK 2.x server. |
+| `test_mcp_host_resolve.py` | 76 | 76 passed. Four of them run the host against a real MCP SDK 2.x server. |
 | `test_mcp_host.py` | 13 | 13 passed |
 | `test_sensitive_references.py` | 13 | 13 passed |
 | `test_oidc_and_resolve_http.py` | 4 | 4 passed |
@@ -36,12 +36,19 @@ both result shapes. **SDK 1.x was not tested in this run.** Only SDK 2.3.0 is a 
 SDK 2.3.0, 70 of 71 tests passed. `test_mcp_sdk_demo` did not import, because the module imported
 `mcp.server.fastmcp` only. Commit `dd7afe2` fixed this, and on 2026-10-26 71 of 71 tests passed at that
 commit. Commit `89f6881` added 17 host tests (SC-01, SC-02, SC-08): 88 passed, 51 subtests passed. The
-tested commit above adds 12 host tests after the second review round (SC-01 discovery order and URL
-construction, fail closed without metadata, SC-04 for a configured endpoint, D10).
+commit `8394a02` added 12 host tests after the second review round (SC-01 discovery order and URL
+construction, fail closed without metadata, SC-04 for a configured endpoint, D10): 100 passed, 71
+subtests passed. The tested commit above adds 12 host tests after the third review round (the fetch
+policy D11, a stop without the discovery object, the labels of a non-conformant run, a challenge URL
+without a document, the RFC 8414 well-known URL).
 
-**Mutation check of the second round.** A script outside the repository copied `prototype/`, disabled each
-new guard once, and ran `test_mcp_host_resolve.py`. 13 of 13 mutants failed at least one test. The module
-docstring of `test_mcp_host_resolve.py` names each guard and the test that failed.
+**Mutation check.** `prototype/tests/tools/mutation_probe.py` copies `prototype/` into a directory
+outside the repository, disables one guard per run, and runs `test_mcp_host_resolve.py` there. It does not
+write into the repository. At the tested commit it ran 27 mutants: the 13 guards of the second round on the
+current text and 14 guards of the third round. 27 of 27 failed at least one test (run on 2026-10-26, with
+the configuration above). The module docstring of `test_mcp_host_resolve.py` names each guard and the
+test that failed. The earlier figure of the second round (13 of 13, from a script outside the repository)
+is reported; the repository script repeats those mutations on the current text.
 
 The reference server tests were not run for this package. This package read 25 test functions in the
 resolver consent module and counted 26 test functions in the module for negotiated canonical references,
@@ -96,7 +103,7 @@ metadata. So E8 to E10 show the profile flow under the known deviation of the re
 no evidence that the server or the host conforms to SC-01.
 
 E11 (observed on 2026-10-26, one operator run, not independently reproduced). The test host at commit
-`8394a02`, without `--resource`, against the same server: the host read the metadata that the
+`8394a02` (before the third review round), without `--resource`, against the same server: the host read the metadata that the
 `resource_metadata` parameter of the 401 answer names. That document has the base URL as `resource`. The
 host stopped with `wrong_issuer` and resolved nothing. This is the fail-closed result that SC-01 requires.
 It also shows that the reference server does not yet do step 2 of the known deviation note in SC-01.
@@ -133,14 +140,16 @@ E10 only says "observed": it is not a verification.
 |---|---|---|---|
 | Discovery object in RFC 9728 metadata (SC-02) | `test_discovery_publishes_the_endpoint_and_the_profiles_while_on`, `test_every_protected_resource_document_carries_the_discovery_block_while_on` | `test_the_endpoint_and_scope_come_from_discovery`; end to end with a real MCP SDK server: `test_the_host_materializes_an_observed_reference` | Not verified. E1 does not say whether the host used discovery or a configured endpoint. |
 | An incomplete discovery object stops the host (SC-02) | Not applicable | `test_a_discovery_object_without_a_mandatory_member_is_refused`, `test_a_discovery_object_with_a_malformed_member_is_refused`, `test_a_discovery_object_without_the_negotiated_profiles_is_refused`, `test_a_configured_endpoint_does_not_excuse_a_bad_discovery_object` | — |
+| Metadata without the discovery object stops the host; configuration mode only after an operator statement, and labelled (SC-02) | Not applicable | `test_metadata_without_a_discovery_object_stops_the_host`, `test_without_a_discovery_object_configuration_mode_needs_the_option_and_is_not_conformant`, `test_a_conformant_run_has_no_deviation`, `test_a_configured_parent_resource_is_the_issuer` (P16 label) | — |
 | Discovery only through the two RFC 9728 mechanisms, the challenge first (SC-01) | Not applicable | `test_metadata_named_in_the_www_authenticate_challenge_is_used`, `test_the_challenge_comes_before_the_well_known_url`, `test_a_parent_resource_gets_no_challenge_probe_of_the_mcp_url`, `test_challenge_metadata_for_another_resource_is_refused`, `test_an_insecure_challenge_metadata_url_is_refused`, `test_root_metadata_is_not_a_fallback_for_a_resource_with_a_path` | — |
 | The well-known URL and the issuer keep the query and a trailing slash (SC-01) | Not applicable | `test_the_well_known_url_follows_rfc_9728_section_3_1`, `test_a_resource_with_a_query_or_a_trailing_slash_keeps_it`, `test_the_issuer_string_is_kept_as_given`, `test_a_url_with_user_information_or_a_fragment_is_no_issuer`, `test_a_resource_with_a_fragment_is_refused` | — |
-| No metadata or unreachable metadata: no resolution without an operator statement (SC-01) | Not applicable | `test_without_metadata_the_host_stops_unless_the_operator_says_there_is_none`, `test_unreachable_metadata_fails_closed` | — |
+| No metadata or unreachable metadata: no resolution without an operator statement (SC-01) | Not applicable | `test_without_metadata_the_host_stops_unless_the_operator_says_there_is_none`, `test_unreachable_metadata_fails_closed`, `test_a_challenge_url_without_a_document_is_not_a_server_without_metadata` | — |
+| Fetch policy: no request to a non-public target for a public MCP URL (SC-01, D11, RFC 9728 section 7.7) | Not applicable | `FetchPolicyTests` (eight tests): loopback, private, IPv6 unique-local, link-local, mixed and unresolvable targets at the challenge, the authorization server, its endpoints and the resolve endpoint; the exception for a local MCP URL. DNS rebinding is not covered (TM-11). | — |
 | Resolve scope not in `scopes_supported` (SC-03) | `test_the_resolve_scope_stays_out_of_scopes_supported` | — | — |
 | Mixed scopes get neither (SC-03) | `test_a_request_that_mixes_the_resolve_scope_with_agent_scopes_gets_neither` | `test_a_token_without_the_resolve_scope_is_refused` | — |
 | Issuer = RFC 9728 `resource`, identical to the MCP URL (SC-01) | **Not conformant** (known deviation P16, see below) | Default path, exact string: `test_metadata_for_another_resource_is_refused`, `test_a_near_miss_of_the_issuer_is_refused` (trailing slash, parent path, host case, explicit port 443, scheme case, percent-encoding), `test_an_issuer_with_upper_case_is_not_lowered_to_match`, `test_identical_metadata_is_accepted` (also an upper-case issuer with identical metadata), `test_the_issuer_string_is_kept_as_given` | Not verified |
 | Resolve endpoint, discovered or configured, on the resource origin; no redirects (SC-04) | — | `test_a_discovered_cross_origin_endpoint_is_refused`, `test_a_configured_cross_origin_endpoint_is_refused`, `test_a_redirect_from_the_resolve_endpoint_is_not_followed` | — |
-| Authorization server metadata: exact `issuer` and S256 listed (D10) | Not applicable | `test_authorization_server_metadata_for_another_issuer_is_refused`, `test_authorization_server_metadata_without_s256_is_refused` | — |
+| Authorization server metadata: exact `issuer` and S256 listed (D10) | Not applicable | `test_authorization_server_metadata_for_another_issuer_is_refused`, `test_authorization_server_metadata_without_s256_is_refused`; the RFC 8414 well-known URL without a terminating slash: `test_rfc_8414_removes_a_terminating_slash_of_the_issuer` | — |
 | Separate client, Authorization Code + PKCE S256, `resource` | `test_an_unregistered_client_gets_no_resolver_code`. PKCE S256 enforcement: not yet tested. | `test_interactive_authorization_materializes_and_reports_no_secret` | E1; observed: E8 |
 | `state` and RFC 9207 `iss` checks (SC-08) | — | `test_a_callback_with_another_state_is_refused`, `test_a_callback_from_another_issuer_is_refused`, `test_a_callback_without_iss_is_refused_when_the_server_advertises_iss`, `test_a_callback_without_iss_is_accepted_when_the_server_does_not_advertise_iss`, `test_a_wrong_iss_is_refused_also_when_the_server_does_not_advertise_iss` | — |
 | Separate token class (SC-05) | `test_the_resolver_token_is_its_own_class_and_short_lived`, `test_a_resolver_token_is_refused_where_an_agent_token_is_expected`, `test_an_agent_token_is_refused_at_the_resolve_endpoint`, `test_a_resolver_token_never_reaches_the_agent_suffix_lookup` | `test_the_agent_token_is_never_sent` | — |

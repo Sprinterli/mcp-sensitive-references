@@ -68,7 +68,8 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
    `WWW-Authenticate` answer of the MCP URL. If the answer names none, use the path-inserted well-known URL,
    with the path and the query. Do not try the origin root. If no metadata comes back, or the server does
    not answer, do not resolve. If you add an operator option for a server that deviates, as the test host
-   does with `--resource` or `--no-resource-metadata`, mark it as non-conformant.
+   does with `--resource`, `--no-resource-metadata` or `--no-discovery-object`, mark the run as
+   non-conformant in its report.
 4. Resolve only a reference with exactly one trusted issuer, and only at the endpoint of that issuer
    (`local-file-1`, L5, L6).
 5. Use a separate resolver client with Authorization Code, PKCE S256, the `resource` parameter and no
@@ -100,6 +101,13 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
 10. Do not use `[::1]` for the loopback redirect URI. Use `127.0.0.1` (SC-20, lesson L-b).
 11. Do not accept a discovery object without all four mandatory members or without the negotiated
     profiles. Do not fill a missing member from a default or from configuration (SC-02).
+12. If the metadata exists but has no discovery object, stop as for an incomplete object. Use operator
+    configuration only after an explicit operator statement, and label the run as not conformant (SC-02).
+13. Before each request to a URL that a server supplied, resolve the host name and refuse a loopback,
+    private, link-local or other non-public address, unless the MCP URL itself is on such an address
+    (SC-01, fetch policy; THREAT-MODEL.md, TM-11). If you can, connect to the checked address.
+14. Build the RFC 8414 well-known URL of an authorization server without a terminating "/" of the issuer
+    path (RFC 8414 section 3.1). Keep a trailing slash of a longer path for the RFC 9728 URL (SC-01).
 
 ## Lessons from a production run (2026-10-26)
 
@@ -122,8 +130,9 @@ URL>' violates the following Content Security Policy directive: "form-action 'se
 been blocked." The operator saw this interactively. Headless Chrome of the same version reproduced it.
 Other browsers were not tested.
 
-- Server: list in `form-action` exactly the loopback origin of this authorization request, and nothing
-  more. Build the origin again from the parsed host and port of the redirect URI of this request, after
+- Server: list in `form-action` the loopback origin of this authorization request, and no other loopback
+  origin. `'self'` can stay (the SC-20 example has `form-action 'self' http://127.0.0.1:53124`). Build the
+  origin again from the parsed host and port of the redirect URI of this request, after
   that URI matched a registered one (SC-20). Never copy the raw redirect URI text into the policy: user
   information or other characters in the URI text can inject policy text.
 - Normative part: SC-20 requires that a `form-action` directive of the consent page permits the exact
@@ -150,7 +159,8 @@ client origin in `form-action` therefore cannot serve a client with the redirect
 ### L-c. A loopback redirect URI can use any port
 
 RFC 8252 section 7.3 requires that the authorization server accepts a loopback redirect URI with any port.
-Exact port matching breaks a host that registers a client again, or reuses a client, with a new port.
+Exact port matching breaks a host that reuses a registration with a new ephemeral port: the registered
+redirect URI holds an earlier port. A new registration with the new redirect URI is not affected.
 
 - Server: compare the redirect URI with the registered one as an exact string (RFC 3986 section 6.2.1).
   For a loopback IP redirect URI, accept any port. Every other part, also the query, must match exactly

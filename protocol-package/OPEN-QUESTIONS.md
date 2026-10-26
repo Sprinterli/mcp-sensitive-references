@@ -96,11 +96,12 @@ server is not a host and does not answer this question. Continues concept item 1
 - Option B: no persistence. After a restart the host needs a new observation.
 
 **Provisional v1 design decision:** A host MAY support durable host provenance (option A). Loss of
-trustworthy provenance MUST fail closed. If a host cannot show that a stored observation is intact,
-current and from its own store, it MUST treat the reference as not observed and MUST NOT resolve it. A
-host that does not persist provenance (option B) conforms, because after a restart it needs a new
-observation. The integrity mechanism of option A stays open. A standard needs a second host implementation
-before it can define one.
+trustworthy provenance MUST fail closed. If a host cannot show that a stored observation is intact and
+from its own store, it MUST treat the reference as not observed and MUST NOT resolve it. A host that does
+not persist provenance (option B) conforms, because after a restart it needs a new observation. The
+integrity mechanism of option A stays open. Freshness also stays open: this package defines no lifetime
+of a stored observation and no binding to an account, a session or a profile version, so it makes no
+normative statement about it. A standard needs a second host implementation before it can define both.
 
 ## OQ-8. Location of the discovery object
 

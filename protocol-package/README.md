@@ -86,7 +86,7 @@ with `local-file-1`. This package is milestone M6.
 | Source | Version |
 |---|---|
 | Concept 0.5 (the root files) | this repository. Unchanged on this branch, except the link in the root `README.md` (commit `f9d34b4`). |
-| The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `8394a02` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`) |
+| The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `fd7a9f2` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`) |
 | The reference server plan, sections 4 to 8 | reference server revision R1 (not public) |
 | The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2. |
 
@@ -99,8 +99,12 @@ profile rows A8, C7, C9, C10, R9, R12, R13 and R14 cite tests of R2.
 This package did not run the reference server tests. It read their names and assertions at the revision
 above. A row that cites a reference server test is "read, not re-run".
 
-The prototype test suite last ran on 2026-10-26 at commit `8394a02` (branch `m7-consolidation`) with
-Python 3.14.8 and MCP Python SDK 2.3.0: 100 tests passed. SDK 1.x was not tested (see
+**Commit hashes.** Each commit hash in this package (for example `f9d34b4` or the tested commit) refers to
+the published history of the branch `m7-consolidation`. That branch is published as it is, without a
+squash, so the hashes stay valid.
+
+The prototype test suite last ran on 2026-10-26 at commit `fd7a9f2` (branch `m7-consolidation`) with
+Python 3.14.8 and MCP Python SDK 2.3.0: 112 tests passed. SDK 1.x was not tested (see
 [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#test-run)).
 
 ## Naming in this package
