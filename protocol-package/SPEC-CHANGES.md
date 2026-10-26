@@ -720,5 +720,6 @@ L-d), the single-use nonce (lesson L-e) and the renewal through refresh (lesson 
 other side sees. They stay guidance in IMPLEMENTATION-GUIDE.md.
 
 **Compatibility.** A server that matches the loopback port exactly must stop doing so for the resolver
-client. A host that uses `[::1]` should change to `127.0.0.1`. The text supports option A of OQ-4, the
+client. A server that compares only some parts of a redirect URI, for example the scheme, the host and
+the path, must compare the whole URI except the loopback port. A host that uses `[::1]` should change to `127.0.0.1`. The text supports option A of OQ-4, the
 provisional v1 design decision.

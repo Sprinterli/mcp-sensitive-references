@@ -56,7 +56,8 @@ redirect URI. RFC 8252 section 7.3 asks the authorization server to accept any l
 registration stores a URI with a port. Consent per user and client then repeats on each new
 authorization.
 
-- Option A: the authorization server matches loopback redirect URIs without the port (RFC 8252 section 7.3).
+- Option A: the authorization server matches loopback IP redirect URIs as exact strings, except the port
+  (RFC 8252 section 7.3, RFC 9700 section 2.1).
   The host keeps one client.
 - Option B: consent per user and software identity (for example `software_id` in RFC 7591).
 - Option C: accept the repeat. The token cache makes it rare (E2: zero consent pages with a cached token).
