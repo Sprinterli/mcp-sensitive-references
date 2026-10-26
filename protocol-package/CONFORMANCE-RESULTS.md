@@ -6,15 +6,15 @@ requirement to the evidence that exists for it on 2026-10-26.
 ## Test run
 
 **Supported, tested configuration (2026-10-26).** Python 3.14.8, MCP Python SDK (`mcp`) 2.3.0,
-`PYTHONPATH=src`, repository commit `TESTED_COMMIT` (branch `m7-consolidation`). This is "the tested
+`PYTHONPATH=src`, repository commit `89f6881` (branch `m7-consolidation`). This is "the tested
 commit" of the whole package. The commit after it records this result and changes no code and no test.
 Commands and results:
 
 ```bash
 cd prototype && PYTHONPATH=src python -m pytest -q -p no:cacheprovider
-# PYTEST_RESULT
+# 88 passed, 51 subtests passed
 cd prototype && PYTHONPATH=src python -m unittest discover -s tests
-# UNITTEST_RESULT
+# Ran 88 tests, OK
 ```
 
 `demo/mcp_sdk_server.py` imports `MCPServer` (SDK 2.x) and falls back to `FastMCP` (SDK 1.x). Its test reads

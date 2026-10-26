@@ -23,9 +23,11 @@ commands gave these results:
 
 ```bash
 cd prototype
-PYTHONPATH=src python -m pytest -q                  # 71 passed, 26 subtests passed
-PYTHONPATH=src python -m unittest discover -s tests # Ran 71 tests, OK
+PYTHONPATH=src python -m pytest -q                  # 88 passed, 51 subtests passed
+PYTHONPATH=src python -m unittest discover -s tests # Ran 88 tests, OK
 ```
+
+The tested commit is recorded in `protocol-package/CONFORMANCE-RESULTS.md` ("Test run").
 
 MCP SDK 1.x was not tested in this run. An earlier version of this file named `mcp` 1.21.0 for the SDK
 probe. That result is older than the 2.x change and was not repeated.
