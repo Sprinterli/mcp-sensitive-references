@@ -1,8 +1,9 @@
 # Profile `local-file-1` (proposed, with implementation evidence)
 
-**Status: proposed change, experimental.** This file states the local-file sink profile as the test host
-implements it (`prototype/demo/mcp_host.py`, `--resolve-into`, and
-`prototype/src/sensitive_references/sink.py`, `ProtectedFileSink`). It replaces nothing in concept 0.5.
+**Status: proposed change, experimental.** This file states the local-file sink profile. The test host
+is one implementation of it (`prototype/demo/mcp_host.py`, `--resolve-into`, and
+`prototype/src/sensitive_references/sink.py`, `ProtectedFileSink`). Where the test host differs from a
+rule, the evidence column says so. It replaces nothing in concept 0.5.
 `SPEC-DRAFT.md`, "Resolution and sinks", and `prototype/EXTENSION-PROFILE-DRAFT.md`, "Local file sink
 profile", stay as they are.
 
@@ -49,7 +50,7 @@ model does not see the file content.
 |---|---|---|
 | L14 | The model-facing result keeps the references. It holds no value. | Host `test_interactive_authorization_materializes_and_reports_no_secret` (`model_content_keeps_reference`, zero sentinels in model content); prototype `test_valid_observed_reference_resolves_to_protected_file_only`. Observed (one operator run, not independently reproduced): E8 to E10, zero sentinel values in model content. |
 | L15 | The report holds no reference, no value and no credential. | Host helper `assert_report_clean`; host `test_the_host_materializes_an_observed_reference` (end to end) |
-| L16 | The sink sends `sink_type: local_file` and a `destination` to the resolve endpoint. The test host sends the absolute path. See SC-10 for the proposed change to a label. | `resolver_client.py`, `OAuthHttpResolver._batch`. The content of `destination` is not asserted by a host test. |
+| L16 | The sink MUST send `sink_type: local_file` and a non-empty `destination` (1 to 4096 characters, no control characters) to the resolve endpoint (SC-10). The test host sends the absolute path. See SC-10 for the proposed change to a label. | `resolver_client.py`, `OAuthHttpResolver._batch`. The content of `destination` is not asserted by a host test. |
 | L17 | If a later action echoes a value that this operation resolved, the host can replace the value with its reference. | Prototype `test_downstream_echo_redaction_uses_only_values_resolved_in_this_operation`. The test host does not run a later action. |
 
 ## 6. Not in this profile

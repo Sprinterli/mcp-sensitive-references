@@ -206,21 +206,33 @@ service or an administration interface on the network of the user. The host send
 network that the server cannot reach itself (RFC 9728 section 7.7).
 
 **Control.** The host applies a fetch policy (SC-01, profile rule D11). Before each request it resolves
-the host name by DNS. It refuses a loopback, private (RFC 1918, RFC 4193), shared (RFC 6598), link-local,
-unspecified, multicast or reserved address, and a name that does not resolve. It checks each endpoint of
-the authorization server metadata when it reads the metadata, also the authorization endpoint that only
-the browser opens. Exception: the MCP URL itself is on such an address (a local test setup). The host
-follows no redirect, so a public URL cannot forward the request to a private one.
+the host name by DNS. It refuses an address that is not globally reachable (the IANA special-purpose
+registries, plus multicast, site-local and an embedded IPv4 address that is not globally reachable), and
+a name that does not resolve. It checks the authorization, token and registration endpoints of the
+authorization server metadata when it reads the metadata, also the authorization endpoint that only the
+browser opens. The host follows no redirect for these requests, and it uses no proxy from the
+environment, so a public URL cannot forward the request to a private one.
+
+There is no automatic exception for a local MCP URL. Local mode needs an explicit operator option, and
+all DNS addresses of the MCP host must be non-public. The host resolves the MCP host once, at
+connection, and keeps that result. In local mode the host allows only the MCP origin and origins that the
+operator configures, and never a link-local address (with 169.254.169.254), an unspecified, a broadcast
+or a multicast address.
 
 **Evidence.** `FetchPolicyTests` in `prototype/tests/test_mcp_host_resolve.py`: loopback, private, IPv6
 unique-local, link-local, mixed and unresolvable targets for a public MCP URL, at the challenge, the
-authorization server, its endpoints and the resolve endpoint; the exception for a local MCP URL; the
-non-public ranges with IPv4-mapped IPv6 addresses. The existing fixtures on 127.0.0.1 use the exception.
+authorization server, its endpoints and the resolve endpoint; the address cases of the definition,
+with IPv4-mapped, IPv4-compatible, NAT64 and 6to4 addresses; local mode only with the operator option,
+not with mixed DNS records of the MCP host, only for the MCP origin and configured origins, never for
+169.254.169.254 or another subnet, and with the DNS answer kept from the connection.
+`NoRedirectNoProxyTests`: no client follows a redirect, and no client uses a proxy from the environment.
+The fixtures on 127.0.0.1 use local mode through the option.
 
 **Residual risk.** The check and the request resolve the name separately. A DNS server that answers with
 a public address first and with a private address second (DNS rebinding) passes the check. The test host
-does not pin the checked address for the connection. A host that pins it closes this gap. The exception
-for a local MCP URL gives a local server the same reach as before.
+does not pin the checked address for the connection. A host that pins it closes this gap. In local mode,
+a malicious local MCP server can reach other paths on its own origin and on the configured origins. The
+operator accepts that when it enables local mode.
 
 ### TM-12. A credential in the query of the MCP URL
 

@@ -97,7 +97,16 @@ endpoint, the same string for both discovery mechanisms.
   metadata URL says that metadata exists, so the operator statement does not apply.
 - `FetchPolicyTests` in `prototype/tests/test_mcp_host_resolve.py`: the fetch policy below, with loopback,
   private, IPv6 unique-local, link-local, mixed and unresolvable targets for an MCP URL on a public
-  address, and the exception for an MCP URL on a non-public address.
+  address (`test_the_non_public_ranges` and `test_the_embedded_ipv4_address` for the address cases).
+  Local mode: `test_a_non_public_mcp_url_gives_no_exception_without_the_operator_option`,
+  `test_local_mode_allows_only_the_mcp_origin_and_configured_origins`,
+  `test_a_loopback_mcp_server_never_reaches_link_local_unspecified_or_multicast`,
+  `test_mixed_dns_records_of_the_mcp_host_give_no_local_mode` and
+  `test_the_host_keeps_the_dns_answer_for_the_mcp_host_from_the_connection`. End to end:
+  `test_without_the_local_option_a_loopback_server_gets_no_request`.
+- `NoRedirectNoProxyTests`: `test_no_client_follows_a_redirect` (metadata, challenge, authorization server
+  metadata, registration, token and resolve endpoint against a real loopback server that answers 302) and
+  `test_no_client_uses_a_proxy_from_the_environment`.
 
 **Proposed text.**
 
@@ -122,16 +131,43 @@ endpoint, the same string for both discovery mechanisms.
 > `resource_metadata` URL and that URL gives no metadata document, the host MUST NOT resolve, also with
 > such an operator statement.
 >
-> Fetch policy (RFC 9728 section 7.7). Before a host sends a request to a URL that a server supplied, the
-> host MUST resolve its host name by DNS. If one address is a loopback, private (RFC 1918, RFC 4193),
-> shared (RFC 6598), link-local, unspecified, multicast or reserved address, or if the name does not
-> resolve, the host MUST NOT send the request and MUST NOT resolve. This applies to the
-> `resource_metadata` URL of the challenge, the metadata URLs of the authorization server, each endpoint
-> in the authorization server metadata, and the resolve endpoint. The host MUST also refuse an
-> authorization endpoint on such an address, although only the browser opens it. Exception: if the
-> MCP URL itself resolves to such an address, the host MAY allow such targets. A host SHOULD connect to
-> the address that it checked, so that DNS rebinding cannot change the target between the check and the
-> request.
+> Fetch policy (RFC 9728 section 7.7). In this entry, an address is *non-public* if it is not globally
+> reachable. That is: the IANA IPv4 Special-Purpose Address Registry or the IANA IPv6 Special-Purpose
+> Address Registry gives the address "Globally Reachable: False", or the address is a multicast address,
+> or an IPv6 site-local address (fec0::/10, RFC 3879). For an IPv4-mapped (::ffff:0:0/96),
+> IPv4-compatible (::/96 without `::` and `::1`), NAT64 (64:ff9b::/96) or 6to4 (2002::/16) address, the
+> host MUST also judge the embedded IPv4 address. If that IPv4 address is non-public, the IPv6 address is
+> non-public.
+>
+> Before a host sends a request to a URL that a server supplied, the host MUST resolve its host name by
+> DNS. If one address is non-public, or if the name does not resolve, the host MUST NOT send the request
+> and MUST NOT resolve. This applies to the `resource_metadata` URL of the challenge, the metadata URLs
+> of the authorization server, the `authorization_endpoint`, `token_endpoint` and `registration_endpoint`
+> of the authorization server metadata, and the resolve endpoint. The host MUST also refuse an
+> authorization endpoint on a non-public address, although only the browser opens it. If a host uses
+> another endpoint of the metadata, for example `jwks_uri`, the same rule applies to it.
+>
+> Local mode. A host MUST NOT make an exception to the fetch policy by itself. A host MAY allow a
+> non-public target only if all these conditions are true:
+>
+> 1. An operator enables local mode explicitly, with a host option for this MCP server.
+> 2. All DNS addresses of the host of the MCP URL are non-public. The host resolves the MCP host once,
+>    when it connects to the MCP server, and keeps that result for the session.
+> 3. The target is on the origin of the MCP URL, or on an origin that the operator configures. The
+>    host compares the scheme, the host and the port exactly.
+>
+> Also in local mode, a host MUST NOT send a request to a link-local address (169.254.0.0/16 with the
+> cloud-metadata address 169.254.169.254, fe80::/10), an unspecified address (0.0.0.0/8, `::`), the
+> limited broadcast address or a multicast address. This applies also to such an address embedded in an
+> IPv6 address.
+>
+> Redirects. The HTTP clients of a host for protected-resource metadata, authorization server metadata,
+> client registration, the token endpoint and the resolve endpoint MUST NOT follow an HTTP redirect. The
+> host treats a 3xx answer as a failed request. A host MUST NOT send these requests through a proxy that
+> does not apply this fetch policy, for example a proxy that an environment variable selects.
+>
+> A host SHOULD connect to the address that it checked, so that DNS rebinding cannot change the target
+> between the check and the request.
 >
 > A server SHOULD NOT put a credential into the query of its MCP URL. The query is part of the issuer
 > identity, so the host sends it to the authorization server as the RFC 8707 `resource` value and keeps
@@ -143,8 +179,17 @@ version of this entry permitted it. In the challenge case that rule is not compa
 section 3.3. In the well-known case RFC 9728 permits it, but this package chooses one issuer string per
 MCP endpoint, and this revision removes the rule.
 
+RFC 9728 section 7.7 says that clients SHOULD take precautions against SSRF, "such as blocking requests to
+internal IP address ranges". The MUST of the fetch policy is a decision of this package, not a requirement
+of RFC 9728. The definition of a non-public address follows the IANA registries, so that two hosts give the
+same answer for the same address. The test host uses the tables of the Python `ipaddress` module
+(`is_global`, Python 3.13 or later) and adds multicast, site-local and the embedded IPv4 address. The
+test host has no automatic exception for a local MCP URL: the option `--allow-local-targets` enables local
+mode, and `--local-origin` adds an exact origin.
+
 The test host implements the fetch policy without the SHOULD: it does not pin the checked address
-(THREAT-MODEL.md, TM-11). DNS rebinding is a residual risk of the test host.
+(THREAT-MODEL.md, TM-11). DNS rebinding is a residual risk of the test host. The test host follows no
+redirect, and it ignores proxy environment variables for these requests.
 
 **Conflict with the MCP authorization specification.** The MCP specification (version 2025-11-25,
 "Protected Resource Metadata Discovery Requirements") tells a client to use the `resource_metadata` URL of
@@ -327,7 +372,8 @@ it does not forbid redirects (F4).
 > applies to a discovered endpoint and to an operator-configured endpoint. A host MUST refuse an endpoint on
 > another origin before it starts an authorization. A host MUST use `https` for the
 > resolve endpoint. A host MAY use `http` only on a loopback address, for tests. A host MUST NOT follow
-> an HTTP redirect from the resolve endpoint or from the token endpoint.
+> an HTTP redirect from the resolve endpoint or from the token endpoint (SC-01, "Redirects", applies the
+> same rule to each request of the discovery and the authorization).
 
 An earlier version of this entry let an operator configure an endpoint on another origin. The token has
 the resource as its audience, and an unauthenticated configuration value is no proof that the other origin
@@ -440,9 +486,16 @@ when the host gets a new token (F6). Two implementations can disagree, and a loo
 > A server MUST enforce the expiry of a resolver access token. A server SHOULD issue resolver access
 > tokens with a lifetime of one hour or less. A server MUST rotate a resolver refresh token on each use and
 > MUST bind it to the client that received it. A host that keeps a resolver token MUST store it so that
-> other operating-system users cannot read it. A host MUST key a cached token by the triple of resource,
+> no other operating-system user can read it. On a POSIX system, the file MUST have owner-only
+> permissions (mode 0600 or stricter), and no access control list entry MUST grant access to another
+> user. On another system, the host MUST use an equivalent store that is bound to the user, for example
+> the credential store of the operating system. This rule does not protect against an administrator or
+> against a process of the same user (THREAT-MODEL.md). A host MUST key a cached token by the triple of resource,
 > authorization server and scope. After a 401 answer from the resolve endpoint, a host MAY get one new
 > token and try once again. After a second 401 answer, the host MUST stop and MUST NOT write the sink.
+
+The test host checks the mode only (`TokenCache`: mode 0600 on write, a file that others can read is
+refused). It does not check access control lists. **The ACL part is not verified by a test.**
 
 **Compatibility.** No conflict. Sender-constrained tokens (DPoP, mTLS) are not part of this text. See OQ-5.
 
@@ -537,9 +590,16 @@ implementations differ from this text in three points:
 
 > A resolve request MUST NOT carry a principal. The server MUST take the principal from the resolver
 > token. A resolve request MUST carry `sink_type` with the value `local_file` for `local-file-1`. A server
-> MUST refuse any other `sink_type` that it does not offer. A host SHOULD send a destination label, not
-> an absolute path. A host MAY send a one-way hash of the path instead. A server MUST use `destination`
-> for audit only. A server MUST NOT return `destination` in an error.
+> MUST refuse any other `sink_type` that it does not offer. A resolve request MUST carry `destination`: a
+> JSON string of 1 to 4096 characters without control characters (U+0000 to U+001F and U+007F). A server
+> MUST answer a request without a valid `destination` with `400 invalid_request` (SC-11). A host SHOULD
+> send a destination label, not an absolute path. A host MAY send a keyed one-way hash of the path
+> instead, as lower-case hexadecimal. A server MUST use `destination` for audit only. A server MUST NOT
+> return `destination` in an error.
+
+The test host always sends a non-empty `destination`, today the absolute path (`OAuthHttpResolver._batch`).
+The limit of 4096 characters is the limit of the reference server (read in its source). No test in this
+repository sends a request without `destination`.
 
 **Compatibility.** A server that requires an absolute path today must accept a label. The host must
 change what it sends. See OQ-6 for the choice between a label and a hash.
@@ -591,32 +651,46 @@ as `unknown`, as the reference server does.
 > A 403 `insufficient_scope` answer SHOULD carry it with `error="insufficient_scope"`. A host MUST treat
 > only 401 as a reason to get a new token. A host MUST NOT show a server message to the model.
 >
-> **Protected data.** In SC-11 and SC-12, protected data is each of these items, in any encoding:
+> **Protected data.** In SC-11 and SC-12, protected data is each of these representations:
 >
-> 1. a plaintext value of a reference, or a part of one;
-> 2. a canonical reference token, or its random component, or a part of 8 or more characters of that
->    component;
-> 3. a hash, a MAC or another value that is computed from item 1 or item 2;
-> 4. the `destination` of the request, or a hash of it;
-> 5. a credential: an access token, a refresh token, an authorization code, a PKCE verifier or a client
->    secret.
+> 1. the complete plaintext value of a reference;
+> 2. a contiguous part of 8 or more characters of that value;
+> 3. a complete canonical reference token;
+> 4. the random component of a canonical token, or a contiguous part of 8 or more characters of it;
+> 5. the `destination` of the request;
+> 6. a credential: an access token, a refresh token, an authorization code, a PKCE verifier or a client
+>    secret;
+> 7. a hash, a MAC or another value that the server computes from items 1 to 6.
 >
-> These items are not protected data: the `error` code, the reason names and counts of `reasons`, the
-> `error_code` of SC-12, the HTTP status, and a `client_id` of a public client.
+> A server MUST NOT put an item into an answer in any of these encodings: the string itself (UTF-8), a
+> JSON string escape, percent-encoding (RFC 3986), base64 or base64url (RFC 4648, with or without
+> padding), and hexadecimal in lower or upper case. For items 2 and 4 (a part), only the string itself and
+> the JSON string escape apply. A validator compares exactly. It ignores case only for hexadecimal. It
+> checks each member name and each string in the answer.
+>
+> These members are not protected data, also if their text matches an item above: the `error` code, the
+> names and the counts of `reasons`, the `error_code` of SC-12, the HTTP status, and the `client_id` of a
+> public client. Item 7 has no general test: a validator finds it only if it knows the function.
 
-Vectors for SC-11 (`sref:email:AbCd...` stands for a complete canonical token; the vectors are text, and
-no test checks them):
+Vectors for SC-11. `sref:email:AbCdEfGhIjKlMnOp` stands for a complete canonical token with the random
+component `AbCdEfGhIjKlMnOp`, and `alice@example.com` for its value. The vectors are text, and no test
+checks them:
 
 | Answer | Verdict |
 |---|---|
 | `{"error": "unresolvable", "reasons": {"unknown": 1}}` | Allowed |
 | `{"error": "invalid_token"}` | Allowed |
-| `{"error": "unresolvable", "reference": "sref:email:AbCd..."}` | Refused (item 2) |
-| `{"error": "unresolvable", "id": "AbCdEfGh"}` | Refused (item 2, a part of the random component) |
-| `{"error": "unresolvable", "ref_sha256": "9f2c..."}` | Refused (item 3) |
-| `{"error": "invalid_request", "destination": "report.txt"}` | Refused (item 4) |
+| `{"error": "unresolvable", "reference": "sref:email:AbCdEfGhIjKlMnOp"}` | Refused (item 3) |
+| `{"error": "unresolvable", "id": "AbCdEfGh"}` | Refused (item 4, a part of 8 characters) |
+| `{"error": "unresolvable", "id": "AbCdEfG"}` | Allowed (a part of 7 characters) |
 | `{"error": "unresolvable", "detail": "no value for alice@example.com"}` | Refused (item 1) |
+| `{"error": "unresolvable", "detail": "alice@ex"}` | Refused (item 2) |
+| `{"error": "unresolvable", "v": "YWxpY2VAZXhhbXBsZS5jb20"}` | Refused (item 1, base64url without padding) |
+| `{"error": "unresolvable", "alice%40example.com": 1}` | Refused (item 1, percent-encoded, in a member name) |
+| `{"error": "invalid_request", "destination": "report.txt"}` | Refused (item 5) |
+| `{"error": "unresolvable", "ref_hmac": "9f2c..."}` | Refused (item 7), if the validator knows the key |
 | `{"error": "invalid_token", "client_id": "c-123"}` | Allowed (public client) |
+| `{"error": "unresolvable"}`, where the value of the reference is the string `unresolvable` | Allowed (the `error` member) |
 
 **Compatibility.** The codes are the codes of the reference server (read in its source). The fake server
 in the host tests uses the same codes for the cases that it plays (400, 401, 409, 413). The fake server
@@ -656,7 +730,8 @@ detect such a refusal (`prototype/README.md`, "Independent MCP test host").
 >   reason in this order: malformed, unknown, revoked, expired.
 > - `reasons` (required): an object. Its keys are a subset of `malformed`, `unknown`, `revoked` and
 >   `expired`. Each value is an integer of 1 or more: the number of refused references with that reason. It
->   MUST have the key of `error_code`. It MUST NOT have other keys.
+>   MUST have the key that is `error_code` without the prefix `reference_`: for `reference_unknown`, the
+>   key `unknown`. It MUST NOT have other keys.
 > - The object MAY have other members. Another member MUST NOT contain protected data (SC-11).
 
 ```json
@@ -681,13 +756,25 @@ detect such a refusal (`prototype/README.md`, "Independent MCP test host").
 ```
 
 Example: `{"error_code": "reference_unknown", "reasons": {"unknown": 1, "revoked": 2}}`. The JSON Schema
-cannot express "`reasons` has the key of `error_code`". That rule stays in the text. The `reasons` shape is
+cannot express "`reasons` has the key of `error_code` without the prefix", or the order rule. These rules
+stay in the text. The `reasons` shape is
 the shape of the `reasons` object of SC-11.
 
-Vectors for SC-12 (text only, no test checks them): `{"error_code": "reference_unknown", "reasons":
-{"unknown": 1}, "hint": "Ask the user for a new reference."}` is allowed. The same object with
-`"reference": "sref:email:AbCd..."` or with `"detail": "no value for alice@example.com"` is refused
-(SC-11, items 2 and 1).
+Vectors for SC-12 (text only; this repository has no validator for this schema, so no test checks them):
+
+| `structuredContent` | Verdict |
+|---|---|
+| `{"error_code": "reference_malformed", "reasons": {"malformed": 1}}` | Allowed |
+| `{"error_code": "reference_unknown", "reasons": {"unknown": 1}, "hint": "Ask the user for a new reference."}` | Allowed |
+| `{"error_code": "reference_revoked", "reasons": {"revoked": 2, "expired": 1}}` | Allowed |
+| `{"error_code": "reference_expired", "reasons": {"expired": 3}}` | Allowed |
+| `{"error_code": "reference_unknown", "reasons": {"revoked": 1}}` | Refused (no key `unknown`) |
+| `{"error_code": "reference_unknown", "reasons": {"reference_unknown": 1}}` | Refused (the key keeps the prefix) |
+| `{"error_code": "reference_revoked", "reasons": {"unknown": 1, "revoked": 2}}` | Refused (the order names `unknown` first) |
+| `{"error_code": "reference_unknown", "reasons": {"unknown": 0}}` | Refused (a count below 1) |
+| `{"error_code": "reference_unknown", "reasons": {}}` | Refused (no key) |
+| `{"error_code": "reference_unknown", "reasons": {"unknown": 1}, "reference": "sref:email:AbCdEfGhIjKlMnOp"}` | Refused (SC-11, item 3) |
+| `{"error_code": "reference_unknown", "reasons": {"unknown": 1}, "detail": "no value for alice@example.com"}` | Refused (SC-11, item 1) |
 
 **Compatibility.** A server that returns `isError: false` today must change for negotiated sessions only.
 Legacy sessions keep their behaviour. The test host does not check this schema. No test in this repository
@@ -879,11 +966,20 @@ a host and a server from completing the flow together (IMPLEMENTATION-GUIDE.md, 
 > authorization server MUST accept the IPv4 loopback literal `127.0.0.1` as the host of a
 > loopback redirect URI. A host SHOULD use `127.0.0.1`. An authorization server MAY refuse the IPv6
 > literal `[::1]`. If it refuses it, it MUST refuse it at client registration or at the authorization
-> request, before the consent page. If the consent page carries a Content Security Policy with a
-> `form-action` directive, that directive MUST permit the exact origin (scheme, host and port) of the
-> matched loopback redirect URI, for example `form-action 'self' http://127.0.0.1:53124`. Otherwise the
-> policy of the consent page MUST NOT have a `form-action` directive. The same rule applies to every other
-> response of the authorization server in the redirect chain after the consent post.
+> request, before the consent page. The consent page MUST carry a Content Security Policy with a
+> `form-action` directive. That directive MUST contain the origin of the authorization server and the
+> exact origin (scheme, host and port) of the validated loopback redirect URI of this request, for example
+> `form-action 'self' http://127.0.0.1:53124`. It MUST NOT contain another loopback origin. If the server
+> cannot build this policy, it MUST refuse the authorization request before it shows the consent page.
+> The same rule applies to every other response of the authorization server in the redirect chain after
+> the consent post.
+
+**A restriction of RFC 8252.** RFC 8252 section 7.3 counts `[::1]` as a loopback IP redirect URI and
+recommends that a native client tries both the IPv4 and the IPv6 loopback interface. The permission to
+refuse `[::1]` is a restriction of this package, not a rule of RFC 8252. The reason is lesson L-b: in the
+tested browser, a policy that listed `[::1]` did not let the redirect through. Known limit: a device that
+has only an IPv6 loopback interface cannot complete the flow at a server that refuses `[::1]`. A later
+version must remove the permission when browsers deliver the redirect to `[::1]`.
 
 **Why this text is normative.** Each sentence describes behaviour that the other side depends on. A host
 that keeps one client and uses a new port each time fails at a server that matches the port. A host that

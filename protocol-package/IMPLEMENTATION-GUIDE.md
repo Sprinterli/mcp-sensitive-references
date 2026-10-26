@@ -103,9 +103,11 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
     profiles. Do not fill a missing member from a default or from configuration (SC-02).
 12. If the metadata exists but has no discovery object, stop as for an incomplete object. Use operator
     configuration only after an explicit operator statement, and label the run as not conformant (SC-02).
-13. Before each request to a URL that a server supplied, resolve the host name and refuse a loopback,
-    private, link-local or other non-public address, unless the MCP URL itself is on such an address
-    (SC-01, fetch policy; THREAT-MODEL.md, TM-11). If you can, connect to the checked address.
+13. Before each request to a URL that a server supplied, resolve the host name and refuse an address
+    that is not globally reachable (SC-01, fetch policy; THREAT-MODEL.md, TM-11). Do not make an
+    automatic exception for a local MCP URL. Allow local targets only after an explicit operator option,
+    and only for the MCP origin and configured origins. Do not follow redirects, and do not use a proxy
+    from the environment for these requests. If you can, connect to the checked address.
 14. Build the RFC 8414 well-known URL of an authorization server without a terminating "/" of the issuer
     path (RFC 8414 section 3.1). Keep a trailing slash of a longer path for the RFC 9728 URL (SC-01).
 
@@ -135,8 +137,10 @@ Other browsers were not tested.
   origin again from the parsed host and port of the redirect URI of this request, after
   that URI matched a registered one (SC-20). Never copy the raw redirect URI text into the policy: user
   information or other characters in the URI text can inject policy text.
-- Normative part: SC-20 requires that a `form-action` directive of the consent page permits the exact
-  origin of the matched loopback redirect URI, or that the page has no `form-action` directive. A test can
+- Normative part: SC-20 requires a `form-action` directive on the consent page. It must contain the
+  origin of the authorization server and the exact origin of the validated loopback redirect URI, and no
+  other loopback origin. If the server cannot build that policy, it refuses the request before the consent
+  page. A test can
   check this in the response headers. Whether a browser then delivers the redirect stays guidance, because
   only one browser was tested. The way to build the policy text also stays guidance.
 
@@ -154,7 +158,9 @@ client origin in `form-action` therefore cannot serve a client with the redirect
   and port (lesson L-a). Accept `127.0.0.1`. Refuse `[::1]` before the consent page, at registration or at
   the authorization request, with a clear error.
 - Normative part: SC-20 requires that a server accepts `127.0.0.1` and recommends that a host uses it. A
-  host and a server must agree on one loopback literal, so this is an interoperability rule.
+  host and a server must agree on one loopback literal, so this is an interoperability rule. The
+  permission to refuse `[::1]` restricts RFC 8252 section 7.3. Known limit: a device with only an IPv6
+  loopback interface cannot complete the flow at such a server.
 
 ### L-c. A loopback redirect URI can use any port
 
