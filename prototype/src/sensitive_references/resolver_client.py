@@ -6,7 +6,8 @@ loopback redirect and dynamic client registration), and calls the resolve
 endpoint for one issuer. Nothing here is specific to one server.
 
 The resolver token is a second credential. It is never the MCP agent token, it
-goes only to the configured resolve endpoint and the authorization server, and
+goes only to the resolve endpoint (on the origin of the resource) and the
+authorization server, and
 no error text of this module holds a token, a reference or a value.
 """
 
@@ -129,10 +130,34 @@ def _form(url: str, fields: dict[str, str], timeout: float) -> tuple[int, Any]:
 
 
 def _well_known(url: str, suffix: str, *, insert: bool) -> str:
+    """The well-known URL of ``url``.
+
+    ``insert``: RFC 9728 section 3.1 and RFC 8414 section 3.1. The well-known
+    string goes between the host and the path and query. Only a path of "/"
+    alone is removed; the query and a trailing slash of a longer path stay.
+    Else OpenID Connect Discovery 1.0 section 4: append to the path.
+    """
     parts = urlsplit(url)
-    path = parts.path.rstrip("/")
-    full = f"/.well-known/{suffix}{path}" if insert else f"{path}/.well-known/{suffix}"
-    return urlunsplit((parts.scheme, parts.netloc, full, "", ""))
+    if insert:
+        path = "" if parts.path == "/" else parts.path
+        return urlunsplit((parts.scheme, parts.netloc, f"/.well-known/{suffix}{path}", parts.query, ""))
+    return urlunsplit((parts.scheme, parts.netloc, f"{parts.path.rstrip('/')}/.well-known/{suffix}", "", ""))
+
+
+def protected_resource_metadata_url(resource: str) -> str:
+    """The path-inserted RFC 9728 well-known URL of ``resource`` (section 3.1)."""
+    return _well_known(resource, "oauth-protected-resource", insert=True)
+
+
+def require_resource_identifier(resource: str) -> str:
+    """A resource identifier as RFC 9728 section 1.2 allows it: secure, without a fragment.
+
+    The string is returned as given. User information is refused, because it is a credential.
+    """
+    require_secure(resource, "protected resource")
+    if "#" in resource:
+        raise ResolverClientError("invalid_resource", "the protected-resource identifier holds a fragment")
+    return resource
 
 
 @dataclass(frozen=True)
@@ -195,20 +220,22 @@ def discover_protected_resource(resource: str, *, use_challenge: bool = True,
                                 timeout: float = 10.0) -> ProtectedResource | None:
     """RFC 9728 metadata of ``resource``.
 
-    The host uses two mechanisms only: the path-inserted well-known URL of
-    ``resource`` (section 3.1), and, if that gives no metadata and
+    The order is the order of the MCP authorization specification. First, if
     ``use_challenge`` is set, the ``resource_metadata`` URL of the 401 answer of
-    ``resource`` itself (section 5.1). It tries no other URL, also not the origin
-    root. In both cases the metadata ``resource`` must be identical to
-    ``resource`` as an exact string (section 3.3). Returns None when no metadata
-    exists. A present discovery object that is malformed is refused.
+    ``resource`` itself (section 5.1). If the answer names a URL, the host uses
+    that URL only. Else the path-inserted well-known URL of ``resource``
+    (section 3.1). The host tries no other URL, also not the origin root (SC-01
+    differs here from the MCP fallback). The metadata ``resource`` must be
+    identical to ``resource`` as an exact string (section 3.3). Returns None
+    when no metadata exists. A present discovery object that is malformed is
+    refused.
     """
-    require_secure(resource, "protected resource")
-    document = _metadata_document(_well_known(resource, "oauth-protected-resource", insert=True), timeout)
-    if document is None and use_challenge:
-        named = challenge_metadata_url(resource, timeout=timeout)
-        if named is not None:
-            document = _metadata_document(require_secure(named, "protected-resource metadata"), timeout)
+    require_resource_identifier(resource)
+    named = challenge_metadata_url(resource, timeout=timeout) if use_challenge else None
+    if named is not None:
+        document = _metadata_document(require_secure(named, "protected-resource metadata"), timeout)
+    else:
+        document = _metadata_document(protected_resource_metadata_url(resource), timeout)
     if document is None:
         return None
     if document.get("resource") != resource:
@@ -250,9 +277,10 @@ def discover_authorization_server(issuer: str, *, timeout: float = 10.0) -> Auth
             continue
         if document.get("issuer") != issuer:
             raise ResolverClientError("wrong_authorization_server", "the authorization server metadata names another issuer")
+        # Absent, malformed or without S256: no proof of PKCE support, so no authorization.
         methods = document.get("code_challenge_methods_supported")
-        if methods is not None and "S256" not in methods:
-            raise ResolverClientError("no_pkce_s256", "the authorization server does not support PKCE S256")
+        if not isinstance(methods, list) or "S256" not in methods:
+            raise ResolverClientError("no_pkce_s256", "the authorization server does not advertise PKCE S256")
         return AuthorizationServer(
             issuer=issuer,
             authorization_endpoint=require_secure(document["authorization_endpoint"], "authorization endpoint"),

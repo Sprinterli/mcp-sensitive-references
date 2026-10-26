@@ -99,19 +99,29 @@ writes `--materialize-template` (default `{ref}` and a newline) once for each re
 has exactly one trusted issuer. It writes through `ProtectedFileSink`, so a failure leaves the file as it was.
 
 - The host declares both profiles. It resolves only if both are in the negotiated intersection.
-- The host reads the RFC 9728 protected-resource metadata of the MCP URL from two places only: the path-inserted
-  well-known URL, or the `resource_metadata` URL in the `WWW-Authenticate` header of the 401 answer of the MCP URL
-  to a request without a token. It never tries the origin root. The metadata `resource` must be the MCP URL as an
-  exact string.
+- The host reads the RFC 9728 protected-resource metadata of the MCP URL in the order of the MCP authorization
+  specification, with one difference. First it sends a request without a token to the MCP URL. If the 401 answer
+  names a `resource_metadata` URL in `WWW-Authenticate`, the host reads that URL only. Else it reads the
+  path-inserted well-known URL (RFC 9728 section 3.1). The query and a trailing slash of the MCP URL stay in that
+  URL. The host never tries the origin root, which the MCP specification allows as a last fallback (SC-01). The
+  metadata `resource` must be the MCP URL as an exact string. The issuer is the MCP URL exactly as given. A URL
+  with user information or a fragment stops the host. The report shows the URL without user information and query.
 - If the metadata holds the provisional `sensitive_references` object, the object must have `resolve_endpoint`,
   `resolve_scope`, `resolver_profiles` and `sink_profiles` with the right types, and must list both profiles.
   Otherwise the host stops, also when an option is set. The endpoint and the scope come from the object, unless
-  `--resolve-endpoint` or `--resolve-scope` replaces them. A discovered endpoint must be on the origin of the
-  resource.
-- **Configuration mode.** Without the object, the host needs `--resolve-endpoint`, and the scope is
-  `--resolve-scope`, else `sensitive-references.resolve`. Without metadata, it also needs `--authorization-server`.
-  Configuration mode does not claim SC-02 conformance (`protocol-package/SPEC-CHANGES.md`). `--resource` (a
-  parent resource, for a server with the known deviation P16) does not claim SC-01 conformance.
+  `--resolve-endpoint` or `--resolve-scope` replaces them. The endpoint must be on the origin of the resource, also
+  when it is configured (SC-04). The host refuses an endpoint on another origin.
+- The authorization server metadata must name the configured or discovered issuer and must list `S256` in
+  `code_challenge_methods_supported`. If the member is absent or malformed, the host stops.
+- **Without metadata the host stops.** This applies when no metadata exists and when the server does not answer.
+  If the server publishes no RFC 9728 metadata, the operator can set `--no-resource-metadata`. Then the host needs
+  `--resolve-endpoint` and `--authorization-server`. **This mode is not conformant to SC-01 or SC-02**
+  (`protocol-package/SPEC-CHANGES.md`): the host checks no resource identity and no discovery object. The host still
+  checks that the endpoint is on the origin of the MCP URL.
+- **Configuration mode with metadata.** If the metadata has no `sensitive_references` object, the host needs
+  `--resolve-endpoint`, and the scope is `--resolve-scope`, else `sensitive-references.resolve`. This mode checks
+  SC-01 but does not claim SC-02 conformance. `--resource` (a parent resource, for a server with the known
+  deviation P16) does not claim SC-01 conformance.
 - The resolver token is a second credential. It comes from the cache file (`--resolver-token-cache`, mode 0600),
   from a refresh, or from a new authorization: dynamic client registration, Authorization Code + PKCE S256, the
   `resource` indicator, the resolve scope only, and a redirect to `127.0.0.1`. The host opens the browser and waits
@@ -128,7 +138,7 @@ export SREF_SENTINELS='a@example.com' # values that must reach the file, never t
 python3 demo/mcp_host.py --url https://server.example/mcp --extension-id <identifier> \
     --tool <read tool> --arguments '{...}' --expect-negotiation \
     --resolve-into ./out.txt --resolver-token-cache ~/.config/sref/resolver-tokens.json
-# Optional: --resolve-endpoint URL --resolve-scope SCOPE --authorization-server ISSUER
+# Optional: --resolve-endpoint URL --resolve-scope SCOPE --authorization-server ISSUER --no-resource-metadata
 #           --resolver-client-id ID --materialize-template 'To: {ref}\n' --no-browser --no-interactive
 ```
 

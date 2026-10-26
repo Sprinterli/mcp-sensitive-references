@@ -10,8 +10,9 @@ What it checks, per tool call:
 * negotiation: the server advertised the extension with a version the host
   declared, and the host records observations only then;
 * provenance: each canonical token is recorded with its issuer and the time it
-  was first seen. The issuer is the server URL the host connected to, without
-  credentials, query or fragment. This identity is experimental: it is a
+  was first seen. The issuer is the server URL the host connected to, exactly
+  as given (a URL with user information or a fragment is refused). The report
+  shows it without query. This identity is experimental: it is a
   locator, not an independently verified issuer identity (a TLS origin at best).
   Which identity a host should record is open; the resource identifier of
   RFC 9728 is one candidate;
@@ -38,11 +39,13 @@ endpoint of that issuer (``oauth-resolver-1``, ``local-file-1``):
 * it resolves only when both profiles are in the negotiated intersection;
 * the resolve endpoint comes from ``--resolve-endpoint`` or from the
   ``sensitive_references`` field of the RFC 9728 protected-resource metadata
-  (a provisional name; a discovered endpoint must be on the resource origin).
-  A present field must hold all four members and both profiles, else the host
-  stops. The metadata comes from the path-inserted well-known URL, or from the
-  ``resource_metadata`` URL of the 401 answer of the MCP URL; never from the
-  origin root;
+  (a provisional name). A discovered or configured endpoint must be on the
+  resource origin. A present field must hold all four members and both
+  profiles, else the host stops. The metadata comes first from the
+  ``resource_metadata`` URL of the 401 answer of the MCP URL, else from the
+  path-inserted well-known URL; never from the origin root. Without metadata
+  the host stops, unless ``--no-resource-metadata`` says that the server has
+  none (configuration mode, not SC-01 or SC-02 conformant);
 * the resolver token is a second credential: a cached token (mode 0600), a
   refreshed one, or a new Authorization Code + PKCE S256 authorization with
   dynamic client registration and a 127.0.0.1 loopback redirect. The agent
@@ -112,13 +115,24 @@ DEFAULT_REFUSAL = r"(?i)reference.{0,3}(malformed|unknown|revoked|expired|stale|
 _REFUSAL_FIELDS = ("error_code", "code", "error")
 
 
-def public_endpoint(url: str) -> str:
-    """The URL as a report and an issuer may hold it: no user information, no
-    query and no fragment, where a token or a password can sit.
+def issuer_identity(url: str) -> str:
+    """The issuer for ``url``: the URL exactly as given (SC-01, RFC 9728 section 3.3).
 
-    Every other character stays as given: the issuer is compared as an exact
-    string (SC-01), so the host does not change the case of the host, a default
-    port or a trailing slash.
+    The host does not change the case, a default port, a trailing slash or the
+    query. A URL with user information or a fragment cannot be a resource
+    identifier, so the host refuses it.
+    """
+    parts = urlsplit(url)
+    if "#" in url or parts.username is not None or parts.password is not None:
+        raise ValueError("the URL holds user information or a fragment")
+    return url
+
+
+def public_endpoint(url: str) -> str:
+    """The URL as a report may hold it: no user information, no query and no
+    fragment, where a token or a password can sit. Not an issuer identity.
+
+    Every other character stays as given.
     """
     head = url.split("#", 1)[0].split("?", 1)[0]
     scheme, separator, rest = head.partition("://")
@@ -255,6 +269,9 @@ class ResolveConfig:
     client_id: str | None = None
     token_cache: str | None = None
     interactive: bool = True
+    #: The operator says that the server publishes no RFC 9728 metadata. Only then
+    #: does the host go on without metadata (configuration mode, not SC-01 or SC-02 conformant).
+    no_metadata: bool = False
     open_browser: Any = None
     authorization_timeout: float = 300.0
     timeout: float = 30.0
@@ -290,8 +307,11 @@ def _resolver_setup(issuer: str, config: ResolveConfig, mcp_url: str | None = No
     endpoint or the scope, but never excuses a bad object. Without the object,
     only configuration mode is left: the endpoint must be configured, and the
     scope comes from configuration, else the default. Configuration mode does
-    not claim SC-02 conformance. A discovered endpoint must be on the origin of
-    the protected resource; the metadata must name ``issuer`` itself.
+    not claim SC-02 conformance. Without metadata (none found, or the server
+    did not answer) the host stops, unless ``config.no_metadata`` is set; then
+    SC-01 is not checked either. The endpoint, discovered or configured, must
+    be on the origin of the protected resource (SC-04); the metadata must name
+    ``issuer`` itself.
     """
     # The WWW-Authenticate mechanism names metadata for the URL the request went to,
     # so it applies only when the issuer is the MCP URL itself.
@@ -299,10 +319,13 @@ def _resolver_setup(issuer: str, config: ResolveConfig, mcp_url: str | None = No
     try:
         metadata = discover_protected_resource(issuer, use_challenge=use_challenge, timeout=config.timeout)
     except ResolverClientError as error:
-        # Without metadata the host can still go on when both values are configured.
-        if error.code != "unreachable" or not (config.resolve_endpoint and config.authorization_server):
+        # An unreachable server is not a server without metadata: fail closed.
+        if error.code != "unreachable" or not config.no_metadata:
             raise
         metadata = None
+    if metadata is None and not config.no_metadata:
+        raise ResolverClientError("no_metadata", "no protected-resource metadata; set --no-resource-metadata "
+                                                 "only for a server that publishes none")
     discovered = metadata is not None and metadata.discovery
     if discovered:
         if RESOLVER_PROFILE not in metadata.resolver_profiles:
@@ -313,10 +336,11 @@ def _resolver_setup(issuer: str, config: ResolveConfig, mcp_url: str | None = No
     if endpoint is None:
         if not discovered:
             raise ResolverClientError("no_resolve_endpoint", "no resolve endpoint configured or discovered")
-        if origin(metadata.resolve_endpoint) != origin(issuer):
-            raise ResolverClientError("cross_origin_endpoint",
-                                      "the discovered resolve endpoint is not on the origin of the protected resource")
         endpoint = metadata.resolve_endpoint
+    # The resolver token has the resource as audience: it goes to no other origin (SC-04).
+    if origin(endpoint) != origin(issuer):
+        raise ResolverClientError("cross_origin_endpoint",
+                                  "the resolve endpoint is not on the origin of the protected resource")
     require_secure(endpoint, "resolve endpoint")
     server = config.authorization_server
     if server is None:
@@ -412,15 +436,18 @@ async def run(args: argparse.Namespace) -> HostReport:
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     sentinels = [v.strip() for v in os.environ.get(args.sentinels_env, "").split(",") if v.strip()]
     declared = not args.legacy
-    # Only the public part of the URL leaves this function: in the report and as the issuer.
-    endpoint = public_endpoint(args.url)
-    report = HostReport(server=endpoint, declared=declared)
-    # The issuer is the protected resource. By default that is the MCP URL; a
-    # server that publishes its RFC 9728 metadata for a parent resource is
-    # named with --resource, and the MCP URL must lie under it.
-    issuer = endpoint
-    if getattr(args, "resource", None):
-        issuer = public_endpoint(args.resource)
+    # The report holds the public part of the URL only.
+    report = HostReport(server=public_endpoint(args.url), declared=declared)
+    # The issuer is the protected resource. By default that is the MCP URL as
+    # given; a server that publishes its RFC 9728 metadata for a parent
+    # resource is named with --resource, and the MCP URL must lie under it.
+    try:
+        endpoint = issuer_identity(args.url)
+        issuer = issuer_identity(args.resource) if getattr(args, "resource", None) else endpoint
+    except ValueError:
+        report.failures.append("the MCP URL or the resource holds user information or a fragment")
+        return report
+    if issuer != endpoint:
         if not _within(endpoint, issuer):
             report.failures.append("the MCP URL is not under the configured resource")
             return report
@@ -509,7 +536,7 @@ def resolve_config(args: argparse.Namespace) -> ResolveConfig:
         resolve_endpoint=args.resolve_endpoint, resolve_scope=args.resolve_scope,
         authorization_server=args.authorization_server, client_id=args.resolver_client_id,
         token_cache=args.resolver_token_cache, interactive=not args.no_interactive,
-        open_browser=_print_url if args.no_browser else open_browser,
+        no_metadata=args.no_resource_metadata, open_browser=_print_url if args.no_browser else open_browser,
         authorization_timeout=args.authorization_timeout, timeout=args.timeout)
 
 
@@ -544,6 +571,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     resolve.add_argument("--resolve-endpoint", help="the resolve endpoint (default: protected-resource metadata)")
     resolve.add_argument("--resource", help="the protected-resource identifier (RFC 9728) when the server publishes "
                                             "its metadata for a parent of the MCP URL; default: the MCP URL")
+    resolve.add_argument("--no-resource-metadata", action="store_true",
+                         help="the server publishes no RFC 9728 metadata: go on with --resolve-endpoint and "
+                              "--authorization-server (configuration mode, not SC-01 or SC-02 conformant)")
     resolve.add_argument("--resolve-scope", help="the resolve scope (default: the discovery object; without "
                                                  f"one, configuration mode: {RESOLVE_SCOPE})")
     resolve.add_argument("--authorization-server",

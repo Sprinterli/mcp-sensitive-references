@@ -27,7 +27,7 @@ condition with ``False`` (or ``True``), ran this module, and restored the file:
   [test_a_discovery_object_without_the_negotiated_profiles_is_refused]; the checks skipped when an
   endpoint is configured [test_a_configured_endpoint_does_not_excuse_a_bad_discovery_object]; the
   discovered scope ignored [test_the_endpoint_and_scope_come_from_discovery];
-* ``public_endpoint``: the host lower-cased [test_the_issuer_string_is_kept_as_given];
+* ``issuer_identity`` (round 1: ``public_endpoint``): the host lower-cased [test_the_issuer_string_is_kept_as_given];
 * ``OAuthResolverCredential``: an absent ``iss`` accepted although advertised
   [test_a_callback_without_iss_is_refused_when_the_server_advertises_iss];
 * ``_resolver_setup``: the origin check of a discovered endpoint [test_a_discovered_cross_origin_endpoint_is_refused];
@@ -42,6 +42,26 @@ condition with ``False`` (or ``True``), ran this module, and restored the file:
 * ``materialize``: the profile check [test_without_the_negotiated_profiles_nothing_is_sent,
   test_without_advertised_profiles_the_host_does_not_resolve];
   the trusted-issuer filter [test_an_ambiguous_reference_is_not_sent];
+
+Second review round (script ``fix2-probe/mutate2.py`` outside the repository; 13 of 13 killed):
+
+* ``_well_known``: the query dropped, or a trailing slash removed
+  [test_the_well_known_url_follows_rfc_9728_section_3_1, test_a_resource_with_a_query_or_a_trailing_slash_keeps_it];
+* ``discover_protected_resource``: the old order (well-known URL first)
+  [test_the_challenge_comes_before_the_well_known_url]; the fragment check removed
+  [test_a_resource_with_a_fragment_is_refused]; an empty ``resolve_scope`` or ``resolve_endpoint`` accepted
+  [test_a_discovery_object_with_a_malformed_member_is_refused];
+* ``discover_authorization_server``: an absent ``code_challenge_methods_supported`` accepted
+  [test_authorization_server_metadata_without_s256_is_refused];
+* ``_resolver_setup``: ``use_challenge = True`` [test_a_parent_resource_gets_no_challenge_probe_of_the_mcp_url];
+  no metadata accepted without the flag [test_without_metadata_the_host_stops_unless_the_operator_says_there_is_none,
+  test_root_metadata_is_not_a_fallback_for_a_resource_with_a_path]; unreachable metadata accepted without the
+  flag [test_unreachable_metadata_fails_closed]; the origin check for a discovered endpoint only
+  [test_a_configured_cross_origin_endpoint_is_refused];
+* ``issuer_identity``: user information and a fragment accepted
+  [test_a_url_with_user_information_or_a_fragment_is_no_issuer]; the query removed
+  [test_the_issuer_string_is_kept_as_given];
+* ``resolve_config``: ``--no-resource-metadata`` ignored [test_the_options_map_to_the_configuration].
 """
 
 from __future__ import annotations
@@ -100,6 +120,8 @@ class FakeServer:
         self.mode: set[str] = set()
         self.elsewhere: list = []
         self.get_paths: list[str] = []
+        self.get_targets: list[str] = []          # path and query of each GET
+        self.post_paths: list[str] = []
         self.mcp_posts = 0
         self.challenge_resource: str | None = None
         self.challenge_url: str | None = None
@@ -174,7 +196,9 @@ class FakeServer:
                 self._record()
                 parts = urlsplit(self.path)
                 fake.get_paths.append(parts.path)
-                if parts.path == "/.well-known/oauth-protected-resource/mcp" and "no_path_metadata" not in fake.mode:
+                fake.get_targets.append(self.path)
+                if (parts.path.startswith("/.well-known/oauth-protected-resource/")
+                        and "no_path_metadata" not in fake.mode):
                     return self._send(200, fake.metadata())
                 if parts.path == "/.well-known/oauth-protected-resource" and "root_metadata" in fake.mode:
                     # Metadata for the MCP URL at the origin root: RFC 9728 does not let a client look here.
@@ -182,9 +206,14 @@ class FakeServer:
                 if parts.path == "/challenge-metadata":
                     return self._send(200, fake.metadata(fake.challenge_resource))
                 if parts.path == "/.well-known/oauth-authorization-server":
-                    doc = {"issuer": fake.base, "authorization_endpoint": f"{fake.base}/authorize",
+                    doc = {"issuer": "http://127.0.0.1:1" if "as_wrong_issuer" in fake.mode else fake.base,
+                           "authorization_endpoint": f"{fake.base}/authorize",
                            "token_endpoint": f"{fake.base}/token", "registration_endpoint": f"{fake.base}/register",
                            "code_challenge_methods_supported": ["S256"]}
+                    for mode, methods in (("pkce_absent", None), ("pkce_plain", ["plain"]), ("pkce_malformed", "S256")):
+                        if mode in fake.mode:
+                            doc["code_challenge_methods_supported"] = methods
+                    doc = {k: v for k, v in doc.items() if v is not None}
                     if "no_iss_support" not in fake.mode:
                         doc["authorization_response_iss_parameter_supported"] = True
                     return self._send(200, doc)
@@ -210,6 +239,7 @@ class FakeServer:
             def do_POST(self):  # noqa: N802
                 self._record()
                 parts = urlsplit(self.path)
+                fake.post_paths.append(parts.path)
                 raw = self._body()
                 if parts.path == "/register":
                     doc = json.loads(raw)
@@ -244,6 +274,9 @@ class FakeServer:
                 if parts.path == "/resolve":
                     if "redirect" in fake.mode:
                         return self._send(302, headers={"Location": f"{fake.base}/elsewhere"})
+                    if "resolve_hangup" in fake.mode:
+                        self.close_connection = True  # no answer at all: the server is unreachable
+                        return
                     auth = self.headers.get("Authorization", "")
                     token = auth.removeprefix("Bearer ")
                     if ("always_401" in fake.mode or not auth.startswith("Bearer ")
@@ -305,10 +338,10 @@ class MaterializeTests(unittest.TestCase):
         values.update(overrides)
         return ResolveConfig(**values)
 
-    def run_materialize(self, refs=None, agreed=AGREED, **overrides):
-        return materialize(issuer=self.server.issuer, references=refs or [self.alice, self.bob],
+    def run_materialize(self, refs=None, agreed=AGREED, issuer=None, mcp_url=None, **overrides):
+        return materialize(issuer=issuer or self.server.issuer, references=refs or [self.alice, self.bob],
                            provenance=self.store, agreed=agreed, config=self.config(**overrides),
-                           sentinels=self.sentinels, agent_token=AGENT_TOKEN)
+                           sentinels=self.sentinels, agent_token=AGENT_TOKEN, mcp_url=mcp_url)
 
     def cache_entry(self, **entry):
         TokenCache(self.cache).store(json.dumps([self.server.issuer, self.server.base, SCOPE]),
@@ -372,8 +405,9 @@ class MaterializeTests(unittest.TestCase):
         self.assertTrue(report.materialized, report.failure)
         self.assertEqual(self.server.authorize_requests[0]["scope"], "custom.resolve")
         self.assertEqual(len(self.server.resolve_batches), 1)
-        # Mechanism 1 of RFC 9728 found the metadata: no probe of the MCP URL, no other URL.
-        self.assertEqual(self.server.mcp_posts, 0)
+        # MCP order: one probe of the MCP URL without a challenge, then the path-inserted URL, no other URL.
+        self.assertEqual(self.server.mcp_posts, 1)
+        self.assertIn("/.well-known/oauth-protected-resource/mcp", self.server.get_paths)
         self.assertNotIn("/.well-known/oauth-protected-resource", self.server.get_paths)
 
     def test_more_than_100_references_go_in_batches_of_100(self):
@@ -555,9 +589,17 @@ class MaterializeTests(unittest.TestCase):
         self.assert_nothing_written(report)
         self.assertEqual(report.failure, "resolution failed: cross_origin_endpoint")
 
+    def test_a_configured_cross_origin_endpoint_is_refused(self):
+        # SC-04: an operator-configured endpoint on another origin gets no resolver token either.
+        report = self.run_materialize(resolve_endpoint="http://127.0.0.1:1/resolve")
+        self.assert_nothing_written(report)
+        self.assertEqual(report.failure, "resolution failed: cross_origin_endpoint")
+        self.assertEqual((self.server.authorize_requests, self.server.resolve_batches), ([], []))
+
     def test_an_unreachable_resolve_endpoint_writes_nothing(self):
         self.dest.write_text("before\n")
-        report = self.run_materialize(resolve_endpoint="http://127.0.0.1:1/resolve")
+        self.server.mode.add("resolve_hangup")
+        report = self.run_materialize()
         self.assert_nothing_written(report, before="before\n")
         self.assertEqual(report.failure, "resolution failed: unreachable")
 
@@ -580,6 +622,67 @@ class MaterializeTests(unittest.TestCase):
         self.assertIn("/challenge-metadata", self.server.get_paths)
         self.assertNotIn("/.well-known/oauth-protected-resource", self.server.get_paths)
 
+    def test_the_challenge_comes_before_the_well_known_url(self):
+        # MCP order: the resource_metadata URL of the challenge first. The path-inserted
+        # document here names another resource; the host must not read it.
+        self.server.mode.add("challenge")
+        self.server.prm_resource = "https://other.example/mcp"
+        self.server.challenge_resource = self.server.issuer
+        report = self.run_materialize()
+        self.assertTrue(report.materialized, report.failure)
+        self.assertNotIn("/.well-known/oauth-protected-resource/mcp", self.server.get_paths)
+
+    def test_a_parent_resource_gets_no_challenge_probe_of_the_mcp_url(self):
+        # The challenge names metadata for the MCP URL, not for a parent resource: no probe at all.
+        self.server.mode |= {"challenge", "root_metadata"}
+        self.server.prm_resource = self.server.base
+        self.store = ProvenanceStore()
+        self.observe(self.alice, self.bob, issuer=self.server.base)
+        report = self.run_materialize(issuer=self.server.base, mcp_url=self.server.issuer)
+        self.assertTrue(report.materialized, report.failure)
+        self.assertEqual(self.server.mcp_posts, 0)
+        self.assertNotIn("/", self.server.post_paths)
+
+    def test_without_metadata_the_host_stops_unless_the_operator_says_there_is_none(self):
+        self.server.mode.add("no_path_metadata")
+        configured = dict(resolve_endpoint=f"{self.server.base}/resolve", authorization_server=self.server.base)
+        report = self.run_materialize(**configured)
+        self.assert_nothing_written(report)
+        self.assertEqual(report.failure, "resolution failed: no_metadata")
+        self.assertEqual(self.server.authorize_requests, [])
+        report = self.run_materialize(no_metadata=True, **configured)
+        self.assertTrue(report.materialized, report.failure)
+
+    def test_unreachable_metadata_fails_closed(self):
+        # The resource does not answer. That is not "no metadata": without the flag the host stops.
+        issuer = "http://127.0.0.1:1/mcp"
+        self.store = ProvenanceStore()
+        self.observe(self.alice, self.bob, issuer=issuer)
+        configured = dict(resolve_endpoint="http://127.0.0.1:1/resolve", authorization_server=self.server.base)
+        report = self.run_materialize(issuer=issuer, **configured)
+        self.assert_nothing_written(report)
+        self.assertEqual(report.failure, "resolution failed: unreachable")
+        self.assertEqual(self.server.authorize_requests, [])
+        # With the flag the host goes on into configuration mode (and fails later at the endpoint).
+        report = self.run_materialize(issuer=issuer, no_metadata=True, **configured)
+        self.assertEqual(len(self.server.authorize_requests), 1)
+
+    def test_a_resource_with_a_query_or_a_trailing_slash_keeps_it(self):
+        # RFC 9728 section 3.1: the well-known string goes between the host and the path and query.
+        for path, target in (("/mcp?tenant=a", "/.well-known/oauth-protected-resource/mcp?tenant=a"),
+                             ("/mcp/", "/.well-known/oauth-protected-resource/mcp/")):
+            with self.subTest(path=path):
+                issuer = self.server.base + path
+                self.server.prm_resource = issuer
+                self.server.get_targets.clear()
+                self.store = ProvenanceStore()
+                self.observe(self.alice, self.bob, issuer=issuer)
+                self.dest.unlink(missing_ok=True)
+                report = self.run_materialize(issuer=issuer)
+                self.assertTrue(report.materialized, report.failure)
+                self.assertIn(target, self.server.get_targets)
+                self.assertEqual(self.server.authorize_requests[-1]["resource"], issuer)
+
     def test_challenge_metadata_for_another_resource_is_refused(self):
         # RFC 9728 section 3.3: the resource must be the URL the request went to, not its parent.
         self.server.mode |= {"no_path_metadata", "challenge"}
@@ -600,7 +703,7 @@ class MaterializeTests(unittest.TestCase):
         self.server.mode |= {"no_path_metadata", "root_metadata"}
         report = self.run_materialize()
         self.assert_nothing_written(report)
-        self.assertEqual(report.failure, "resolution failed: no_resolve_endpoint")
+        self.assertEqual(report.failure, "resolution failed: no_metadata")
         self.assertNotIn("/.well-known/oauth-protected-resource", self.server.get_paths)
         self.assertEqual((self.server.authorize_requests, self.server.resolve_batches), ([], []))
 
@@ -616,10 +719,11 @@ class MaterializeTests(unittest.TestCase):
         self.assertEqual((self.server.authorize_requests, self.server.resolve_batches), ([], []))
 
     def test_a_discovery_object_with_a_malformed_member_is_refused(self):
-        malformed = {"resolve_endpoint": 123, "resolve_scope": ["sensitive-references.resolve"],
-                     "resolver_profiles": "oauth-resolver-1", "sink_profiles": ["local-file-1", 1]}
-        for member, value in malformed.items():
-            with self.subTest(malformed=member):
+        malformed = [("resolve_endpoint", 123), ("resolve_endpoint", ""), ("resolve_scope", ""),
+                     ("resolve_scope", ["sensitive-references.resolve"]),
+                     ("resolver_profiles", "oauth-resolver-1"), ("sink_profiles", ["local-file-1", 1])]
+        for member, value in malformed:
+            with self.subTest(malformed=member, value=value):
                 self.server.prm_extra = self.server.discovery(**{member: value})
                 report = self.run_materialize()
                 self.assert_nothing_written(report)
@@ -664,6 +768,24 @@ class MaterializeTests(unittest.TestCase):
         self.assertTrue(report.materialized, report.failure)
         self.assertEqual(self.server.authorize_requests[0]["scope"], SCOPE)
 
+    # -- RFC 8414 and PKCE support of the authorization server (D10)
+
+    def test_authorization_server_metadata_without_s256_is_refused(self):
+        for mode in ("pkce_absent", "pkce_plain", "pkce_malformed"):
+            with self.subTest(mode=mode):
+                self.server.mode = {mode}
+                report = self.run_materialize()
+                self.assert_nothing_written(report)
+                self.assertEqual(report.failure, "resolution failed: no_pkce_s256")
+        self.assertEqual(self.server.authorize_requests, [])
+
+    def test_authorization_server_metadata_for_another_issuer_is_refused(self):
+        self.server.mode.add("as_wrong_issuer")
+        report = self.run_materialize()
+        self.assert_nothing_written(report)
+        self.assertEqual(report.failure, "resolution failed: wrong_authorization_server")
+        self.assertEqual(self.server.authorize_requests, [])
+
     # -- RFC 9207 (SC-08)
 
     def test_a_callback_without_iss_is_refused_when_the_server_advertises_iss(self):
@@ -694,8 +816,32 @@ class MaterializeTests(unittest.TestCase):
         self.assertEqual(self.server.resolve_batches, [])
 
 
-def _serve_mcp(tool_text: str, settings: dict):
-    """A real MCP SDK 2.x server on a loopback port that advertises ``settings``."""
+def _forward(method: str, url: str, body: bytes, headers: dict) -> tuple[int, list, bytes]:
+    from urllib.error import HTTPError
+    from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+    class NoRedirect(HTTPRedirectHandler):
+        def redirect_request(self, *args):
+            return None
+
+    request = Request(url, data=body or None, method=method, headers=headers)
+    try:
+        with build_opener(NoRedirect).open(request, timeout=10) as response:
+            status, answer, data = response.status, response.headers, response.read()
+    except HTTPError as error:
+        status, answer, data = error.code, error.headers, error.read()
+    kept = [(k.lower().encode(), v.encode()) for k, v in answer.items()
+            if k.lower() in ("content-type", "location", "www-authenticate")]
+    return status, kept, data
+
+
+def _serve_mcp(tool_text: str, settings: dict, fallback: str):
+    """A real MCP SDK 2.x server on a loopback port that advertises ``settings``.
+
+    Every path other than ``/mcp`` goes to ``fallback`` (the fake server), so the
+    metadata and the resolve endpoint are on the origin of the MCP URL (SC-01, SC-04).
+    """
+    import asyncio
     import socket
 
     import uvicorn
@@ -718,8 +864,26 @@ def _serve_mcp(tool_text: str, settings: dict):
     probe.bind(("127.0.0.1", 0))
     port = probe.getsockname()[1]
     probe.close()
-    runner = uvicorn.Server(uvicorn.Config(server.streamable_http_app(), host="127.0.0.1", port=port,
-                                           log_level="warning"))
+    inner = server.streamable_http_app()
+
+    async def app(scope, receive, send):
+        if scope["type"] != "http" or scope["path"] == "/mcp":
+            return await inner(scope, receive, send)
+        body = b""
+        while True:
+            message = await receive()
+            body += message.get("body", b"")
+            if not message.get("more_body"):
+                break
+        query = scope["query_string"].decode()
+        url = fallback + scope["path"] + (f"?{query}" if query else "")
+        headers = {k.decode(): v.decode() for k, v in scope["headers"]
+                   if k.lower() in (b"authorization", b"content-type", b"accept")}
+        status, kept, data = await asyncio.to_thread(_forward, scope["method"], url, body, headers)
+        await send({"type": "http.response.start", "status": status, "headers": kept})
+        await send({"type": "http.response.body", "body": data})
+
+    runner = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
     threading.Thread(target=runner.run, daemon=True).start()
     deadline = time.time() + 10
     while not runner.started and time.time() < deadline:
@@ -748,9 +912,15 @@ class EndToEndTests(unittest.TestCase):
         self.dir = Path(tempfile.mkdtemp(prefix="sref-m4b-e2e-"))
         self.dest = self.dir / "out.txt"
 
-    def run_host(self, settings, *extra):
-        runner, url = _serve_mcp(f"mail {self.alice}", settings)
-        extra = [a.replace("{origin}", url.rsplit("/", 1)[0]) for a in extra]
+    def run_host(self, settings, *extra, parent=False):
+        runner, url = _serve_mcp(f"mail {self.alice}", settings, self.fake.base)
+        origin = url.rsplit("/", 1)[0]
+        # The fake metadata names the MCP URL (or, with ``parent``, its origin) and an endpoint on that origin.
+        self.fake.prm_resource = origin if parent else url
+        self.fake.prm_extra = self.fake.discovery(resolve_endpoint=f"{origin}/resolve")
+        if parent:
+            self.fake.mode.add("root_metadata")
+        extra = [a.replace("{origin}", origin) for a in extra]
         self.addCleanup(setattr, runner, "should_exit", True)
         printed = []
         saved = (mcp_host.open_browser, os.environ.get("MCP_TOKEN"), os.environ.get("SREF_SENTINELS"))
@@ -763,7 +933,6 @@ class EndToEndTests(unittest.TestCase):
             code = mcp_host.main([
                 "--url", url, "--extension-id", "org.example/sensitive-references", "--tool", "read",
                 "--expect-negotiation", "--resolve-into", str(self.dest),
-                "--resolve-endpoint", f"{self.fake.base}/resolve", "--authorization-server", self.fake.base,
                 "--resolver-token-cache", str(self.dir / "tokens.json"), "--timeout", "10", *extra])
         finally:
             builtins.print = original_print
@@ -787,10 +956,13 @@ class EndToEndTests(unittest.TestCase):
         for secret in (self.alice, "alice@example.com", AGENT_TOKEN, *self.fake.access, *self.fake.refresh):
             self.assertNotIn(secret, output)
         self.assertNotIn(f"Bearer {AGENT_TOKEN}", self.fake.authorization_headers)
+        # SC-01 and SC-02 without options: metadata of the MCP URL, endpoint from discovery on its origin.
+        self.assertIn("/.well-known/oauth-protected-resource/mcp", self.fake.get_paths)
+        self.assertEqual(len(self.fake.resolve_batches), 1)
 
     def test_a_configured_parent_resource_is_the_issuer(self):
         # The server publishes its metadata for the origin, not for /mcp.
-        code, output = self.run_host(self.PROFILES, "--resource", "{origin}")
+        code, output = self.run_host(self.PROFILES, "--resource", "{origin}", parent=True)
         report = json.loads(output)
 
         self.assertEqual(code, 0, report["failures"])
@@ -836,14 +1008,46 @@ class IssuerExactStringTests(unittest.TestCase):
             resolver_client.http_json = original
 
     def test_the_issuer_string_is_kept_as_given(self):
-        for url, expected in (("https://MCP.Example.com:443/mcp/", "https://MCP.Example.com:443/mcp/"),
-                              ("HTTPS://user:pw@MCP.example.com/mcp?x=1#f", "HTTPS://MCP.example.com/mcp"),
-                              ("https://mcp.example.com/a%2Fb", "https://mcp.example.com/a%2Fb")):
+        for url in ("https://MCP.Example.com:443/mcp/", "HTTPS://MCP.example.com/mcp?x=1",
+                    "https://mcp.example.com/a%2Fb", "https://mcp.example.com/mcp?tenant=a"):
             with self.subTest(url=url):
-                self.assertEqual(mcp_host.public_endpoint(url), expected)
+                self.assertEqual(mcp_host.issuer_identity(url), url)
+
+    def test_a_url_with_user_information_or_a_fragment_is_no_issuer(self):
+        for url in ("https://user:pw@mcp.example.com/mcp", "https://user@mcp.example.com/mcp",
+                    "https://mcp.example.com/mcp#f", "https://mcp.example.com/mcp#"):
+            with self.subTest(url=url):
+                with self.assertRaises(ValueError):
+                    mcp_host.issuer_identity(url)
+
+    def test_the_report_holds_no_user_information_and_no_query(self):
+        self.assertEqual(mcp_host.public_endpoint("HTTPS://user:pw@MCP.example.com/mcp?x=1#f"),
+                         "HTTPS://MCP.example.com/mcp")
 
     def test_identical_metadata_is_accepted(self):
-        self.assertEqual(self.discover(self.ISSUER, self.ISSUER).resource, self.ISSUER)
+        # Upper case in the scheme or the host is accepted when the metadata names the identical string.
+        for issuer in (self.ISSUER, "HTTPS://MCP.example.com/mcp"):
+            with self.subTest(issuer=issuer):
+                self.assertEqual(self.discover(issuer, issuer).resource, issuer)
+
+    def test_the_well_known_url_follows_rfc_9728_section_3_1(self):
+        from sensitive_references.resolver_client import protected_resource_metadata_url
+
+        prefix = "https://mcp.example.com/.well-known/oauth-protected-resource"
+        cases = {"https://mcp.example.com/mcp": prefix + "/mcp",
+                 "https://mcp.example.com/mcp?tenant=a": prefix + "/mcp?tenant=a",
+                 "https://mcp.example.com/mcp/": prefix + "/mcp/",
+                 "https://mcp.example.com": prefix,
+                 "https://mcp.example.com/": prefix,
+                 "https://mcp.example.com/?tenant=a": prefix + "?tenant=a"}
+        for resource, expected in cases.items():
+            with self.subTest(resource=resource):
+                self.assertEqual(protected_resource_metadata_url(resource), expected)
+
+    def test_a_resource_with_a_fragment_is_refused(self):
+        with self.assertRaises(ResolverClientError) as caught:
+            self.discover("https://mcp.example.com/mcp#f", "https://mcp.example.com/mcp#f")
+        self.assertEqual(caught.exception.code, "invalid_resource")
 
     def test_a_near_miss_of_the_issuer_is_refused(self):
         near_misses = {
@@ -890,11 +1094,14 @@ class HostOptionTests(unittest.TestCase):
         args = mcp_host.parse_args(["--url", "https://s.example/mcp", "--extension-id", "x/y", "--tool", "t",
                                     "--resolve-into", "out.txt", "--resolve-endpoint", "https://s.example/r",
                                     "--resolve-scope", "s", "--resolver-token-cache", "c.json",
-                                    "--no-interactive", "--materialize-template", "a {ref}"])
+                                    "--no-interactive", "--materialize-template", "a {ref}",
+                                    "--no-resource-metadata"])
         config = mcp_host.resolve_config(args)
         self.assertEqual((config.destination, config.resolve_endpoint, config.resolve_scope, config.token_cache,
-                          config.interactive, config.template),
-                         ("out.txt", "https://s.example/r", "s", "c.json", False, "a {ref}"))
+                          config.interactive, config.template, config.no_metadata),
+                         ("out.txt", "https://s.example/r", "s", "c.json", False, "a {ref}", True))
+        self.assertFalse(mcp_host.resolve_config(mcp_host.parse_args(
+            ["--url", "https://s.example/mcp", "--extension-id", "x/y", "--tool", "t"])).no_metadata)
 
 
 if __name__ == "__main__":
