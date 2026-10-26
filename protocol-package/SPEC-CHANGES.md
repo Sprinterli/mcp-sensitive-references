@@ -133,7 +133,8 @@ endpoint, the same string for both discovery mechanisms.
 >
 > Fetch policy (RFC 9728 section 7.7). In this entry, an address is *non-public* if it is not globally
 > reachable. That is: the IANA IPv4 Special-Purpose Address Registry or the IANA IPv6 Special-Purpose
-> Address Registry gives the address "Globally Reachable: False", or the address is a multicast address,
+> Address Registry gives the address "Globally Reachable: False" or "N/A" (for example 6to4 2002::/16 and
+> Teredo 2001::/32), or the address is a multicast address,
 > or an IPv6 site-local address (fec0::/10, RFC 3879). For an IPv4-mapped (::ffff:0:0/96),
 > IPv4-compatible (::/96 without `::` and `::1`), NAT64 (64:ff9b::/96) or 6to4 (2002::/16) address, the
 > host MUST also judge the embedded IPv4 address. If that IPv4 address is non-public, the IPv6 address is
@@ -152,7 +153,8 @@ endpoint, the same string for both discovery mechanisms.
 >
 > 1. An operator enables local mode explicitly, with a host option for this MCP server.
 > 2. All DNS addresses of the host of the MCP URL are non-public. The host resolves the MCP host once,
->    when it connects to the MCP server, and keeps that result for the session.
+>    when it connects to the MCP server, and keeps that result for the session. The host uses that result
+>    only to decide if local mode applies. It still checks each request by the fetch policy above.
 > 3. The target is on the origin of the MCP URL, or on an origin that the operator configures. The
 >    host compares the scheme, the host and the port exactly.
 >
@@ -487,8 +489,8 @@ when the host gets a new token (F6). Two implementations can disagree, and a loo
 > tokens with a lifetime of one hour or less. A server MUST rotate a resolver refresh token on each use and
 > MUST bind it to the client that received it. A host that keeps a resolver token MUST store it so that
 > no other operating-system user can read it. On a POSIX system, the file MUST have owner-only
-> permissions (mode 0600 or stricter), and no access control list entry MUST grant access to another
-> user. On another system, the host MUST use an equivalent store that is bound to the user, for example
+> permissions (mode 0600 or stricter), and the file MUST NOT have an access control list entry that
+> grants access to another user. On another system, the host MUST use an equivalent store that is bound to the user, for example
 > the credential store of the operating system. This rule does not protect against an administrator or
 > against a process of the same user (THREAT-MODEL.md). A host MUST key a cached token by the triple of resource,
 > authorization server and scope. After a 401 answer from the resolve endpoint, a host MAY get one new
@@ -665,8 +667,9 @@ as `unknown`, as the reference server does.
 > A server MUST NOT put an item into an answer in any of these encodings: the string itself (UTF-8), a
 > JSON string escape, percent-encoding (RFC 3986), base64 or base64url (RFC 4648, with or without
 > padding), and hexadecimal in lower or upper case. For items 2 and 4 (a part), only the string itself and
-> the JSON string escape apply. A validator compares exactly. It ignores case only for hexadecimal. It
-> checks each member name and each string in the answer.
+> the JSON string escape apply. A validator refuses an answer if a member name or a string in the answer
+> contains an item in one of these encodings, also as a part of a longer string. The comparison is exact;
+> it ignores case only for hexadecimal.
 >
 > These members are not protected data, also if their text matches an item above: the `error` code, the
 > names and the counts of `reasons`, the `error_code` of SC-12, the HTTP status, and the `client_id` of a
@@ -967,7 +970,9 @@ a host and a server from completing the flow together (IMPLEMENTATION-GUIDE.md, 
 > loopback redirect URI. A host SHOULD use `127.0.0.1`. An authorization server MAY refuse the IPv6
 > literal `[::1]`. If it refuses it, it MUST refuse it at client registration or at the authorization
 > request, before the consent page. The consent page MUST carry a Content Security Policy with a
-> `form-action` directive. That directive MUST contain the origin of the authorization server and the
+> `form-action` directive. (This requirement is a security decision of this package, not an
+> interoperability need: the host does not depend on the directive. It stops a page that an attacker
+> changes from posting the consent decision to another origin.) That directive MUST contain the origin of the authorization server and the
 > exact origin (scheme, host and port) of the validated loopback redirect URI of this request, for example
 > `form-action 'self' http://127.0.0.1:53124`. It MUST NOT contain another loopback origin. If the server
 > cannot build this policy, it MUST refuse the authorization request before it shows the consent page.
