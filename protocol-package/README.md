@@ -25,13 +25,33 @@ proposal in this folder is a **proposed change**. A reader must not treat a prop
 | [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md) | A matrix: requirement, server-side evidence, host-side evidence, end-to-end evidence. |
 | [THREAT-MODEL.md](THREAT-MODEL.md) | The delta to [SECURITY-MODEL.md](../SECURITY-MODEL.md) that the two profiles cause. |
 | [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md) | Do and do-not lists for a server implementer and for a host implementer. |
-| [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | The questions that stay open, each with options and a recommendation. |
+| [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | The questions that stay open, each with options and a provisional v1 design decision. |
 | [SEP-READINESS.md](SEP-READINESS.md) | A checklist of what a SEP needs, and the state of each item. |
 
 The files relate as follows. SPEC-CHANGES.md is the main proposal. The two profile files give the full
 rule set of the profiles that SPEC-CHANGES.md refers to. CONFORMANCE-RESULTS.md shows the evidence for
 each rule. THREAT-MODEL.md and IMPLEMENTATION-GUIDE.md derive from the same findings. OPEN-QUESTIONS.md
 and SEP-READINESS.md list what this package does not decide.
+
+## Changes in this revision
+
+All changes stay proposals. None of them is concept text.
+
+- **SC-01** follows RFC 9728 section 3.3 strictly: the `resource` value is identical to the MCP URL. The
+  rule that the MCP URL may lie under the resource is removed. The reference server behaviour (P16) is a
+  separate, non-conformant "known deviation" in SC-01, PROFILE D5 and CONFORMANCE-RESULTS.md.
+- **SC-18** requires an explicit authorization decision for issuer-side resolution. Possession of a
+  reference does not authorize it. THREAT-MODEL.md gets TM-10.
+- **SC-11** records that the fake server of the host tests uses the SC-11 codes (commit `dd7afe2`). The
+  host name `unauthorized` is a host failure reason, not a server code.
+- **SC-20** (new) makes three loopback redirect rules normative: any port, the literal `127.0.0.1`, and no
+  server policy that blocks the authorization response.
+- **IMPLEMENTATION-GUIDE.md** gets six lessons from a production run on 2026-10-26.
+- **CONFORMANCE-RESULTS.md** records the tested configuration (Python 3.14.8, `mcp` 2.3.0, 71 tests
+  passed; SDK 1.x not tested) and the production runs E8 to E10. The runs are "observed (one operator
+  run, not independently reproduced)" and upgrade no row to "verified".
+- **OPEN-QUESTIONS.md** labels each recommendation as a provisional v1 design decision. OQ-7 now permits
+  durable host provenance, and loss of trustworthy provenance must fail closed. SEP-READINESS.md follows.
 
 ## Finding identifiers
 
