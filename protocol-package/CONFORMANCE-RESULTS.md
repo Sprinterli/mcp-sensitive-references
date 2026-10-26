@@ -79,6 +79,11 @@ upgrade any row of the matrix to "verified".
 | E9, run 2 | `--no-interactive` | The token came from the cache. The host materialized the file. Zero sentinel values in model-visible content. |
 | E10, run 3 | after the access token expired | The host renewed the token through the refresh token, without a consent page. The host materialized the file. Zero sentinel values in model-visible content. |
 
+All three runs used the host option `--resource` with the base URL of the reference server, because the
+reference server publishes that base URL as its `resource` (P16). Under SC-01 a host MUST NOT use such
+metadata. So E8 to E10 show the profile flow under the known deviation of the reference server. They are
+no evidence that the server or the host conforms to SC-01.
+
 The same runs gave six lessons for implementers. They are in
 [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md#lessons-from-a-production-run-2026-10-26). SPEC-CHANGES.md,
 SC-20 makes three of them normative.
