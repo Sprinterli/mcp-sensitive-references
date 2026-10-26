@@ -2,7 +2,7 @@
 
 This is a small, dependency-free feasibility prototype for the Sensitive References MCP extension draft. It demonstrates a server emitting opaque text tokens, a host retaining trusted `(token, issuer)` observations, and a protected local-file sink resolving values without returning plaintext in the model-facing write result.
 
-The core remains dependency-free. `demo/mcp_sdk_server.py` is an additional FastMCP SDK registration probe, tested against locally installed `mcp` 1.21.0. It does not implement OAuth transport, persistence, policy, or a filesystem sandbox.
+The core remains dependency-free. `demo/mcp_sdk_server.py` is an additional MCP SDK registration probe. It uses `MCPServer` (MCP SDK 2.x) and falls back to `FastMCP` (MCP SDK 1.x). It does not implement OAuth transport, persistence, policy, or a filesystem sandbox.
 
 ## Run
 
@@ -15,6 +15,20 @@ python3 -m unittest discover -s tests -v
 PYTHONPATH=src python3 demo/client.py
 PYTHONPATH=src python3 -m unittest tests.test_mcp_sdk_demo -v
 ```
+
+### Supported configuration
+
+The tested configuration is Python 3.14.8 with `mcp` 2.3.0 and `PYTHONPATH=src`. On 2026-10-26 these
+commands gave these results:
+
+```bash
+cd prototype
+PYTHONPATH=src python -m pytest -q                  # 71 passed, 26 subtests passed
+PYTHONPATH=src python -m unittest discover -s tests # Ran 71 tests, OK
+```
+
+MCP SDK 1.x was not tested in this run. An earlier version of this file named `mcp` 1.21.0 for the SDK
+probe. That result is older than the 2.x change and was not repeated.
 
 The demo prints only model-facing reference text and the path of the protected file. It writes the materialized CSV to `demo/output/customers.csv` so it can be inspected locally; it deliberately does not echo its content.
 

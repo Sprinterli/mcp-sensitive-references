@@ -9,7 +9,7 @@ server and the test host implement it. It replaces nothing in concept 0.5. The c
 - **Server:** a test of the reference server at revision `e5268633f`. This package read the test and did
   not run it.
 - **Host:** a test in `prototype/tests/test_mcp_host_resolve.py` unless another file is named. These tests
-  ran on 2026-10-25.
+  last ran on 2026-10-26 (71 passed).
 - **Not yet tested:** the source implements the rule, but no test shows it. The cell names the source.
 - **Not verified:** this package found no evidence for the rule in either implementation.
 

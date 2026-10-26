@@ -58,7 +58,8 @@ with `local-file-1`. This package is milestone M6.
 This package did not run the reference server tests. It read their names and assertions at the revision
 above. A row that cites a reference server test is "read, not re-run".
 
-The prototype test suite ran on 2026-10-25 with MCP Python SDK 2.3.0 (see
+The prototype test suite last ran on 2026-10-26 at commit `dd7afe2` (branch `m7-consolidation`) with
+Python 3.14.8 and MCP Python SDK 2.3.0: 71 tests passed. SDK 1.x was not tested (see
 [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#test-run)).
 
 ## Naming in this package

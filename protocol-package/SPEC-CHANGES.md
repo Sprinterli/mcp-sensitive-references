@@ -12,8 +12,8 @@ Each entry has four parts:
 - **Compatibility:** the effect on an implementation that follows concept 0.5 today.
 
 Notation. "Reference server test `x`" means a test of the reference server at revision `e5268633f`. This
-package read that test and did not run it. "Host test `x`" means a test in `prototype/tests/` that ran on
-2026-10-25 (see [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#test-run)).
+package read that test and did not run it. "Host test `x`" means a test in `prototype/tests/` that last ran on
+2026-10-26 (see [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#test-run)).
 
 ## Merged findings
 

@@ -42,7 +42,7 @@ Legend: **Done**, **Partial**, **Missing**.
 | Item | State | Evidence or gap |
 |---|---|---|
 | One server implementation | Done | The reference server, milestones M0 to M4 (plan section 6). Its source is not public. |
-| One host implementation | Done | `prototype/demo/mcp_host.py`, 35 resolve tests and 13 host tests passed on 2026-10-25. |
+| One host implementation | Done | `prototype/demo/mcp_host.py`, 35 resolve tests and 13 host tests passed on 2026-10-26. |
 | End-to-end run of host and server | Done | E1 to E3 (local), E4 to E6 (production, synthetic). See [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#end-to-end-runs). |
 | A second independent server | Missing | No other server implements the extension. |
 | A second independent host | Missing | No general-purpose MCP host supports the extension. A plugin host cannot (P11, SC-19). |
@@ -61,7 +61,7 @@ Legend: **Done**, **Partial**, **Missing**.
 | Independent security review of the implementations | Partial | The reference server passed one external review round on M4a (plan section 6, "Review round 1": NO-SHIP, no BLOCKER, four findings fixed). A second round is not recorded in the sources. |
 | Sponsor in the MCP project | **Not verified** | The sources do not mention one. |
 | Vendor-neutral text | Partial | This package is vendor-neutral. The concept files `HOST-INTEGRATION.md`, `IMPLEMENTATION-EVIDENCE.md` and `README.md` name products. |
-| Prototype tests green | Partial | 70 of 71 passed. `test_mcp_sdk_demo` needs MCP SDK 1.x and does not import under 2.x. |
+| Prototype tests green | Done | 71 of 71 passed on 2026-10-26 with Python 3.14.8 and MCP SDK 2.3.0 (pytest: 71 passed, 26 subtests passed; unittest: 71 OK). MCP SDK 1.x was not tested. |
 
 ## Summary
 

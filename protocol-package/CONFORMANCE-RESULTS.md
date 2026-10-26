@@ -1,21 +1,22 @@
 # Conformance results
 
 **Status: evidence record, experimental.** This file is not a standards conformance claim. It maps each
-requirement to the evidence that exists for it on 2026-10-25.
+requirement to the evidence that exists for it on 2026-10-26.
 
 ## Test run
 
-Command, run in the repository at commit `fe87dad` (branch `m4-local-file-sink`), with MCP Python SDK
-2.3.0 and Python 3.14:
+**Supported, tested configuration (2026-10-26).** Python 3.14.8, MCP Python SDK (`mcp`) 2.3.0,
+`PYTHONPATH=src`, repository commit `dd7afe2` (branch `m7-consolidation`). Commands and results:
 
 ```bash
-cd prototype && PYTHONPATH=src:demo:. python -m unittest discover -s tests
+cd prototype && PYTHONPATH=src python -m pytest -q
+# 71 passed, 26 subtests passed
+cd prototype && PYTHONPATH=src python -m unittest discover -s tests
+# Ran 71 tests, OK
 ```
 
-Result: **71 tests ran. 70 passed. 1 error.** The error is `test_mcp_sdk_demo`: the module does not import,
-because `demo/mcp_sdk_server.py` imports `mcp.server.fastmcp`, and SDK 2.x renamed FastMCP to
-`MCPServer`. The test `test_sdk_tool_preserves_structured_string_fields_without_plaintext` needs SDK 1.x.
-It did not run.
+`demo/mcp_sdk_server.py` imports `MCPServer` (SDK 2.x) and falls back to `FastMCP` (SDK 1.x). Its test reads
+both result shapes. **SDK 1.x was not tested in this run.** Only SDK 2.3.0 is a tested configuration.
 
 | Test module | Tests | Result |
 |---|---|---|
@@ -26,7 +27,11 @@ It did not run.
 | `test_oauth_profile.py` | 2 | 2 passed |
 | `test_reference_grammar.py` | 2 | 2 passed |
 | `test_settings_schema.py` | 1 | 1 passed |
-| `test_mcp_sdk_demo.py` | 1 | import error (needs SDK 1.x) |
+| `test_mcp_sdk_demo.py` | 1 | 1 passed (SDK 2.x path) |
+
+**Earlier run (2026-10-25), for the record.** At commit `fe87dad` (branch `m4-local-file-sink`) with SDK
+2.3.0, 70 of 71 tests passed. `test_mcp_sdk_demo` did not import, because the module imported
+`mcp.server.fastmcp` only. Commit `dd7afe2` fixed this.
 
 The reference server tests were not run for this package. This package read 25 test functions in the
 resolver consent module and counted 26 test functions in the module for negotiated canonical references,
@@ -144,4 +149,4 @@ tests (`test_a_configured_parent_resource_is_the_issuer`, `test_a_resource_the_m
 - No test covers PKCE S256 enforcement at the server, the audit event, the 30-second expiry
   margin of the host, or the duplicate removal of the host.
 - No end-to-end run used a second, independent server or a second, independent host.
-- `test_mcp_sdk_demo` does not run with SDK 2.x.
+- `test_mcp_sdk_demo` was not run with SDK 1.x.
