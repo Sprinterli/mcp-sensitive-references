@@ -90,8 +90,9 @@ endpoint. Variants:
   another authorization server (mix-up).
 - The MCP URL and the RFC 9728 `resource` differ, and the host picks one by guess (F12, P16).
 
-**Control.** The host compares `resource` as an exact string and requires that the MCP URL lies under it
-(SC-01). The host accepts a discovered endpoint only on the resource origin (SC-04). The host follows no
+**Control.** The host compares `resource` as an exact string and requires that it is identical to the
+MCP URL (SC-01). The test host accepts a parent resource only through an explicit operator option
+(`--resource`). That option is a non-conformant tolerance for the reference server (P16). The host accepts a discovered endpoint only on the resource origin (SC-04). The host follows no
 redirect. The host checks the RFC 8414 issuer and the RFC 9207 `iss` parameter (SC-08).
 
 **Evidence.** Host tests `test_metadata_for_another_resource_is_refused`,

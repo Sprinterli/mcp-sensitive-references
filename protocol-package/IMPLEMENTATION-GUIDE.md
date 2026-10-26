@@ -28,7 +28,9 @@ its source. The rules in SPEC-CHANGES.md are proposals. This guide does not make
 13. Return `Cache-Control: no-store` on every resolve answer (reference server test
     `test_a_consented_resolver_resolves_its_users_reference`).
 14. Use `isError: true` when a tool call fails because a reference does not resolve (SC-12, P14).
-15. Make the RFC 9728 `resource` value the issuer identity and publish metadata for it (SC-01, P16).
+15. Publish RFC 9728 metadata whose `resource` value is identical to the MCP URL. That value is the
+    issuer identity (SC-01). Do not publish only a parent resource of the MCP URL: the reference server
+    does that, and it is not conformant (P16).
 
 ### Do not
 
@@ -49,8 +51,10 @@ its source. The rules in SPEC-CHANGES.md are proposals. This guide does not make
    authenticated issuer of each result (SC-19, P11).
 2. Record an observation only from a negotiated, authenticated tool result. Inspect text content and every
    string in `structuredContent` (`prototype/EXTENSION-PROFILE-DRAFT.md`, "Candidate host hooks").
-3. Record the issuer as the RFC 9728 `resource` value. Compare it as an exact string. Require that the MCP
-   URL is the resource or lies under it (SC-01, F3, F12).
+3. Record the issuer as the RFC 9728 `resource` value. Compare it as an exact string. Require that the
+   `resource` value is identical to the MCP URL (SC-01, F3, F12, RFC 9728 section 3.3). If you add an
+   operator option for a server that deviates, as the test host does with `--resource`, mark it as
+   non-conformant.
 4. Resolve only a reference with exactly one trusted issuer, and only at the endpoint of that issuer
    (`local-file-1`, L5, L6).
 5. Use a separate resolver client with Authorization Code, PKCE S256, the `resource` parameter and the

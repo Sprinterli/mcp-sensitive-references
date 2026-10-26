@@ -30,12 +30,23 @@ server and the test host implement it. It replaces nothing in concept 0.5. The c
 | D2 | Every protected-resource metadata document of the server carries the object while the profile is on, and no document carries it while the profile is off. | `test_every_protected_resource_document_carries_the_discovery_block_while_on`, `test_an_empty_allowlist_switches_the_resolver_off` | — |
 | D3 | The resolve scope is not in `scopes_supported` of any RFC 9728, RFC 8414 or OpenID Connect discovery document. | `test_the_resolve_scope_stays_out_of_scopes_supported` | — |
 | D4 | The host refuses metadata whose `resource` is not the issuer, as an exact string. | Not applicable | `test_metadata_for_another_resource_is_refused` |
-| D5 | The issuer is the RFC 9728 `resource` value. The MCP URL must be that value or lie under it. | **Not verified.** The reference server publishes its base URL as `resource` (P16). No server test checks the relation. | `test_a_configured_parent_resource_is_the_issuer`, `test_a_resource_the_mcp_url_is_not_under_stops_the_host`, `test_the_mcp_url_must_lie_under_the_resource` |
+| D5 | The issuer is the RFC 9728 `resource` value. That value is identical to the MCP URL (SC-01, RFC 9728 section 3.3). | **Not conformant.** The reference server publishes its base URL as `resource` (P16). See the note below the table. | Default path: `test_metadata_for_another_resource_is_refused` (exact string). The `--resource` tolerance is not evidence for D5 (see the note). |
 | D6 | The host accepts a discovered resolve endpoint only on the origin of the resource. | Not applicable | `test_a_discovered_cross_origin_endpoint_is_refused` |
 | D7 | The host uses `https`, or `http` on loopback only. | Not applicable | `test_an_insecure_resolve_endpoint_is_refused` |
 | D8 | The host takes the scope from configuration, then from `resolve_scope`, then from the default `sensitive-references.resolve`. | Not applicable | `test_the_endpoint_and_scope_come_from_discovery` (discovery path). The configuration path and the default are not yet tested (`demo/mcp_host.py`, `_resolver_setup`). |
 | D9 | The host refuses to select one of several authorization servers. | Not applicable | Not yet tested (`demo/mcp_host.py`, `_resolver_setup`). |
 | D10 | The host refuses authorization server metadata whose `issuer` is another issuer (RFC 8414 section 3.3), and metadata without S256 in `code_challenge_methods_supported`. | Not applicable | Not yet tested (`src/sensitive_references/resolver_client.py`, `discover_authorization_server`). |
+
+**Known deviation of the reference server (D5).** The reference server publishes its base URL as
+`resource`. Its MCP URL is a path below that value (P16). This is not conformant to D5 and SC-01. The
+server becomes conformant if it publishes metadata with `resource` identical to the MCP URL at the
+path-specific well-known URL, names that document in `WWW-Authenticate`, and puts the discovery object
+into it ([SPEC-CHANGES.md, SC-01](SPEC-CHANGES.md#sc-01-the-issuer-identity-is-the-rfc-9728-resource-value)).
+The test host interoperates with the server today only through its operator option `--resource`, which
+accepts an MCP URL under a configured parent resource (host tests
+`test_a_configured_parent_resource_is_the_issuer`, `test_a_resource_the_mcp_url_is_not_under_stops_the_host`,
+`test_the_mcp_url_must_lie_under_the_resource`). That option is an implementation choice of the test host.
+It is not part of this profile.
 
 ## 3. Client registration and authorization
 

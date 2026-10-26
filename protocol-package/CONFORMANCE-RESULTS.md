@@ -89,7 +89,7 @@ Legend: **S** server-side evidence (reference server test, read, not re-run). **
 | Discovery object in RFC 9728 metadata (SC-02) | `test_discovery_publishes_the_endpoint_and_the_profiles_while_on`, `test_every_protected_resource_document_carries_the_discovery_block_while_on` | `test_the_endpoint_and_scope_come_from_discovery` | Not verified. E1 does not say whether the host used discovery or a configured endpoint. |
 | Resolve scope not in `scopes_supported` (SC-03) | `test_the_resolve_scope_stays_out_of_scopes_supported` | — | — |
 | Mixed scopes get neither (SC-03) | `test_a_request_that_mixes_the_resolve_scope_with_agent_scopes_gets_neither` | `test_a_token_without_the_resolve_scope_is_refused` | — |
-| Issuer = RFC 9728 `resource` (SC-01) | Not verified (P16: the server deviates from RFC 9728 section 3.3) | `test_metadata_for_another_resource_is_refused`, `test_a_configured_parent_resource_is_the_issuer` | Not verified |
+| Issuer = RFC 9728 `resource`, identical to the MCP URL (SC-01) | **Not conformant** (known deviation P16, see below) | `test_metadata_for_another_resource_is_refused` (default path, exact string) | Not verified |
 | Discovered endpoint on the resource origin; no redirects (SC-04) | — | `test_a_discovered_cross_origin_endpoint_is_refused`, `test_a_redirect_from_the_resolve_endpoint_is_not_followed` | — |
 | Separate client, Authorization Code + PKCE S256, `resource` | `test_an_unregistered_client_gets_no_resolver_code`. PKCE S256 enforcement: not yet tested. | `test_interactive_authorization_materializes_and_reports_no_secret` | E1 |
 | `state` and RFC 9207 `iss` checks (SC-08) | — | `test_a_callback_with_another_state_is_refused`, `test_a_callback_from_another_issuer_is_refused` | — |
@@ -122,9 +122,25 @@ Legend: **S** server-side evidence (reference server test, read, not re-run). **
 | Report holds no secret | Not applicable | `assert_report_clean`, `test_the_host_materializes_an_observed_reference` | E1 |
 | Destination is a label, not a path (SC-10, proposed) | Not implemented | Not implemented | — |
 
+## Known deviation of the reference server (SC-01, P16)
+
+The reference server publishes its base URL as the RFC 9728 `resource` value. Its MCP URL is a path below
+that value. This is **not conformant** to SC-01, which follows RFC 9728 section 3.3 strictly. The server
+becomes conformant if it publishes metadata with `resource` identical to the MCP URL at the path-specific
+well-known URL, names that document in its `WWW-Authenticate` answers, and puts the discovery object into
+it (SPEC-CHANGES.md, SC-01).
+
+A test host that resolves against the reference server today needs a tolerance for this deviation. The
+test host has the operator option `--resource`, which accepts an MCP URL under a configured parent
+resource. This file does not record which option each end-to-end run used. That option is an
+implementation choice of the test host. Its
+tests (`test_a_configured_parent_resource_is_the_issuer`, `test_a_resource_the_mcp_url_is_not_under_stops_the_host`,
+`test_the_mcp_url_must_lie_under_the_resource`) show the tolerance. They are not evidence for SC-01.
+
 ## Gaps that this matrix shows
 
-- No server test checks that the MCP URL and the RFC 9728 `resource` agree (P16).
+- The reference server does not conform to SC-01 (P16). No server test checks that the MCP URL and the
+  RFC 9728 `resource` are identical.
 - No test covers PKCE S256 enforcement at the server, the audit event, the 30-second expiry
   margin of the host, or the duplicate removal of the host.
 - No end-to-end run used a second, independent server or a second, independent host.

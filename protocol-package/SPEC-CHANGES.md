@@ -55,6 +55,12 @@ fragment (`prototype/README.md`, "Independent MCP test host"). The reference ser
 metadata for its base URL, not for the MCP URL (P16). The two strings differ. The host then cannot tell
 which string is the issuer (F12). A trailing slash also makes two different issuers (F3).
 
+RFC 9728 section 3.3 already answers the question. The `resource` value in the metadata MUST be identical
+to the resource identifier from which the client built the metadata URL. If the client found the metadata
+through the `resource_metadata` parameter of a `WWW-Authenticate` header, the `resource` value MUST be
+identical to the URL that the client sent its request to. For an MCP endpoint, that URL is the MCP URL.
+RFC 9728 does not allow a `resource` value of which the MCP URL is only a path below.
+
 **Evidence.**
 
 - F3 and F12 in `prototype/M4-FINDINGS.md`.
@@ -62,24 +68,49 @@ which string is the issuer (F12). A trailing slash also makes two different issu
 - P16: the reference server names the base URL as `resource` for compatibility with an existing client.
   This is a deviation from RFC 9728 section 3.3.
 - Host test `test_metadata_for_another_resource_is_refused`: the host refuses metadata whose `resource`
-  is not the issuer.
-- Host tests `test_a_configured_parent_resource_is_the_issuer`,
-  `test_a_resource_the_mcp_url_is_not_under_stops_the_host` and
-  `test_the_mcp_url_must_lie_under_the_resource`.
+  is not the issuer, as an exact string.
 
 **Proposed text.**
 
 > The issuer identity of a Sensitive Reference is the `resource` value of the RFC 9728 protected-resource
-> metadata that applies to the MCP endpoint. A host MUST compare two issuer identities as exact strings.
-> A host MUST NOT normalize case, a trailing slash, a default port or a percent-encoding before it compares.
-> A host MUST record an observation only if the MCP URL is the `resource` value or a path under it on the
-> same origin. If the metadata `resource` is not the value that the host requested or configured, the host
-> MUST NOT record an observation and MUST NOT resolve.
+> metadata of the MCP endpoint. A server MUST publish protected-resource metadata whose `resource` value is
+> identical to the URL of the MCP endpoint (RFC 9728 section 3.3). A host MUST compare two issuer
+> identities as exact strings. A host MUST NOT normalize case, a trailing slash, a default port or a
+> percent-encoding before it compares. If the metadata `resource` is not identical to the URL of the MCP
+> endpoint, the host MUST NOT use the metadata, MUST NOT record an observation with that issuer and MUST
+> NOT resolve.
 
-**Compatibility.** A host that records the MCP URL today records a different string for a server that
-publishes metadata for a parent resource. The tokens that it observed before this change get no issuer
-after this change, so they fail closed. A server that has no RFC 9728 metadata has no issuer identity under
-this text. For such a server, a host can only use operator configuration (see SC-02).
+The proposed text does not permit a `resource` value of which the MCP URL is a path below. An earlier
+version of this entry permitted it. That rule is not compatible with RFC 9728 section 3.3, and this
+revision removes it.
+
+**Known deviation of the reference server (non-normative).** The reference server publishes its base URL
+as `resource`, and its MCP URL is a path below that value (P16). This behaviour is **not conformant** to
+SC-01. The reference server becomes conformant if it does these steps:
+
+1. Publish protected-resource metadata at the path-specific well-known URL of the MCP endpoint (RFC 9728
+   section 3.1), with `resource` identical to the MCP URL.
+2. Name that metadata document in the `resource_metadata` parameter of its `WWW-Authenticate` answers on
+   the MCP endpoint.
+3. Put the `sensitive_references` object (SC-02) into that document, and bind resolver tokens to that
+   `resource` value (RFC 8707).
+
+The metadata document for the base URL can stay for the existing client, as the metadata of a separate
+protected resource.
+
+**Tolerance of the test host (non-normative).** The test host has an option `--resource`. With it, an
+operator names a parent resource, and the host accepts an MCP URL that lies under it on the same origin
+(host tests `test_a_configured_parent_resource_is_the_issuer`,
+`test_a_resource_the_mcp_url_is_not_under_stops_the_host` and `test_the_mcp_url_must_lie_under_the_resource`).
+This is an implementation choice of the test host, so that it can interoperate with the reference server
+as the server is today. It is not conformant to SC-01, and it is not a proposal. Without `--resource`, the
+test host requires that `resource` is identical to the MCP URL.
+
+**Compatibility.** A host that records the MCP URL today records the same string as this text requires.
+A server that publishes metadata for a parent resource, as the reference server does, must add metadata
+for the MCP URL. Until it does, a conformant host does not resolve its references. A server that has no
+RFC 9728 metadata has no issuer identity under this text. For such a server, a host can only use operator
+configuration (see SC-02).
 
 ## SC-02. Discovery of the resolve endpoint
 
