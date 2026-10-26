@@ -9,7 +9,9 @@ from mcp_sdk_server import mcp  # noqa: E402
 
 class McpSdkDemoTests(unittest.TestCase):
     def test_sdk_tool_preserves_structured_string_fields_without_plaintext(self):
-        _, structured_content = asyncio.run(mcp.call_tool("list_customers", {}))
+        result = asyncio.run(mcp.call_tool("list_customers", {}))
+        # SDK 1.x returns (content, structured); SDK 2.x returns a CallToolResult.
+        structured_content = result[1] if isinstance(result, tuple) else result.structured_content
         customer = structured_content["customers"][0]
         self.assertIsInstance(customer["email"], str)
         self.assertTrue(customer["email"].startswith("⟦sref:email:"))

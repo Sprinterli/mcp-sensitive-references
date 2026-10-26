@@ -205,17 +205,21 @@ class FakeServer:
                     token = auth.removeprefix("Bearer ")
                     if ("always_401" in fake.mode or not auth.startswith("Bearer ")
                             or fake.access.get(token, 0) <= time.time()):
-                        return self._send(401, {"error": "unauthorized"})
+                        return self._send(401, {"error": "invalid_token"})
                     doc = json.loads(raw)
                     refs = doc["references"]
                     fake.resolve_batches.append(refs)
-                    if not 1 <= len(refs) <= 100:
-                        return self._send(413, {"error": "batch_too_large"})
-                    if any(r in fake.foreign for r in refs):
-                        return self._send(403, {"error": "forbidden", "reasons": {"other_principal": 1}})
-                    bad = [r for r in refs if r not in fake.values or r in fake.revoked]
-                    if bad:
-                        return self._send(409, {"error": "unresolvable", "reasons": {"revoked_or_unknown": len(bad)}})
+                    # The codes of SC-11 (protocol-package/SPEC-CHANGES.md).
+                    if not refs:
+                        return self._send(400, {"error": "invalid_request"})
+                    if len(refs) > 100:
+                        return self._send(413, {"error": "too_many_references"})
+                    # A reference of another principal is unknown to this one.
+                    unknown = [r for r in refs if r not in fake.values or r in fake.foreign]
+                    revoked = [r for r in refs if r in fake.revoked and r not in unknown]
+                    if unknown or revoked:
+                        reasons = {k: n for k, n in (("unknown", len(unknown)), ("revoked", len(revoked))) if n}
+                        return self._send(409, {"error": "unresolvable", "reasons": reasons})
                     values = {r: fake.values[r] for r in refs}
                     if "incomplete" in fake.mode:
                         values.pop(refs[0])
@@ -346,6 +350,8 @@ class MaterializeTests(unittest.TestCase):
         self.cache_entry(access_token="not-a-valid-token")
         report = self.run_materialize(interactive=False, resolve_endpoint=f"{self.server.base}/resolve")
         self.assert_nothing_written(report, before="before\n")
+        # The server answered 401 invalid_token; the host could not renew without
+        # interaction and names its own reason.
         self.assertEqual(report.failure, "resolution failed: unauthorized")
         self.assert_report_clean(report)
 
@@ -441,7 +447,7 @@ class MaterializeTests(unittest.TestCase):
         self.server.foreign.add(self.alice)
         report = self.run_materialize()
         self.assert_nothing_written(report)
-        self.assertEqual(report.failure, "resolution failed: forbidden")
+        self.assertEqual(report.failure, "resolution failed: unresolvable")
 
     def test_an_incomplete_or_extra_batch_writes_nothing(self):
         for mode in ("incomplete", "extra"):

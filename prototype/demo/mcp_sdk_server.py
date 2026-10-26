@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-from mcp.server.fastmcp import FastMCP
+try:  # MCP SDK 2.x renamed FastMCP to MCPServer.
+    from mcp.server.mcpserver import MCPServer as _Server
+except ImportError:  # MCP SDK 1.x
+    from mcp.server.fastmcp import FastMCP as _Server
 
 from server import DemoMcpServer
 
-mcp = FastMCP("Sensitive References demo")
+mcp = _Server("Sensitive References demo")
 _demo = DemoMcpServer()
 
 
