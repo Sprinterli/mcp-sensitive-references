@@ -66,11 +66,29 @@ pipeline in M3 (plan section 6, M3, "Evidence"): declared and switched on gave c
 sentinel hits; `--legacy` gave zero canonical tokens; switched off gave no advertisement. That run is
 **not verified** by this package.
 
+## Production runs of 2026-10-26
+
+**Status: observed (one operator run, not independently reproduced).** The operator ran the test host
+against the reference server in production with synthetic data, on 2026-10-26. This package did not
+repeat the runs. These observations are separate from "verified by tests in this repository". They do not
+upgrade any row of the matrix to "verified".
+
+| Run | Host options | Fact |
+|---|---|---|
+| E8, run 1 | interactive | Interactive consent on the consent page. The host materialized the file. Zero sentinel values in model-visible content. |
+| E9, run 2 | `--no-interactive` | The token came from the cache. The host materialized the file. Zero sentinel values in model-visible content. |
+| E10, run 3 | after the access token expired | The host renewed the token through the refresh token, without a consent page. The host materialized the file. Zero sentinel values in model-visible content. |
+
+The same runs gave six lessons for implementers. They are in
+[IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md#lessons-from-a-production-run-2026-10-26). SPEC-CHANGES.md,
+SC-20 makes three of them normative.
+
 ## Matrix
 
 Legend: **S** server-side evidence (reference server test, read, not re-run). **H** host-side evidence
-(prototype test, run). **E** end-to-end evidence (E1 to E6 above). "—" means no evidence of that kind.
-"Not verified" means no evidence at all.
+(prototype test, run). **E** end-to-end evidence (E1 to E7 as reported, E8 to E10 observed in one operator
+run). "—" means no evidence of that kind. "Not verified" means no evidence at all. A cell that cites E8 to
+E10 only says "observed": it is not a verification.
 
 ### Core (concept 0.5)
 
@@ -83,7 +101,7 @@ Legend: **S** server-side evidence (reference server test, read, not re-run). **
 | An ambiguous issuer fails closed. | Not applicable | `test_ambiguous_issuer_fails_closed`, `test_a_token_seen_from_two_issuers_is_not_trusted`, `test_an_ambiguous_reference_is_not_sent` | — |
 | Unknown, revoked and expired references fail closed. | `test_a_batch_with_one_reference_that_does_not_resolve_returns_no_value` (unknown, revoked); `test_a_replayed_mapping_body_does_not_resolve_a_revoked_reference` | `test_unknown_and_revoked_references_fail_closed`, `test_expired_reference_fails_closed`, `test_a_revoked_reference_in_a_batch_writes_nothing` | E6 (malformed only) |
 | Possession of a reference is not authorization. | `test_an_agent_token_is_refused_at_the_resolve_endpoint` | `test_possession_without_resolver_authorization_fails` | — |
-| No plaintext in model-visible results. | Plan section 6, M1 (ten paths) | `test_a_sentinel_value_in_the_result_fails_and_is_not_reported`, `test_a_sentinel_outside_the_text_blocks_fails_too` | E1, E4 |
+| No plaintext in model-visible results. | Plan section 6, M1 (ten paths) | `test_a_sentinel_value_in_the_result_fails_and_is_not_reported`, `test_a_sentinel_outside_the_text_blocks_fails_too` | E1, E4; observed: E8, E9, E10 |
 | The sink materializes a whole batch or nothing. | `test_a_batch_with_one_reference_that_does_not_resolve_returns_no_value` | `test_batch_is_all_or_nothing`, `test_a_partially_invalid_batch_writes_nothing` | E3 |
 | Provenance survives a host restart. | Not applicable | Not verified. The prototype keeps provenance in memory (`HOST-INTEGRATION.md`). | — |
 
@@ -96,14 +114,14 @@ Legend: **S** server-side evidence (reference server test, read, not re-run). **
 | Mixed scopes get neither (SC-03) | `test_a_request_that_mixes_the_resolve_scope_with_agent_scopes_gets_neither` | `test_a_token_without_the_resolve_scope_is_refused` | — |
 | Issuer = RFC 9728 `resource`, identical to the MCP URL (SC-01) | **Not conformant** (known deviation P16, see below) | `test_metadata_for_another_resource_is_refused` (default path, exact string) | Not verified |
 | Discovered endpoint on the resource origin; no redirects (SC-04) | — | `test_a_discovered_cross_origin_endpoint_is_refused`, `test_a_redirect_from_the_resolve_endpoint_is_not_followed` | — |
-| Separate client, Authorization Code + PKCE S256, `resource` | `test_an_unregistered_client_gets_no_resolver_code`. PKCE S256 enforcement: not yet tested. | `test_interactive_authorization_materializes_and_reports_no_secret` | E1 |
+| Separate client, Authorization Code + PKCE S256, `resource` | `test_an_unregistered_client_gets_no_resolver_code`. PKCE S256 enforcement: not yet tested. | `test_interactive_authorization_materializes_and_reports_no_secret` | E1; observed: E8 |
 | `state` and RFC 9207 `iss` checks (SC-08) | — | `test_a_callback_with_another_state_is_refused`, `test_a_callback_from_another_issuer_is_refused` | — |
 | Separate token class (SC-05) | `test_the_resolver_token_is_its_own_class_and_short_lived`, `test_a_resolver_token_is_refused_where_an_agent_token_is_expected`, `test_an_agent_token_is_refused_at_the_resolve_endpoint`, `test_a_resolver_token_never_reaches_the_agent_suffix_lookup` | `test_the_agent_token_is_never_sent` | — |
-| One-time consent per user and client (SC-06) | `test_the_first_authorization_shows_a_consent_page_and_issues_no_code`, `test_consent_is_asked_once_per_client_then_codes_follow_without_interaction` | — | E1, E2 |
+| One-time consent per user and client (SC-06) | `test_the_first_authorization_shows_a_consent_page_and_issues_no_code`, `test_consent_is_asked_once_per_client_then_codes_follow_without_interaction` | — | E1, E2; observed: E8 (one consent), E9 and E10 (no consent page) |
 | Consent cannot be forged (SC-06) | `test_consent_cannot_be_given_without_the_users_own_answer_on_the_page`, `test_a_consent_post_without_an_origin_header_grants_nothing` | — | — |
 | Consent bounds refresh and access (SC-06) | `test_a_withdrawn_or_expired_consent_stops_refresh_and_the_live_token` | — | — |
-| Refresh rotation bound to the client (SC-07) | `test_refresh_rotates_and_the_old_refresh_token_is_dead`, `test_a_refresh_token_works_only_for_its_own_client` | `test_an_expired_token_is_refreshed_and_rotated` | — |
-| Token cache 0600, one renewal after 401 (SC-07) | — | `test_a_cache_file_that_others_can_read_is_refused`, `test_an_expired_token_is_refreshed_once_then_the_run_fails` | E2 |
+| Refresh rotation bound to the client (SC-07) | `test_refresh_rotates_and_the_old_refresh_token_is_dead`, `test_a_refresh_token_works_only_for_its_own_client` | `test_an_expired_token_is_refreshed_and_rotated` | Observed: E10 (renewal through refresh; rotation not observed) |
+| Token cache 0600, one renewal after 401 (SC-07) | — | `test_a_cache_file_that_others_can_read_is_refused`, `test_an_expired_token_is_refreshed_once_then_the_run_fails` | E2; observed: E9 (token from the cache) |
 | Access token expiry enforced | `test_an_expired_resolver_token_resolves_nothing` | — | — |
 | Whole-batch resolution (SC-09) | `test_a_batch_with_one_reference_that_does_not_resolve_returns_no_value` | `test_a_partially_invalid_batch_writes_nothing`, `test_an_incomplete_or_extra_batch_writes_nothing` | — |
 | Batch limit 1 to 100 (SC-09) | `test_a_request_outside_the_profile_is_refused` (`too_many`, `empty`) | `test_more_than_100_references_go_in_batches_of_100` | — |
@@ -120,7 +138,7 @@ Legend: **S** server-side evidence (reference server test, read, not re-run). **
 | Both profiles negotiated before any resolve | Not applicable | `test_without_the_negotiated_profiles_nothing_is_sent`, `test_without_advertised_profiles_the_host_does_not_resolve` | — |
 | Only observed references with one trusted issuer | Not applicable | `test_an_unobserved_or_forged_reference_is_not_sent`, `test_a_reference_from_another_issuer_is_not_sent` | E3 |
 | Content from host configuration | Not applicable | `test_the_template_is_configuration` | E3 |
-| File holds values, no reference | Not applicable | `test_interactive_authorization_materializes_and_reports_no_secret` | E1 |
+| File holds values, no reference | Not applicable | `test_interactive_authorization_materializes_and_reports_no_secret` | E1; observed: E8, E9, E10 (materialized) |
 | Model-facing content keeps the reference | Not applicable | `test_interactive_authorization_materializes_and_reports_no_secret`, `test_valid_observed_reference_resolves_to_protected_file_only` | E1 |
 | Failure leaves the destination unchanged | — | `test_an_unreachable_resolve_endpoint_writes_nothing` and the helper `assert_nothing_written` | E3 |
 | File mode without group and other bits | Not applicable | `test_interactive_authorization_materializes_and_reports_no_secret` | — |

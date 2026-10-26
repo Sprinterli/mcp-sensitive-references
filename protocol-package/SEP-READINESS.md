@@ -43,7 +43,7 @@ Legend: **Done**, **Partial**, **Missing**.
 |---|---|---|
 | One server implementation | Done | The reference server, milestones M0 to M4 (plan section 6). Its source is not public. |
 | One host implementation | Done | `prototype/demo/mcp_host.py`, 35 resolve tests and 13 host tests passed on 2026-10-26. |
-| End-to-end run of host and server | Done | E1 to E3 (local), E4 to E6 (production, synthetic). See [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#end-to-end-runs). |
+| End-to-end run of host and server | Done | E1 to E3 and E7 (local), E4 to E6 (production, synthetic). E8 to E10: materialization in production on 2026-10-26, observed in one operator run, not independently reproduced. See [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#end-to-end-runs). |
 | A second independent server | Missing | No other server implements the extension. |
 | A second independent host | Missing | No general-purpose MCP host supports the extension. A plugin host cannot (P11, SC-19). |
 | A public server implementation | Missing | The reference server source is not public. A reviewer cannot read it. |

@@ -37,7 +37,7 @@ model does not see the file content.
 
 | ID | Rule | Evidence |
 |---|---|---|
-| L9 | The sink resolves every reference of the content before it writes. If the host splits the references into batches of 100, every batch must succeed first. | Host `test_more_than_100_references_go_in_batches_of_100`; prototype `test_batch_is_all_or_nothing` |
+| L9 | The sink resolves every reference of the content before it writes. If the host splits the references into batches of 100, every batch must succeed first. | Host `test_more_than_100_references_go_in_batches_of_100`; prototype `test_batch_is_all_or_nothing`. Observed (one operator run, not independently reproduced): E8 to E10 materialized. |
 | L10 | A failure leaves the destination unchanged. If the file existed, its content stays. No temporary file stays. | Host helper `assert_nothing_written` in every failure test, for example `test_a_partially_invalid_batch_writes_nothing` and `test_an_unreachable_resolve_endpoint_writes_nothing` (existing content kept) |
 | L11 | The sink writes a temporary file in the destination directory, calls `fsync`, and then replaces the destination atomically (`os.replace`). | `src/sensitive_references/sink.py`. The atomic replace is shown indirectly by L10. A crash between write and replace is not yet tested. |
 | L12 | The written file has no permission bits for group or others. | Host `test_interactive_authorization_materializes_and_reports_no_secret` (asserts `st_mode & 0o077 == 0`) |
@@ -47,7 +47,7 @@ model does not see the file content.
 
 | ID | Rule | Evidence |
 |---|---|---|
-| L14 | The model-facing result keeps the references. It holds no value. | Host `test_interactive_authorization_materializes_and_reports_no_secret` (`model_content_keeps_reference`, zero sentinels in model content); prototype `test_valid_observed_reference_resolves_to_protected_file_only` |
+| L14 | The model-facing result keeps the references. It holds no value. | Host `test_interactive_authorization_materializes_and_reports_no_secret` (`model_content_keeps_reference`, zero sentinels in model content); prototype `test_valid_observed_reference_resolves_to_protected_file_only`. Observed (one operator run, not independently reproduced): E8 to E10, zero sentinel values in model content. |
 | L15 | The report holds no reference, no value and no credential. | Host helper `assert_report_clean`; host `test_the_host_materializes_an_observed_reference` (end to end) |
 | L16 | The sink sends `sink_type: local_file` and a `destination` to the resolve endpoint. The test host sends the absolute path. See SC-10 for the proposed change to a label. | `resolver_client.py`, `OAuthHttpResolver._batch`. The content of `destination` is not asserted by a host test. |
 | L17 | If a later action echoes a value that this operation resolved, the host can replace the value with its reference. | Prototype `test_downstream_echo_redaction_uses_only_values_resolved_in_this_operation`. The test host does not run a later action. |

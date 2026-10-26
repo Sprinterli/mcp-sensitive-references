@@ -12,6 +12,10 @@ server and the test host implement it. It replaces nothing in concept 0.5. The c
   last ran on 2026-10-26 (71 passed).
 - **Not yet tested:** the source implements the rule, but no test shows it. The cell names the source.
 - **Not verified:** this package found no evidence for the rule in either implementation.
+- **Observed (one operator run, not independently reproduced):** a production run of the test host
+  against the reference server on 2026-10-26, synthetic data (E8 to E10 in
+  [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#production-runs-of-2026-10-26)). An observation does not
+  make a rule verified.
 
 ## 1. Roles
 
@@ -65,8 +69,8 @@ It is not part of this profile.
 
 | ID | Rule | Server | Host |
 |---|---|---|---|
-| C1 | The first authorization of a client for a user shows a consent page. A browser session alone issues no code. | `test_the_first_authorization_shows_a_consent_page_and_issues_no_code` | End-to-end run 2026-10-25: one consent page |
-| C2 | Consent applies once per user and client. A second authorization of the same client gets a code without a page. Another client gets a new page. | `test_consent_is_asked_once_per_client_then_codes_follow_without_interaction` | End-to-end run 2026-10-25: zero consent pages with the cached token |
+| C1 | The first authorization of a client for a user shows a consent page. A browser session alone issues no code. | `test_the_first_authorization_shows_a_consent_page_and_issues_no_code` | End-to-end run 2026-10-25: one consent page. Observed: E8 (interactive consent, materialized). |
+| C2 | Consent applies once per user and client. A second authorization of the same client gets a code without a page. Another client gets a new page. | `test_consent_is_asked_once_per_client_then_codes_follow_without_interaction` | End-to-end run 2026-10-25: zero consent pages with the cached token. Observed: E9 (cache, `--no-interactive`), E10 (refresh, no consent page). |
 | C3 | Only the user's own answer on the page gives consent: a nonce that is absent or used, a cross-origin post, another user and a "deny" answer give nothing. | `test_consent_cannot_be_given_without_the_users_own_answer_on_the_page` (five cases) | — |
 | C4 | A consent post without an `Origin` header gives nothing. | `test_a_consent_post_without_an_origin_header_grants_nothing` | — |
 | C5 | The consent page cannot be framed (`frame-ancestors 'none'`). | `test_the_first_authorization_shows_a_consent_page_and_issues_no_code` | — |
@@ -84,11 +88,11 @@ It is not part of this profile.
 | T2 | A resolver token does not authorize an MCP request. | `test_a_resolver_token_is_refused_where_an_agent_token_is_expected`, `test_a_resolver_token_never_reaches_the_agent_suffix_lookup` | — |
 | T3 | An agent token does not authorize a resolve request. The host never sends the agent token to the resolve endpoint. | `test_an_agent_token_is_refused_at_the_resolve_endpoint` | `test_the_agent_token_is_never_sent` |
 | T4 | The server enforces the expiry of an access token. | `test_an_expired_resolver_token_resolves_nothing` | — |
-| T5 | A refresh token rotates. The old refresh token stops working. | `test_refresh_rotates_and_the_old_refresh_token_is_dead` | `test_an_expired_token_is_refreshed_and_rotated` |
+| T5 | A refresh token rotates. The old refresh token stops working. | `test_refresh_rotates_and_the_old_refresh_token_is_dead` | `test_an_expired_token_is_refreshed_and_rotated`. Observed: E10 (renewal through refresh after expiry; rotation not observed). |
 | T6 | A refresh token works only for its own client. | `test_a_refresh_token_works_only_for_its_own_client` | — |
 | T7 | The refresh token lives 30 days. | Read in the server source (`REFRESH_TTL_SECONDS`). **Not yet tested.** | — |
 | T8 | A token response without the resolve scope is refused (`scope_not_granted`). | Not applicable | `test_a_token_without_the_resolve_scope_is_refused` |
-| T9 | The host caches the token in a file with mode 0600, keyed by resource, authorization server and scope. It refuses a cache file that others can read. | Not applicable | `test_interactive_authorization_materializes_and_reports_no_secret` (mode), `test_a_cached_token_is_used_without_a_new_authorization`, `test_a_cache_file_that_others_can_read_is_refused` |
+| T9 | The host caches the token in a file with mode 0600, keyed by resource, authorization server and scope. It refuses a cache file that others can read. | Not applicable | `test_interactive_authorization_materializes_and_reports_no_secret` (mode), `test_a_cached_token_is_used_without_a_new_authorization`, `test_a_cache_file_that_others_can_read_is_refused`. Observed: E9 (token from the cache). |
 | T10 | The host treats an access token as expired 30 seconds before `expires_in` ends. | Not applicable | `test_an_expired_token_is_refreshed_and_rotated` (an expired token). The 30-second margin itself is not yet tested. |
 | T11 | After a 401, the host gets one new token and tries once again. After a second 401, the run fails and nothing is written. | Not applicable | `test_an_expired_token_is_refreshed_once_then_the_run_fails` |
 | T12 | Without a valid token and with interaction off, the host writes nothing. | Not applicable | `test_without_a_token_and_without_interaction_nothing_is_written`, `test_a_failed_refresh_without_interaction_writes_nothing` |
@@ -113,7 +117,7 @@ Success: `200` with `{"values": {"<reference>": "<value>"}}` and `Cache-Control:
 
 | ID | Rule | Server | Host |
 |---|---|---|---|
-| R1 | A consented resolver token resolves a reference of its own user. | `test_a_consented_resolver_resolves_its_users_reference` | `test_interactive_authorization_materializes_and_reports_no_secret` |
+| R1 | A consented resolver token resolves a reference of its own user. | `test_a_consented_resolver_resolves_its_users_reference` | `test_interactive_authorization_materializes_and_reports_no_secret`. Observed: E8 to E10 (materialized). |
 | R2 | The whole batch resolves, or the answer holds no value. One unknown, malformed, revoked, cross-user or truncated reference refuses the batch with `409 unresolvable`. | `test_a_batch_with_one_reference_that_does_not_resolve_returns_no_value` (five cases) | `test_a_partially_invalid_batch_writes_nothing`, `test_a_revoked_reference_in_a_batch_writes_nothing`, `test_a_reference_of_another_user_writes_nothing` |
 | R3 | A revocation holds when an older registry record comes back. | `test_a_replayed_mapping_body_does_not_resolve_a_revoked_reference` | — |
 | R4 | A batch has 1 to 100 references. 101 references give 413. 0 references give 400. | `test_a_request_outside_the_profile_is_refused` (`too_many`, `empty`) | `test_more_than_100_references_go_in_batches_of_100` |
