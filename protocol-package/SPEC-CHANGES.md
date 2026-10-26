@@ -40,6 +40,7 @@ Several findings of the two lists describe the same gap. This table shows which 
 | SC-17 | Server text in the reference shape | P9 |
 | SC-18 | The issuer-side sink | P1 |
 | SC-19 | Hosts that cannot verify negotiation | P11, P6 |
+| SC-20 | Loopback redirect URIs of the resolver client | F5, production lessons L-a to L-c (2026-10-26) |
 
 P2 (two issuers) and P3 (where the display travels) get no normative text in this package. They are in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) as OQ-1 and OQ-2.
@@ -266,7 +267,8 @@ section 6, Gate A finding HIGH).
 **Compatibility.** A server that issues resolver tokens without consent today must add a consent step. A
 host that registers a new client (RFC 7591) for each interactive authorization causes a new consent each
 time, because each loopback port gives a new redirect URI (F5). See OQ-4 in
-[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).
+[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md). SC-20 requires that the authorization server accepts any loopback
+port, so that a host can keep one client.
 
 ## SC-07. Resolver token lifetime, cache and renewal
 
@@ -609,3 +611,48 @@ token in a documentation file as a reference and tried to resolve it (P6).
 
 **Compatibility.** No conflict. The text repeats the existing rule of `SPEC-DRAFT.md`, "Host semantics",
 for a class of hosts that exists today.
+
+## SC-20. Loopback redirect URIs of the resolver client
+
+**Problem.** The only sink profile writes a local file, so the resolver client is a native client with a
+loopback redirect URI (PROFILE-oauth-resolver-1.md, A8). Concept 0.5 and the profile draft do not say how
+the authorization server treats such a URI. A production run on 2026-10-26 showed three failures that stop
+a host and a server from completing the flow together (IMPLEMENTATION-GUIDE.md, lessons L-a to L-c):
+
+1. The consent page had the Content Security Policy `form-action 'self'`. The browser blocked the 302
+   redirect to the loopback redirect URI after the consent post.
+2. A widely used browser ignores an IPv6 literal as a policy source. A server that lists the client origin
+   in its policy cannot serve a client at `http://[::1]:port` in that way. The reference server refuses
+   `[::1]` for the resolver client.
+3. Exact port matching broke a host that reused a client with a new loopback port. RFC 8252 section 7.3
+   requires that the authorization server accepts any port.
+
+**Evidence.**
+
+- Observed (one operator run, not independently reproduced), 2026-10-26, test host against the reference
+  server in production, synthetic data. See [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#production-runs-of-2026-10-26).
+- F5 in `prototype/M4-FINDINGS.md`, and OQ-4.
+- No test in this repository and no reference server test that this package read covers these three
+  points. **Not verified by tests.**
+
+**Proposed text.**
+
+> An authorization server MUST accept a loopback redirect URI of a resolver client with any port (RFC 8252
+> section 7.3). It MUST compare the scheme, the host and the path of such a URI, and MUST NOT compare the
+> port. An authorization server MUST accept the IPv4 loopback literal `127.0.0.1` as the host of a
+> loopback redirect URI. A host SHOULD use `127.0.0.1`. An authorization server MAY refuse the IPv6
+> literal `[::1]`. If it refuses it, it MUST refuse it at client registration or at the authorization
+> request, before the consent page. An authorization server MUST NOT let its own response policy, for
+> example the Content Security Policy of its consent page, block the delivery of the authorization
+> response to the loopback redirect URI.
+
+**Why this text is normative.** Each sentence describes behaviour that the other side depends on. A host
+that keeps one client and uses a new port each time fails at a server that matches the port. A host that
+uses `[::1]` fails at a server that cannot serve it, unless both agree on `127.0.0.1`. Every host fails at
+a server that blocks its own redirect. How a server builds its policy, how it checks the session (lesson
+L-d), the single-use nonce (lesson L-e) and the renewal through refresh (lesson L-f) do not change what the
+other side sees. They stay guidance in IMPLEMENTATION-GUIDE.md.
+
+**Compatibility.** A server that matches the loopback port exactly must stop doing so for the resolver
+client. A host that uses `[::1]` should change to `127.0.0.1`. The text supports option A of OQ-4, the
+provisional v1 design decision.

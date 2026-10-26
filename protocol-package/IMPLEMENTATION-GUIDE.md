@@ -1,7 +1,7 @@
 # Implementation guide
 
-**Status: experimental.** This guide derives from the findings F1 to F13 and P1 to P16. Each item names
-its source. The rules in SPEC-CHANGES.md are proposals. This guide does not make them normative.
+**Status: experimental.** This guide derives from the findings F1 to F13 and P1 to P16, and from the
+lessons of one production run on 2026-10-26 (last section). Each item names its source. The rules in SPEC-CHANGES.md are proposals. This guide does not make them normative.
 
 ## For a server implementer
 
@@ -45,6 +45,8 @@ its source. The rules in SPEC-CHANGES.md are proposals. This guide does not make
 8. Do not resolve a reference into an issuer-side sink because the caller has it. Resolve it only after
    the authorization decision for the tool execution: the authenticated principal, the authorized tool and
    action, and the owner of the reference (SC-18).
+9. Do not match the port of a loopback redirect URI (SC-20, lesson L-c).
+10. Do not copy the raw redirect URI text into a Content Security Policy (lesson L-a).
 
 ## For a host implementer
 
@@ -85,3 +87,81 @@ its source. The rules in SPEC-CHANGES.md are proposals. This guide does not make
 8. Do not send an absolute path as `destination` if a label is enough (SC-10, F8).
 9. Do not register a new client for each authorization if you can keep one client, because each new client
    causes a new consent page (SC-06, F5).
+10. Do not use `[::1]` for the loopback redirect URI. Use `127.0.0.1` (SC-20, lesson L-b).
+
+## Lessons from a production run (2026-10-26)
+
+**Status: observed (one operator run, not independently reproduced).** The operator ran the test host
+against the reference server in production with synthetic data. The six lessons below came from that
+run. Each lesson says whether it is guidance only or whether SC-20 makes a part of it normative. Normative
+text exists only where two independent implementations must agree on the behaviour, so that they
+interoperate. A rule that only one side must follow, and that the other side cannot see, stays guidance.
+
+### L-a. The page policy of the consent page must allow the redirect to the loopback client
+
+The consent page posts a form. The server answers the post with a 302 redirect to the loopback redirect
+URI of the client. A page Content Security Policy `form-action 'self'` blocks that redirect, because the
+browser checks `form-action` also on the redirect after the form post.
+
+- Server: list in `form-action` exactly the loopback origin of this authorization request, and nothing
+  more. Build the origin from the parsed scheme, host and port of the registered redirect URI. Never copy
+  the raw redirect URI text into the policy: user information or other characters in the URI text can
+  inject policy text.
+- Normative part: SC-20 requires that the server does not block its own authorization response. A host
+  cannot complete the flow if the server blocks it, so both sides depend on this. The way to build the
+  policy stays guidance, because the host cannot observe it.
+
+### L-b. A browser can ignore an IPv6 literal as a policy source
+
+A widely used browser ignores an IPv6 literal (`http://[::1]:port`) as a source in a Content Security
+Policy. A server that lists the client origin in `form-action` therefore cannot serve a client with the
+redirect URI `http://[::1]:port` in that way. The reference server refuses `[::1]` for the resolver
+client.
+
+- Host: use `127.0.0.1` for the loopback redirect URI.
+- Server: accept `127.0.0.1`. If you cannot serve `[::1]`, refuse it at registration with a clear error,
+  not later in the browser.
+- Normative part: SC-20 requires that a server accepts `127.0.0.1` and recommends that a host uses it. A
+  host and a server must agree on one loopback literal, so this is an interoperability rule.
+
+### L-c. A loopback redirect URI can use any port
+
+RFC 8252 section 7.3 requires that the authorization server accepts a loopback redirect URI with any port.
+Exact port matching breaks a host that registers a client again, or reuses a client, with a new port.
+
+- Server: compare scheme, host and path of a loopback redirect URI. Ignore the port.
+- Host: keep one client, and use a new free port for each authorization.
+- Normative part: SC-20 repeats the RFC 8252 rule for the resolver client. A host that keeps one client
+  depends on it (see OQ-4).
+
+### L-d. The consent step must check the browser session as fully as every other step
+
+The consent step must validate the browser session in the same way as every other browser request of the
+server, with the same access control. The presence of a session cookie is not enough. In the run, two
+parts of the server wrote the session with different field names. One part did not accept the session of
+the other part, and the result was a login loop.
+
+- Server: use one session check for every browser request, also for the consent page and the consent
+  post. Use one session format and one writer, or one reader that accepts every writer.
+- Guidance only. The host cannot see the session of the browser. SC-06 already says that a browser
+  session alone issues no code.
+
+### L-e. The consent nonce is single-use, so block a second submit
+
+The consent nonce is single-use (PROFILE-oauth-resolver-1.md, C3). A double click sends the form twice.
+The first post succeeds. The second post fails, and the user sees an error after a successful consent.
+
+- Server: block a second submit on the page, for example disable the button after the first submit. Keep
+  the nonce single-use.
+- Guidance only. The behaviour is inside the page of the server.
+
+### L-f. Refresh renews the resolver token without a new consent page
+
+A cached resolver token expired. The host renewed it through the refresh token. No consent page appeared.
+This is the expected behaviour: the consent applies to one pair of user and client (SC-06), and a refresh
+grant has no user interaction (RFC 6749 section 6).
+
+- Host: try the refresh token before an interactive authorization. With `--no-interactive`, a host can
+  still renew through refresh.
+- Server: check the consent on each refresh (Do item 9), but do not ask for it again while it is valid.
+- Guidance only. SC-06 and SC-07 already cover it.
