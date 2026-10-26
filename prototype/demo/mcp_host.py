@@ -45,7 +45,12 @@ endpoint of that issuer (``oauth-resolver-1``, ``local-file-1``):
   ``resource_metadata`` URL of the 401 answer of the MCP URL, else from the
   path-inserted well-known URL; never from the origin root. Without metadata
   the host stops, unless ``--no-resource-metadata`` says that the server has
-  none (configuration mode, not SC-01 or SC-02 conformant);
+  none. Metadata without the field stops the host too, unless
+  ``--no-discovery-object`` says that the server has none. Both options select
+  configuration mode, and the report lists the run as not conformant;
+* every URL that the host fetches, and every endpoint that metadata names,
+  must resolve to a public address, unless the MCP URL itself is on a
+  loopback, private or other non-public address (RFC 9728 section 7.7);
 * the resolver token is a second credential: a cached token (mode 0600), a
   refreshed one, or a new Authorization Code + PKCE S256 authorization with
   dynamic client registration and a 127.0.0.1 loopback redirect. The agent
@@ -95,6 +100,7 @@ from sensitive_references.resolver_client import (  # noqa: E402
     OAuthResolverCredential,
     ResolveEndpoint,
     ResolverClientError,
+    FetchPolicy,
     TokenCache,
     discover_protected_resource,
     origin,
@@ -272,6 +278,9 @@ class ResolveConfig:
     #: The operator says that the server publishes no RFC 9728 metadata. Only then
     #: does the host go on without metadata (configuration mode, not SC-01 or SC-02 conformant).
     no_metadata: bool = False
+    #: The operator says that the metadata of the server has no discovery object. Only then does
+    #: the host go on without it (configuration mode, not SC-02 conformant).
+    no_discovery_object: bool = False
     open_browser: Any = None
     authorization_timeout: float = 300.0
     timeout: float = 30.0
@@ -291,6 +300,8 @@ class MaterializeReport:
     model_content_keeps_reference: bool | None = None
     sentinels_in_model_content: int | None = None
     failure: str | None = None
+    #: Empty for a run that follows SC-01 and SC-02. Else each deviation that an option selected.
+    non_conformant: list[str] = field(default_factory=list)
 
 
 def resolution_negotiated(agreed: Any) -> bool:
@@ -299,33 +310,47 @@ def resolution_negotiated(agreed: Any) -> bool:
             and SINK_PROFILE in agreed.sink_profiles)
 
 
-def _resolver_setup(issuer: str, config: ResolveConfig, mcp_url: str | None = None) -> tuple[str, str, str]:
-    """The resolve endpoint, the authorization server and the resolve scope for ``issuer``.
+def _resolver_setup(issuer: str, config: ResolveConfig,
+                    mcp_url: str | None = None) -> tuple[str, str, str, FetchPolicy, list[str]]:
+    """The resolve endpoint, the authorization server, the resolve scope, the
+    fetch policy and the deviations from SC-01 and SC-02 for ``issuer``.
 
     If the metadata holds the discovery object, the object must be complete and
     must offer both profiles (SC-02); a configured value can then replace the
-    endpoint or the scope, but never excuses a bad object. Without the object,
-    only configuration mode is left: the endpoint must be configured, and the
-    scope comes from configuration, else the default. Configuration mode does
-    not claim SC-02 conformance. Without metadata (none found, or the server
-    did not answer) the host stops, unless ``config.no_metadata`` is set; then
-    SC-01 is not checked either. The endpoint, discovered or configured, must
-    be on the origin of the protected resource (SC-04); the metadata must name
-    ``issuer`` itself.
+    endpoint or the scope, but never excuses a bad object. If the metadata
+    exists without the object, the host stops like for an incomplete object,
+    unless ``config.no_discovery_object`` is set. Without metadata (none found,
+    or the server did not answer) the host stops, unless ``config.no_metadata``
+    is set. Both options select configuration mode: the endpoint must be
+    configured, the scope comes from configuration, else the default, and the
+    report labels the run as not conformant. The endpoint, discovered or
+    configured, must be on the origin of the protected resource (SC-04); the
+    metadata must name ``issuer`` itself. Every request passes the fetch policy
+    of the MCP URL (RFC 9728 section 7.7).
     """
+    policy = FetchPolicy(mcp_url or issuer)
+    deviations: list[str] = []
     # The WWW-Authenticate mechanism names metadata for the URL the request went to,
     # so it applies only when the issuer is the MCP URL itself.
     use_challenge = mcp_url is None or mcp_url == issuer
     try:
-        metadata = discover_protected_resource(issuer, use_challenge=use_challenge, timeout=config.timeout)
+        metadata = discover_protected_resource(issuer, use_challenge=use_challenge, policy=policy,
+                                               timeout=config.timeout)
     except ResolverClientError as error:
         # An unreachable server is not a server without metadata: fail closed.
         if error.code != "unreachable" or not config.no_metadata:
             raise
         metadata = None
-    if metadata is None and not config.no_metadata:
-        raise ResolverClientError("no_metadata", "no protected-resource metadata; set --no-resource-metadata "
-                                                 "only for a server that publishes none")
+    if metadata is None:
+        if not config.no_metadata:
+            raise ResolverClientError("no_metadata", "no protected-resource metadata; set --no-resource-metadata "
+                                                     "only for a server that publishes none")
+        deviations.append("configuration mode without protected-resource metadata (not SC-01 or SC-02 conformant)")
+    elif not metadata.discovery:
+        if not config.no_discovery_object:
+            raise ResolverClientError("no_discovery_object", "the metadata has no discovery object; set "
+                                                             "--no-discovery-object only for a server without one")
+        deviations.append("configuration mode without the discovery object (not SC-02 conformant)")
     discovered = metadata is not None and metadata.discovery
     if discovered:
         if RESOLVER_PROFILE not in metadata.resolver_profiles:
@@ -355,20 +380,21 @@ def _resolver_setup(issuer: str, config: ResolveConfig, mcp_url: str | None = No
         scope = metadata.resolve_scope
     else:
         scope = RESOLVE_SCOPE
-    return endpoint, server, scope
+    return endpoint, server, scope, policy, deviations
 
 
 def materialize(*, issuer: str, references: list[str], provenance: ProvenanceStore, agreed: Any,
                 config: ResolveConfig, sentinels: list[str], agent_token: str | None,
-                mcp_url: str | None = None) -> MaterializeReport:
+                mcp_url: str | None = None, deviations: list[str] | None = None) -> MaterializeReport:
     """Write ``config.template`` once per trusted reference through the protected sink.
 
     Only references with exactly one trusted issuer go into the content. The sink
     resolves the whole content before it writes, so a failure leaves the
-    destination as it was.
+    destination as it was. ``deviations`` and the deviations of the setup go
+    into ``non_conformant``.
     """
     destination = Path(config.destination).expanduser().resolve()
-    report = MaterializeReport(destination=str(destination))
+    report = MaterializeReport(destination=str(destination), non_conformant=list(deviations or []))
     usable = [r for r in dict.fromkeys(references) if _trusted(provenance, r)]
     report.references_withheld = len(set(references)) - len(usable)
     if not resolution_negotiated(agreed):
@@ -384,11 +410,12 @@ def materialize(*, issuer: str, references: list[str], provenance: ProvenanceSto
     resolver = None
     credential = None
     try:
-        endpoint, server, scope = _resolver_setup(issuer, config, mcp_url)
+        endpoint, server, scope, policy, found = _resolver_setup(issuer, config, mcp_url)
+        report.non_conformant += found
         credential = OAuthResolverCredential(
             resource=issuer, authorization_server=server, scope=scope, cache=TokenCache(config.token_cache),
             open_browser=config.open_browser, interactive=config.interactive, client_id=config.client_id,
-            authorization_timeout=config.authorization_timeout, timeout=config.timeout)
+            authorization_timeout=config.authorization_timeout, timeout=config.timeout, policy=policy)
         # The endpoint belongs to this issuer only; a reference from another issuer finds none.
         resolver = OAuthHttpResolver({issuer: ResolveEndpoint(endpoint, credential)},
                                      agent_token=agent_token, timeout=config.timeout)
@@ -502,9 +529,12 @@ async def run(args: argparse.Namespace) -> HostReport:
         report.failures.append("the extension was not negotiated")
     if resolving:
         # After the MCP session: an interactive authorization can take minutes.
+        parent = (["--resource names a parent of the MCP URL (deviation P16, not SC-01 conformant)"]
+                  if issuer != endpoint else [])
         report.materialization = materialize(
             issuer=issuer, references=first_references, provenance=provenance, agreed=agreed,
-            config=resolve_config(args), sentinels=sentinels, agent_token=token or None, mcp_url=endpoint)
+            config=resolve_config(args), sentinels=sentinels, agent_token=token or None, mcp_url=endpoint,
+            deviations=parent)
         _check_materialization(report, report.materialization)
     return report
 
@@ -536,7 +566,7 @@ def resolve_config(args: argparse.Namespace) -> ResolveConfig:
         resolve_endpoint=args.resolve_endpoint, resolve_scope=args.resolve_scope,
         authorization_server=args.authorization_server, client_id=args.resolver_client_id,
         token_cache=args.resolver_token_cache, interactive=not args.no_interactive,
-        no_metadata=args.no_resource_metadata, open_browser=_print_url if args.no_browser else open_browser,
+        no_metadata=args.no_resource_metadata, no_discovery_object=args.no_discovery_object, open_browser=_print_url if args.no_browser else open_browser,
         authorization_timeout=args.authorization_timeout, timeout=args.timeout)
 
 
@@ -574,6 +604,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     resolve.add_argument("--no-resource-metadata", action="store_true",
                          help="the server publishes no RFC 9728 metadata: go on with --resolve-endpoint and "
                               "--authorization-server (configuration mode, not SC-01 or SC-02 conformant)")
+    resolve.add_argument("--no-discovery-object", action="store_true",
+                         help="the metadata of the server has no sensitive_references object: go on with "
+                              "--resolve-endpoint (configuration mode, not SC-02 conformant)")
     resolve.add_argument("--resolve-scope", help="the resolve scope (default: the discovery object; without "
                                                  f"one, configuration mode: {RESOLVE_SCOPE})")
     resolve.add_argument("--authorization-server",

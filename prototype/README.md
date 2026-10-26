@@ -114,14 +114,25 @@ has exactly one trusted issuer. It writes through `ProtectedFileSink`, so a fail
 - The authorization server metadata must name the configured or discovered issuer and must list `S256` in
   `code_challenge_methods_supported`. If the member is absent or malformed, the host stops.
 - **Without metadata the host stops.** This applies when no metadata exists and when the server does not answer.
+  It applies also when the 401 answer names a `resource_metadata` URL that gives no document: then the option
+  below does not help, because the challenge says that metadata exists.
   If the server publishes no RFC 9728 metadata, the operator can set `--no-resource-metadata`. Then the host needs
   `--resolve-endpoint` and `--authorization-server`. **This mode is not conformant to SC-01 or SC-02**
   (`protocol-package/SPEC-CHANGES.md`): the host checks no resource identity and no discovery object. The host still
   checks that the endpoint is on the origin of the MCP URL.
-- **Configuration mode with metadata.** If the metadata has no `sensitive_references` object, the host needs
-  `--resolve-endpoint`, and the scope is `--resolve-scope`, else `sensitive-references.resolve`. This mode checks
-  SC-01 but does not claim SC-02 conformance. `--resource` (a parent resource, for a server with the known
-  deviation P16) does not claim SC-01 conformance.
+- **Metadata without the object stops the host.** If the metadata has no `sensitive_references` object, the
+  host stops, also with `--resolve-endpoint`. Only `--no-discovery-object` (the operator says that the server
+  publishes no object) selects configuration mode: the host needs `--resolve-endpoint`, and the scope is
+  `--resolve-scope`, else `sensitive-references.resolve`. This mode checks SC-01 but is not SC-02 conformant.
+  `--resource` (a parent resource, for a server with the known deviation P16) is not SC-01 conformant.
+- **Non-conformant runs are labelled.** The report field `materialization.non_conformant` lists each deviation
+  that `--no-resource-metadata`, `--no-discovery-object` or `--resource` selected. It is empty for a run that
+  follows SC-01 and SC-02.
+- **Fetch policy (RFC 9728 section 7.7).** Before each request, the host resolves the host name and refuses a
+  loopback, private, link-local or other non-public address, and a name that does not resolve. It checks each
+  endpoint of the authorization server metadata in the same way. If the MCP URL itself is on such an address (a
+  local test setup), the host allows such targets. The host does not pin the checked address, so DNS rebinding
+  stays a residual risk (`protocol-package/THREAT-MODEL.md`, TM-11).
 - The resolver token is a second credential. It comes from the cache file (`--resolver-token-cache`, mode 0600),
   from a refresh, or from a new authorization: dynamic client registration, Authorization Code + PKCE S256, the
   `resource` indicator, the resolve scope only, and a redirect to `127.0.0.1`. The host opens the browser and waits
@@ -139,6 +150,7 @@ python3 demo/mcp_host.py --url https://server.example/mcp --extension-id <identi
     --tool <read tool> --arguments '{...}' --expect-negotiation \
     --resolve-into ./out.txt --resolver-token-cache ~/.config/sref/resolver-tokens.json
 # Optional: --resolve-endpoint URL --resolve-scope SCOPE --authorization-server ISSUER --no-resource-metadata
+#           --no-discovery-object
 #           --resolver-client-id ID --materialize-template 'To: {ref}\n' --no-browser --no-interactive
 ```
 

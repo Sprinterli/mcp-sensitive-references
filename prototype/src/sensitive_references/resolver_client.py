@@ -24,6 +24,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import socket
 import tempfile
 import threading
 import time
@@ -86,18 +87,93 @@ def require_secure(url: str, what: str) -> str:
     raise ResolverClientError("insecure_url", f"the {what} URL is not https or loopback http")
 
 
+#: Targets that a host does not fetch for a protected resource on a public address (RFC 9728 section 7.7):
+#: unspecified, RFC 1918, shared (RFC 6598), loopback, link-local, multicast, reserved and the broadcast
+#: address; for IPv6 the unspecified and the loopback address, unique local (RFC 4193), link-local and
+#: multicast. An IPv4-mapped IPv6 address counts as its IPv4 address.
+_NON_PUBLIC = tuple(ipaddress.ip_network(n) for n in (
+    "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+    "192.168.0.0/16", "224.0.0.0/4", "240.0.0.0/4",
+    "::/128", "::1/128", "fc00::/7", "fe80::/10", "ff00::/8"))
+
+
+def non_public_address(address: str) -> bool:
+    """True when ``address`` (an IP literal) is in one of the non-public ranges above."""
+    ip = ipaddress.ip_address(address.split("%", 1)[0])
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return any(ip in network for network in _NON_PUBLIC)
+
+
+def _lookup(host: str) -> list[str]:
+    """The addresses of ``host`` from DNS. Tests replace this function."""
+    return [info[4][0] for info in socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)]
+
+
+class FetchPolicy:
+    """The fetch policy of the host for one protected resource (RFC 9728 section 7.7).
+
+    ``_exchange`` applies it before each request, and the discovery of the
+    authorization server applies it to each endpoint of the metadata. The host
+    resolves the host name by DNS. If one address is non-public, or the name
+    does not resolve, the host refuses the URL. Exception: the protected
+    resource itself is on a non-public address (a local test setup); then the
+    host allows such targets. Residual risk: the request resolves the name
+    again, so DNS rebinding between the check and the request stays possible.
+    """
+
+    def __init__(self, protected_resource: str) -> None:
+        self.protected_resource = protected_resource
+        self._local: bool | None = None
+
+    @staticmethod
+    def _non_public_host(host: str | None, *, unresolvable: bool) -> bool:
+        if not host:
+            return True
+        if _is_loopback(host):
+            return True
+        try:
+            return non_public_address(host)
+        except ValueError:
+            pass
+        try:
+            addresses = _lookup(host)
+        except OSError:
+            return unresolvable
+        return not addresses or any(non_public_address(a) for a in addresses)
+
+    @property
+    def local(self) -> bool:
+        """True when the protected resource is on a non-public address."""
+        if self._local is None:
+            # A resource name that does not resolve gives no exception.
+            self._local = self._non_public_host(urlsplit(self.protected_resource).hostname, unresolvable=False)
+        return self._local
+
+    def check(self, url: str, what: str) -> str:
+        if self.local:
+            return url
+        if self._non_public_host(urlsplit(url).hostname, unresolvable=True):
+            raise ResolverClientError(
+                "forbidden_target", f"the {what} URL is on a non-public address or does not resolve")
+        return url
+
+
 def origin(url: str) -> tuple[str, str, int | None]:
     parts = urlsplit(url)
     port = parts.port or {"https": 443, "http": 80}.get(parts.scheme)
     return parts.scheme, (parts.hostname or ""), port
 
 
-def _exchange(method: str, url: str, *, body: bytes | None = None, headers: dict[str, str] | None = None,
-              timeout: float = 10.0, read: bool = True) -> tuple[int, Any, bytes]:
+def _exchange(method: str, url: str, *, policy: FetchPolicy, body: bytes | None = None,
+              headers: dict[str, str] | None = None, timeout: float = 10.0,
+              read: bool = True) -> tuple[int, Any, bytes]:
     """One request without redirects. Returns the status, the headers and the body.
 
-    With ``read=False`` the body of a success answer is not read (a stream could hold the call open).
+    ``policy`` checks the target before the request. With ``read=False`` the
+    body of a success answer is not read (a stream could hold the call open).
     """
+    policy.check(url, "request")
     request = Request(url, data=body, method=method, headers=headers or {})
     try:
         with _OPENER.open(request, timeout=timeout) as response:  # nosec B310: URLs pass require_secure
@@ -111,35 +187,37 @@ def _exchange(method: str, url: str, *, body: bytes | None = None, headers: dict
         raise ResolverClientError("unreachable", f"the server did not answer ({type(error).__name__})") from None
 
 
-def http_json(method: str, url: str, *, body: bytes | None = None, headers: dict[str, str] | None = None,
-              timeout: float = 10.0) -> tuple[int, Any]:
+def http_json(method: str, url: str, *, policy: FetchPolicy, body: bytes | None = None,
+              headers: dict[str, str] | None = None, timeout: float = 10.0) -> tuple[int, Any]:
     """One request without redirects. Returns the status and the JSON body (or None)."""
-    status, _, raw = _exchange(method, url, body=body, headers=headers, timeout=timeout)
+    status, _, raw = _exchange(method, url, policy=policy, body=body, headers=headers, timeout=timeout)
     try:
         return status, json.loads(raw) if raw else None
     except ValueError:
         return status, None
 
 
-def _form(url: str, fields: dict[str, str], timeout: float) -> tuple[int, Any]:
-    return http_json("POST", url, body=urlencode(fields).encode(), timeout=timeout,
+def _form(url: str, fields: dict[str, str], timeout: float, policy: FetchPolicy) -> tuple[int, Any]:
+    return http_json("POST", url, policy=policy, body=urlencode(fields).encode(), timeout=timeout,
                      headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"})
 
 
 # ---------------------------------------------------------------- discovery
 
 
-def _well_known(url: str, suffix: str, *, insert: bool) -> str:
+def _well_known(url: str, suffix: str, *, insert: bool, strip_slash: bool = False) -> str:
     """The well-known URL of ``url``.
 
     ``insert``: RFC 9728 section 3.1 and RFC 8414 section 3.1. The well-known
-    string goes between the host and the path and query. Only a path of "/"
-    alone is removed; the query and a trailing slash of a longer path stay.
-    Else OpenID Connect Discovery 1.0 section 4: append to the path.
+    string goes between the host and the path and query. For RFC 9728 only a
+    path of "/" alone is removed; the query and a trailing slash of a longer
+    path stay. With ``strip_slash`` (RFC 8414 section 3.1, an issuer) the host
+    removes any terminating "/" of the path. Else OpenID Connect Discovery 1.0
+    section 4: append to the path.
     """
     parts = urlsplit(url)
     if insert:
-        path = "" if parts.path == "/" else parts.path
+        path = parts.path.rstrip("/") if strip_slash else ("" if parts.path == "/" else parts.path)
         return urlunsplit((parts.scheme, parts.netloc, f"/.well-known/{suffix}{path}", parts.query, ""))
     return urlunsplit((parts.scheme, parts.netloc, f"{parts.path.rstrip('/')}/.well-known/{suffix}", "", ""))
 
@@ -176,10 +254,12 @@ class ProtectedResource:
 _RESOURCE_METADATA = re.compile(r'(?i)(?:^|[\s,])resource_metadata\s*=\s*"([^"]*)"')
 
 
-def challenge_metadata_url(resource: str, *, timeout: float = 10.0) -> str | None:
+def challenge_metadata_url(resource: str, *, policy: FetchPolicy | None = None,
+                           timeout: float = 10.0) -> str | None:
     """The metadata URL that the resource names in the ``WWW-Authenticate`` header of its 401 answer
     to a request without a token (RFC 9728, section 5.1). None if the answer names none."""
-    status, headers, _ = _exchange("POST", resource, body=b"{}", timeout=timeout, read=False, headers={
+    policy = policy or FetchPolicy(resource)
+    status, headers, _ = _exchange("POST", resource, policy=policy, body=b"{}", timeout=timeout, read=False, headers={
         "Content-Type": "application/json", "Accept": "application/json, text/event-stream"})
     if status != 401 or headers is None:
         return None
@@ -190,8 +270,9 @@ def challenge_metadata_url(resource: str, *, timeout: float = 10.0) -> str | Non
     return None
 
 
-def _metadata_document(url: str, timeout: float) -> dict[str, Any] | None:
-    status, document = http_json("GET", url, headers={"Accept": "application/json"}, timeout=timeout)
+def _metadata_document(url: str, timeout: float, policy: FetchPolicy) -> dict[str, Any] | None:
+    status, document = http_json("GET", url, policy=policy, headers={"Accept": "application/json"},
+                                 timeout=timeout)
     return document if status == 200 and isinstance(document, dict) else None
 
 
@@ -216,7 +297,7 @@ def _discovery_object(document: dict[str, Any]) -> dict[str, Any] | None:
     return extra
 
 
-def discover_protected_resource(resource: str, *, use_challenge: bool = True,
+def discover_protected_resource(resource: str, *, use_challenge: bool = True, policy: FetchPolicy | None = None,
                                 timeout: float = 10.0) -> ProtectedResource | None:
     """RFC 9728 metadata of ``resource``.
 
@@ -227,15 +308,20 @@ def discover_protected_resource(resource: str, *, use_challenge: bool = True,
     (section 3.1). The host tries no other URL, also not the origin root (SC-01
     differs here from the MCP fallback). The metadata ``resource`` must be
     identical to ``resource`` as an exact string (section 3.3). Returns None
-    when no metadata exists. A present discovery object that is malformed is
+    when no metadata exists. A URL that the challenge names must pass
+    ``policy`` (section 7.7) and must give a document, because the challenge
+    says that metadata exists. A present discovery object that is malformed is
     refused.
     """
     require_resource_identifier(resource)
-    named = challenge_metadata_url(resource, timeout=timeout) if use_challenge else None
+    policy = policy or FetchPolicy(resource)
+    named = challenge_metadata_url(resource, policy=policy, timeout=timeout) if use_challenge else None
     if named is not None:
-        document = _metadata_document(require_secure(named, "protected-resource metadata"), timeout)
+        document = _metadata_document(require_secure(named, "protected-resource metadata"), timeout, policy)
+        if document is None:
+            raise ResolverClientError("metadata_unavailable", "the metadata URL of the challenge gave no document")
     else:
-        document = _metadata_document(protected_resource_metadata_url(resource), timeout)
+        document = _metadata_document(protected_resource_metadata_url(resource), timeout, policy)
     if document is None:
         return None
     if document.get("resource") != resource:
@@ -265,14 +351,25 @@ class AuthorizationServer:
     iss_parameter_supported: bool = False
 
 
-def discover_authorization_server(issuer: str, *, timeout: float = 10.0) -> AuthorizationServer:
-    """RFC 8414 metadata, then OpenID Connect discovery. The ``issuer`` must match exactly."""
-    require_secure(issuer, "authorization server")
-    candidates = [_well_known(issuer, "oauth-authorization-server", insert=True),
-                  _well_known(issuer, "openid-configuration", insert=True),
+def authorization_server_metadata_urls(issuer: str) -> list[str]:
+    """The metadata URLs of ``issuer`` in order: RFC 8414 section 3.1, the inserted OpenID
+    Connect form (RFC 8414 section 5), and OpenID Connect Discovery 1.0 section 4."""
+    candidates = [_well_known(issuer, "oauth-authorization-server", insert=True, strip_slash=True),
+                  _well_known(issuer, "openid-configuration", insert=True, strip_slash=True),
                   _well_known(issuer, "openid-configuration", insert=False)]
-    for url in dict.fromkeys(candidates):
-        status, document = http_json("GET", url, headers={"Accept": "application/json"}, timeout=timeout)
+    return list(dict.fromkeys(candidates))
+
+
+def discover_authorization_server(issuer: str, *, policy: FetchPolicy, timeout: float = 10.0) -> AuthorizationServer:
+    """RFC 8414 metadata, then OpenID Connect discovery. The ``issuer`` must match exactly.
+
+    Each request passes ``policy``. Each endpoint of the metadata must pass it too, also the
+    authorization endpoint, which only the browser opens (RFC 9728 section 7.7).
+    """
+    require_secure(issuer, "authorization server")
+    for url in authorization_server_metadata_urls(issuer):
+        status, document = http_json("GET", url, policy=policy, headers={"Accept": "application/json"},
+                                     timeout=timeout)
         if status != 200 or not isinstance(document, dict):
             continue
         if document.get("issuer") != issuer:
@@ -281,11 +378,14 @@ def discover_authorization_server(issuer: str, *, timeout: float = 10.0) -> Auth
         methods = document.get("code_challenge_methods_supported")
         if not isinstance(methods, list) or "S256" not in methods:
             raise ResolverClientError("no_pkce_s256", "the authorization server does not advertise PKCE S256")
+        def endpoint(name: str, what: str) -> str:
+            return policy.check(require_secure(document[name], what), what)
+
         return AuthorizationServer(
             issuer=issuer,
-            authorization_endpoint=require_secure(document["authorization_endpoint"], "authorization endpoint"),
-            token_endpoint=require_secure(document["token_endpoint"], "token endpoint"),
-            registration_endpoint=(require_secure(document["registration_endpoint"], "registration endpoint")
+            authorization_endpoint=endpoint("authorization_endpoint", "authorization endpoint"),
+            token_endpoint=endpoint("token_endpoint", "token endpoint"),
+            registration_endpoint=(endpoint("registration_endpoint", "registration endpoint")
                                    if document.get("registration_endpoint") else None),
             iss_parameter_supported=bool(document.get("authorization_response_iss_parameter_supported")),
         )
@@ -380,12 +480,14 @@ class OAuthResolverCredential:
                  open_browser: Callable[[str], Any] | None = None, interactive: bool = True,
                  client_id: str | None = None, client_name: str = "Sensitive References host",
                  authorization_timeout: float = 300.0, timeout: float = 10.0,
-                 clock: Callable[[], float] = time.time) -> None:
+                 clock: Callable[[], float] = time.time, policy: FetchPolicy | None = None) -> None:
         self.resource = resource
+        self.policy = policy or FetchPolicy(resource)
         self.authorization_server = authorization_server
         self.scope = scope
         self.cache = cache
-        self._metadata_provider = metadata or (lambda: discover_authorization_server(authorization_server, timeout=timeout))
+        self._metadata_provider = metadata or (lambda: discover_authorization_server(
+            authorization_server, policy=self.policy, timeout=timeout))
         self._metadata: AuthorizationServer | None = None
         self.open_browser = open_browser
         self.interactive = interactive
@@ -455,7 +557,7 @@ class OAuthResolverCredential:
         client_id = entry.get("client_id") or self.client_id
         status, document = _form(self.metadata().token_endpoint, {
             "grant_type": "refresh_token", "refresh_token": entry["refresh_token"], "client_id": client_id,
-            "resource": self.resource, "scope": self.scope}, self.timeout)
+            "resource": self.resource, "scope": self.scope}, self.timeout, self.policy)
         if status != 200:
             raise ResolverClientError("refresh_failed", "the refresh was refused")
         token = self._accept(document, client_id, {k: v for k, v in entry.items() if k != "refresh_token"})
@@ -473,7 +575,7 @@ class OAuthResolverCredential:
         body = json.dumps({"client_name": self.client_name, "redirect_uris": [redirect_uri],
                            "grant_types": ["authorization_code", "refresh_token"], "response_types": ["code"],
                            "token_endpoint_auth_method": "none", "scope": self.scope}).encode()
-        status, document = http_json("POST", endpoint, body=body, timeout=self.timeout,
+        status, document = http_json("POST", endpoint, policy=self.policy, body=body, timeout=self.timeout,
                                      headers={"Content-Type": "application/json", "Accept": "application/json"})
         if status not in (200, 201) or not isinstance(document, dict) or not document.get("client_id"):
             raise ResolverClientError("registration_failed", "the dynamic client registration failed")
@@ -526,7 +628,8 @@ class OAuthResolverCredential:
             raise ResolverClientError("no_code", "the authorization callback held no code")
         status, document = _form(metadata.token_endpoint, {
             "grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri,
-            "client_id": client_id, "code_verifier": verifier, "resource": self.resource}, self.timeout)
+            "client_id": client_id, "code_verifier": verifier, "resource": self.resource}, self.timeout,
+            self.policy)
         if status != 200:
             raise ResolverClientError("token_exchange_failed", "the code exchange was refused")
         token = self._accept(document, client_id, None)
@@ -581,7 +684,8 @@ class OAuthHttpResolver:
             if self._agent_token is not None and hmac.compare_digest(token, self._agent_token):
                 raise ResolverClientError("agent_token", "the resolver token is the MCP agent token")
             self.requests += 1
-            status, document = http_json("POST", endpoint.url, body=body, timeout=self._timeout, headers={
+            status, document = http_json("POST", endpoint.url, policy=endpoint.credential.policy, body=body,
+                                         timeout=self._timeout, headers={
                 "Authorization": f"Bearer {token}", "Content-Type": "application/json", "Accept": "application/json"})
             if status == 401 and not renewed:
                 renewed = True
