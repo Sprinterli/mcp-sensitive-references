@@ -1,7 +1,9 @@
 # Open questions after M6
 
 **Status: experimental.** These questions stay open after the reference server and the test host. Each
-question lists options and one recommendation. A recommendation is not a decision. The questions of
+question lists options and one **provisional v1 design decision**. The provisional decision is the
+recommendation of the earlier revision of this file. The protocol package uses it as the working design
+for version 1. It is not a community decision, and the options stay open for review. The questions of
 [../OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md) stay valid. This file names the item there that a question
 continues.
 
@@ -17,7 +19,7 @@ reference server says that users expect this flow (P2). Continues concept item 1
   separate consent per destination server.
 - Option C: define server-to-server redemption.
 
-**Recommendation:** A for version 1. State the gap in the SEP as a known limit, and collect use cases for B.
+**Provisional v1 design decision:** A for version 1. State the gap in the SEP as a known limit, and collect use cases for B.
 B needs a destination identity that the host can show to the user, and no implementation tested it.
 
 ## OQ-2. Where the masked display travels (P3)
@@ -30,7 +32,7 @@ the resolved value.
 - Option B: a rule that a resolver or a sink removes an adjacent display.
 - Option C: no display on the wire. A host renders a display from metadata.
 
-**Recommendation:** C. Both implementations use the canonical form without a display (plan section 6, M3).
+**Provisional v1 design decision:** C. Both implementations use the canonical form without a display (plan section 6, M3).
 A and B change the grammar or add a fragile text rule. Neither implementation tested A or B.
 
 ## OQ-3. The issuer-side sink and the agent-token rule (P1)
@@ -41,7 +43,7 @@ Concept 0.5 says that the agent token "must not automatically grant plaintext re
 - Option A: read the rule as a rule for plaintext that leaves the issuer. Define the issuer-side sink.
 - Option B: read the rule strictly. An issuer-side sink then needs a second grant.
 
-**Recommendation:** A, with the checks of SC-18. Plaintext in this case goes from the issuer to its own
+**Provisional v1 design decision:** A, with the checks of SC-18. Plaintext in this case goes from the issuer to its own
 connector and never to the host or the model. B adds a grant without a security gain inside one principal
 (plan section 3). Under A, possession of a reference never authorizes resolution: SC-18 requires an
 explicit authorization decision for the tool execution, with the authenticated principal, the authorized
@@ -59,8 +61,10 @@ authorization.
 - Option B: consent per user and software identity (for example `software_id` in RFC 7591).
 - Option C: accept the repeat. The token cache makes it rare (E2: zero consent pages with a cached token).
 
-**Recommendation:** A. It follows an existing RFC and keeps the consent bound to one client. Not tested by
-either implementation.
+**Provisional v1 design decision:** A. It follows an existing RFC and keeps the consent bound to one client. SC-20 states
+it as proposed text. No test in this repository covers it. A production run on 2026-10-26 observed that
+exact port matching breaks a host that reuses a client with a new port (IMPLEMENTATION-GUIDE.md, lesson
+L-c; observed, one operator run, not independently reproduced).
 
 ## OQ-5. Sender-constrained resolver tokens (F6)
 
@@ -70,7 +74,7 @@ Continues concept item 7.
 - Option A: require DPoP for `oauth-resolver-1`.
 - Option B: recommend DPoP, require a short access-token lifetime and refresh rotation.
 
-**Recommendation:** B for the first profile version, A as a candidate for a second version. A stolen
+**Provisional v1 design decision:** B for the first profile version, A as a candidate for a second version. A stolen
 refresh token is the larger risk, and rotation with client binding limits it (TM-8).
 
 ## OQ-6. The destination field (F8)
@@ -79,7 +83,7 @@ refresh token is the larger risk, and rotation with client binding limits it (TM
 - Option B: a label that the host chooses, for example the file name.
 - Option C: a keyed hash of the path.
 
-**Recommendation:** B. The server uses the field for audit only. A label is readable in an audit and does
+**Provisional v1 design decision:** B. The server uses the field for audit only. A label is readable in an audit and does
 not show the file system layout. C hides more but makes the audit useless to a person.
 
 ## OQ-7. Durable host provenance
@@ -90,8 +94,12 @@ server is not a host and does not answer this question. Continues concept item 1
 - Option A: an integrity-protected local store, keyed by a host secret.
 - Option B: no persistence. After a restart the host needs a new observation.
 
-**Recommendation:** B for version 1, because it fails closed and needs no new mechanism. A needs a second
-host implementation before a standard can define it.
+**Provisional v1 design decision:** A host MAY support durable host provenance (option A). Loss of
+trustworthy provenance MUST fail closed. If a host cannot show that a stored observation is intact,
+current and from its own store, it MUST treat the reference as not observed and MUST NOT resolve it. A
+host that does not persist provenance (option B) conforms, because after a restart it needs a new
+observation. The integrity mechanism of option A stays open. A standard needs a second host implementation
+before it can define one.
 
 ## OQ-8. Location of the discovery object
 
@@ -101,12 +109,12 @@ SC-02 proposes the RFC 9728 metadata. Continues concept item 4.
 - Option B: the extension settings object.
 - Option C: both.
 
-**Recommendation:** A. The resolver token belongs to the protected resource, not to the MCP session. The
+**Provisional v1 design decision:** A. The resolver token belongs to the protected resource, not to the MCP session. The
 settings object is authenticated by the agent token and has `additionalProperties: false` today (F1).
 
 ## OQ-9. The extension identifier (P7)
 
-Continues concept item 3. **Recommendation:** ask the MCP project for an identifier before the SEP. Until
+Continues concept item 3. **Provisional v1 design decision:** ask the MCP project for an identifier before the SEP. Until
 then, implementations take the identifier from configuration (SC-15).
 
 ## OQ-10. The subject of an opaque resolver token
@@ -117,11 +125,11 @@ token with a server-side record, so no claim is visible to anyone but the server
 - Option A: require JWT access tokens with `sub`.
 - Option B: require only that the resource server binds the token to a stable subject, by any means.
 
-**Recommendation:** B. The subject matters only to the resource server, which checks it on every resolve.
+**Provisional v1 design decision:** B. The subject matters only to the resource server, which checks it on every resolve.
 
 ## OQ-11. Reference lifetime (P5)
 
 - Option A: a fixed minimum lifetime in the profile.
 - Option B: a lifetime that the server documents, and the reason `expired` after it (SC-13).
 
-**Recommendation:** B. Workflows differ too much for one fixed value.
+**Provisional v1 design decision:** B. Workflows differ too much for one fixed value.

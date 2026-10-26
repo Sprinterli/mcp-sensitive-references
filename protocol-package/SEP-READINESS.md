@@ -1,6 +1,6 @@
 # SEP readiness
 
-**Status: honest checklist, 2026-10-25.** This file lists what a Specification Enhancement Proposal (SEP)
+**Status: honest checklist, 2026-10-26.** This file lists what a Specification Enhancement Proposal (SEP)
 for Sensitive References needs, and the state of each item.
 
 The sources of this package do not include the MCP SEP process document. The list below is the set of
@@ -18,14 +18,14 @@ Legend: **Done**, **Partial**, **Missing**.
 | Core semantics (reference, provenance, fail closed) | Done | `SPEC-DRAFT.md`, `WIRE-REPRESENTATION.md` |
 | Token grammar with test vectors | Done | `prototype/EXTENSION-PROFILE-DRAFT.md` "Test vectors"; `test_reference_grammar.py` |
 | Settings schema | Partial | `prototype/schema/sensitive-references-settings.schema.json`. It has no field for limits (SC-09). |
-| Resolver profile text | Partial | [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md) states it as implemented. SC-01 to SC-11 are proposals, not accepted text. |
+| Resolver profile text | Partial | [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md) states it as implemented. SC-01 to SC-11 and SC-20 are proposals, not accepted text. |
 | Sink profile text | Partial | [PROFILE-local-file-1.md](PROFILE-local-file-1.md). The destination field is open (OQ-6). |
 | Error codes | Partial | SC-11 and SC-12 propose them. The reference server and the fake server of the host tests use the SC-11 codes (commit `dd7afe2`). No accepted text. |
-| Issuer identity | Partial | SC-01 proposes RFC 9728 `resource`. The reference server deviates from RFC 9728 section 3.3 (P16). |
+| Issuer identity | Partial | SC-01 proposes the RFC 9728 `resource` value, identical to the MCP URL (RFC 9728 section 3.3). The reference server is not conformant to SC-01 (known deviation P16). The test host interoperates with it only through a non-conformant operator option. |
 | Security considerations | Partial | `SECURITY-MODEL.md` and [THREAT-MODEL.md](THREAT-MODEL.md). No external security review of the protocol text. |
 | Privacy considerations (destination, audit) | Partial | TM-7 and SC-10. No accepted rule. |
 | Backward compatibility | Done | SC-16: only negotiated sessions get canonical tokens. Production run E5: legacy sessions got no references. |
-| Open questions resolved | Missing | [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) has eleven open items. OQ-1 (two issuers) and OQ-3 (issuer-side sink) need a community decision. |
+| Open questions resolved | Partial | [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) records a provisional v1 design decision for each of the eleven items. No item has a community decision. OQ-1 (two issuers) and OQ-3 (issuer-side sink) need one most. |
 
 ## Identifiers and registrations
 
@@ -50,7 +50,7 @@ Legend: **Done**, **Partial**, **Missing**.
 | Interoperability with a second authorization server | Partial | The prototype Keycloak probes validate JWT/JWKS and Authorization Code + PKCE (`RESOLVER-PROFILE.md`). They did not run the full `oauth-resolver-1` flow with consent and refresh. |
 | An official MCP SDK implementation | Missing | `prototype/CONFORMANCE.md` "Remaining before a standards proposal". |
 | Conformance test suite usable by others | Partial | The host tests run offline against a fake server. No suite exists that tests an arbitrary server. |
-| Durable host provenance | Missing | OQ-7. The prototype keeps provenance in memory. |
+| Durable host provenance | Partial | OQ-7, provisional v1 design decision: a host MAY persist provenance, and loss of trustworthy provenance MUST fail closed. The prototype keeps provenance in memory, which conforms. No integrity mechanism for a durable store is defined or implemented. |
 
 ## Process and review
 
@@ -67,5 +67,6 @@ Legend: **Done**, **Partial**, **Missing**.
 
 The core semantics and one pair of implementations are ready for discussion. A SEP is **not ready** for
 submission. The blocking items are: an official extension identifier, a second independent implementation
-(server or host), community review of the proposed changes, a decision on OQ-1 and OQ-3, and the
-registration of the discovery field or a decision on another location.
+(server or host), community review of the proposed changes, community confirmation of the provisional v1
+design decisions (in particular OQ-1 and OQ-3), the conformance of the reference server to SC-01, and the
+registration of the discovery field or a decision on another location (OQ-8).
