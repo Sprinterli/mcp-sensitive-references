@@ -95,6 +95,12 @@ reference server publishes that base URL as its `resource` (P16). Under SC-01 a 
 metadata. So E8 to E10 show the profile flow under the known deviation of the reference server. They are
 no evidence that the server or the host conforms to SC-01.
 
+E11 (observed on 2026-10-26, one operator run, not independently reproduced). The test host at commit
+`8394a02`, without `--resource`, against the same server: the host read the metadata that the
+`resource_metadata` parameter of the 401 answer names. That document has the base URL as `resource`. The
+host stopped with `wrong_issuer` and resolved nothing. This is the fail-closed result that SC-01 requires.
+It also shows that the reference server does not yet do step 2 of the known deviation note in SC-01.
+
 The same runs gave six lessons for implementers. They are in
 [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md#lessons-from-a-production-run-2026-10-26). SPEC-CHANGES.md,
 SC-20 makes three of them normative.

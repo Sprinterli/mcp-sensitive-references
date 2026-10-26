@@ -154,6 +154,13 @@ SC-01. The reference server becomes conformant if it does these steps:
 The metadata document for the base URL can stay for the existing client, as the metadata of a separate
 protected resource.
 
+State observed on 2026-10-26 (one operator check, not independently reproduced): the reference server
+already does step 1 and the first half of step 3. Its path-specific document has `resource` identical to the
+MCP URL and carries the `sensitive_references` object. Step 2 is open: the `resource_metadata` parameter of
+its 401 answer on the MCP URL names the document for the base URL. A host that follows the MCP discovery
+order reads that document first, finds a `resource` that is not the MCP URL, and stops (E11). Step 2 and the
+token binding of step 3 remain for the reference server.
+
 **Tolerance of the test host (non-normative).** The test host has an option `--resource`. With it, an
 operator names a parent resource, and the host accepts an MCP URL that lies under it on the same origin
 (host tests `test_a_configured_parent_resource_is_the_issuer`,
