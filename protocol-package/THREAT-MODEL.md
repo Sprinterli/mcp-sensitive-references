@@ -97,20 +97,21 @@ endpoint. Variants:
 **Control.** The host keeps the issuer string as given, compares `resource` as an exact string and
 requires that it is identical to the MCP URL (SC-01). It gets the metadata only from the two locations of
 RFC 9728 and never from the origin root. The test host accepts a parent resource only through an explicit operator option
-(`--resource`). That option is a non-conformant tolerance for the reference server (P16). The host accepts a discovered endpoint only on the resource origin (SC-04). The host follows no
+(`--resource`). That option is a non-conformant tolerance for the reference server (P16). The host accepts a resolve endpoint, discovered or configured, only on the resource origin (SC-04). Without metadata the host stops, unless the operator states that the server has none. The host follows no
 redirect. The host checks the RFC 8414 issuer and the RFC 9207 `iss` parameter (SC-08).
 
 **Evidence.** Host tests `test_metadata_for_another_resource_is_refused`,
-`test_a_discovered_cross_origin_endpoint_is_refused`, `test_a_redirect_from_the_resolve_endpoint_is_not_followed`,
+`test_a_discovered_cross_origin_endpoint_is_refused`, `test_a_configured_cross_origin_endpoint_is_refused`,
+`test_unreachable_metadata_fails_closed`, `test_a_redirect_from_the_resolve_endpoint_is_not_followed`,
 `test_a_callback_from_another_issuer_is_refused`, `test_a_resource_the_mcp_url_is_not_under_stops_the_host`,
 `test_a_near_miss_of_the_issuer_is_refused`, `test_root_metadata_is_not_a_fallback_for_a_resource_with_a_path`,
 `test_challenge_metadata_for_another_resource_is_refused` and
 `test_a_callback_without_iss_is_refused_when_the_server_advertises_iss`.
-The RFC 8414 check is not yet tested.
+Host test `test_authorization_server_metadata_for_another_issuer_is_refused` covers the RFC 8414 check.
 
 **Residual risk.** The issuer identity is a URL, not a cryptographic identity (P10). An attacker who
-controls DNS and a valid TLS certificate for the origin controls the issuer. An operator-configured endpoint
-on another origin bypasses the origin check by design.
+controls DNS and a valid TLS certificate for the origin controls the issuer. With `--no-resource-metadata`
+the host checks no resource identity: the operator statement replaces it.
 
 ### TM-6. Partial materialization
 

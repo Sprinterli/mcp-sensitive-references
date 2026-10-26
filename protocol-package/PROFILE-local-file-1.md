@@ -1,4 +1,4 @@
-# Profile `local-file-1` (as implemented and tested)
+# Profile `local-file-1` (proposed, with implementation evidence)
 
 **Status: proposed change, experimental.** This file states the local-file sink profile as the test host
 implements it (`prototype/demo/mcp_host.py`, `--resolve-into`, and

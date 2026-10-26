@@ -64,10 +64,11 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
    string in `structuredContent` (`prototype/EXTENSION-PROFILE-DRAFT.md`, "Candidate host hooks").
 3. Record the issuer as the RFC 9728 `resource` value. Keep the string as given, and compare it as an
    exact string. Require that the `resource` value is identical to the MCP URL (SC-01, F3, F12, RFC 9728
-   section 3.3). Get the metadata only from the path-inserted well-known URL or from the
-   `resource_metadata` URL of a `WWW-Authenticate` answer of the MCP URL. Do not try the origin root. If you add an
-   operator option for a server that deviates, as the test host does with `--resource`, mark it as
-   non-conformant.
+   section 3.3). Keep the query of the MCP URL. Get the metadata first from the `resource_metadata` URL of a
+   `WWW-Authenticate` answer of the MCP URL. If the answer names none, use the path-inserted well-known URL,
+   with the path and the query. Do not try the origin root. If no metadata comes back, or the server does
+   not answer, do not resolve. If you add an operator option for a server that deviates, as the test host
+   does with `--resource` or `--no-resource-metadata`, mark it as non-conformant.
 4. Resolve only a reference with exactly one trusted issuer, and only at the endpoint of that issuer
    (`local-file-1`, L5, L6).
 5. Use a separate resolver client with Authorization Code, PKCE S256, the `resource` parameter and no
@@ -89,7 +90,7 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
 1. Do not resolve token-shaped text that you did not observe, also not from a file that you read (SC-19, P6).
 2. Do not send the agent token to the resolve endpoint (SC-05).
 3. Do not follow a redirect from the resolve endpoint or the token endpoint (SC-04, F4).
-4. Do not accept a discovered resolve endpoint on another origin (SC-04, F4).
+4. Do not accept a resolve endpoint on another origin, also not a configured one (SC-04, F4).
 5. Do not select one of several authorization servers automatically (SC-08, F11).
 6. Do not let the model choose the destination or the content template (`local-file-1`, L3, L4).
 7. Do not show a server message to the model. Report the error code only (SC-11, F9).
@@ -125,9 +126,10 @@ Other browsers were not tested.
   more. Build the origin again from the parsed host and port of the redirect URI of this request, after
   that URI matched a registered one (SC-20). Never copy the raw redirect URI text into the policy: user
   information or other characters in the URI text can inject policy text.
-- Normative part: SC-20 requires that the server does not block its own authorization response. A host
-  cannot complete the flow if the server blocks it, so both sides depend on this. The way to build the
-  policy stays guidance, because the host cannot observe it.
+- Normative part: SC-20 requires that a `form-action` directive of the consent page permits the exact
+  origin of the matched loopback redirect URI, or that the page has no `form-action` directive. A test can
+  check this in the response headers. Whether a browser then delivers the redirect stays guidance, because
+  only one browser was tested. The way to build the policy text also stays guidance.
 
 ### L-b. A browser can ignore an IPv6 literal as a policy source
 

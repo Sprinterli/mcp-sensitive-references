@@ -1,6 +1,6 @@
 # Proposed changes to concept 0.5
 
-**Status: proposed change. Not concept text.** Each entry below proposes a change to concept 0.5. The
+**Status: proposed change, experimental. Not concept text.** Each entry below proposes a change to concept 0.5. The
 concept files in the repository root do not change. One root change exists: commit `f9d34b4` adds a link
 to this package in the root `README.md`. It changes no concept text. If the community accepts an entry, a
 later concept version can take its text.
@@ -78,9 +78,17 @@ RFC 9728 does not allow a `resource` value of which the MCP URL is only a path b
   issuer string as given and compares it as an exact string.
 - Host tests `test_the_endpoint_and_scope_come_from_discovery` (path-inserted well-known URL),
   `test_metadata_named_in_the_www_authenticate_challenge_is_used`,
-  `test_challenge_metadata_for_another_resource_is_refused` and
+  `test_the_challenge_comes_before_the_well_known_url`,
+  `test_challenge_metadata_for_another_resource_is_refused`,
+  `test_a_parent_resource_gets_no_challenge_probe_of_the_mcp_url` and
   `test_root_metadata_is_not_a_fallback_for_a_resource_with_a_path`: the host uses only the two discovery
-  mechanisms of RFC 9728.
+  mechanisms of RFC 9728, the challenge first.
+- Host tests `test_the_well_known_url_follows_rfc_9728_section_3_1`,
+  `test_a_resource_with_a_query_or_a_trailing_slash_keeps_it`, `test_the_issuer_string_is_kept_as_given`,
+  `test_a_url_with_user_information_or_a_fragment_is_no_issuer` and `test_a_resource_with_a_fragment_is_refused`:
+  the issuer keeps its query and trailing slash, and the well-known URL keeps them too.
+- Host tests `test_without_metadata_the_host_stops_unless_the_operator_says_there_is_none` and
+  `test_unreachable_metadata_fails_closed`: without metadata the host does not resolve.
 
 **Proposed text.**
 
@@ -88,16 +96,49 @@ RFC 9728 does not allow a `resource` value of which the MCP URL is only a path b
 > metadata of the MCP endpoint. A server MUST publish protected-resource metadata whose `resource` value is
 > identical to the URL of the MCP endpoint (RFC 9728 section 3.3). A host MUST compare two issuer
 > identities as exact strings. A host MUST NOT normalize case, a trailing slash, a default port or a
-> percent-encoding before it compares. If the metadata `resource` is not identical to the URL of the MCP
-> endpoint, the host MUST NOT use the metadata, MUST NOT record an observation with that issuer and MUST
-> NOT resolve. A host MUST get the metadata only from the well-known URL that RFC 9728 section 3.1 builds
-> from the MCP URL, or from the URL in the `resource_metadata` parameter of a `WWW-Authenticate` answer of
-> the MCP endpoint (RFC 9728 section 5.1). A host MUST NOT try another URL, for example the well-known URL
-> at the origin root for an MCP URL with a path.
+> percent-encoding before it compares. The issuer identity is the MCP URL with its query, if it has one.
+> If the metadata `resource` is not identical to the URL of the MCP endpoint, the host MUST NOT use the
+> metadata, MUST NOT record an observation with that issuer and MUST NOT resolve.
+>
+> A host MUST get the metadata in this order. First, if a request without a token to the MCP endpoint gets
+> a 401 answer whose `WWW-Authenticate` header has a `resource_metadata` parameter, the host MUST use that
+> URL (RFC 9728 section 5.1) and no other URL. Else the host MUST use the well-known URL that RFC 9728
+> section 3.1 builds from the MCP URL: the host inserts `/.well-known/oauth-protected-resource` between the
+> host component and the path and query components, and keeps the path and the query. A host MUST NOT try
+> another URL, for example the well-known URL at the origin root for an MCP URL with a path or a query.
+>
+> If the host finds no metadata, or if the server does not answer, the host MUST NOT resolve. A host MAY
+> resolve without metadata only if an operator states explicitly that the server publishes no RFC 9728
+> metadata. Such a host does not conform to this entry for that server.
 
 The proposed text does not permit a `resource` value of which the MCP URL is a path below. An earlier
 version of this entry permitted it. That rule is not compatible with RFC 9728 section 3.3, and this
 revision removes it.
+
+**Conflict with the MCP authorization specification.** The MCP specification (version 2025-11-25,
+"Protected Resource Metadata Discovery Requirements") tells a client to use the `resource_metadata` URL of
+the `WWW-Authenticate` header when present. Otherwise the client falls back to the well-known URL at the
+path of the MCP endpoint, and then to the well-known URL at the origin root. SC-01 takes the first two
+steps in the same order. **For resolution, SC-01 does not accept the root document for an MCP URL with a
+path.** The reason is RFC 9728 section 3.3. A client builds the root URL from the origin, so the `resource`
+value of that document must be the origin. That value is not the MCP URL. A root document that names the
+MCP URL breaks section 3.3 and is also not usable. This difference applies only to the issuer identity and
+to resolution. For the MCP connection itself, a host can still use the MCP fallback. A SEP must resolve
+this conflict with the MCP specification ([SEP-READINESS.md](SEP-READINESS.md)).
+
+**Upper-case scheme and host.** The MCP specification says that implementations SHOULD accept an upper-case
+scheme and host. A host that follows SC-01 accepts such an MCP URL and connects to it. The issuer is still
+the string as given. The metadata `resource` must be identical to it, character for character. A host MUST
+NOT change the case of either string to make them match. Host test `test_identical_metadata_is_accepted`
+accepts an upper-case issuer with identical upper-case metadata; `test_a_near_miss_of_the_issuer_is_refused`
+refuses a difference in case.
+
+**Trailing slash in the well-known URL.** RFC 9728 section 3.1 removes "any terminating slash following the
+host component" before it inserts the well-known string. This package reads that as the slash that is the
+whole path (`https://mcp.example.com/`). A slash at the end of a longer path stays:
+`https://mcp.example.com/mcp/` gives `https://mcp.example.com/.well-known/oauth-protected-resource/mcp/`.
+RFC 8414 section 3.1 removes a terminating slash of any path. The reading for RFC 9728 is **not verified**
+with the authors of RFC 9728. A SEP must confirm it.
 
 **Known deviation of the reference server (non-normative).** The reference server publishes its base URL
 as `resource`, and its MCP URL is a path below that value (P16). This behaviour is **not conformant** to
@@ -125,7 +166,9 @@ test host requires that `resource` is identical to the MCP URL.
 A server that publishes metadata for a parent resource, as the reference server does, must add metadata
 for the MCP URL. Until it does, a conformant host does not resolve its references. A server that has no
 RFC 9728 metadata has no issuer identity under this text. For such a server, a host can only use operator
-configuration (see SC-02).
+configuration, and only after an explicit operator statement that the server has no metadata. The test host
+has the option `--no-resource-metadata` for this case. In that mode the test host is not conformant to SC-01
+or SC-02 (`prototype/README.md`). A host that follows the MCP root fallback for resolution must stop.
 
 ## SC-02. Discovery of the resolve endpoint
 
@@ -182,7 +225,8 @@ Example:
 
 **Compatibility.** No conflict with concept 0.5, which leaves discovery open. A host without the object
 can use operator configuration only. The test host calls this "configuration mode" and does not claim
-SC-02 conformance in it (`prototype/README.md`). The field name
+SC-02 conformance in it (`prototype/README.md`). If the server has no metadata at all, configuration mode
+needs the explicit operator statement of SC-01. The field name
 `sensitive_references` is not registered in the IANA "OAuth Protected Resource Metadata" registry. A SEP
 must register it or choose another location (see [SEP-READINESS.md](SEP-READINESS.md)).
 
@@ -224,18 +268,26 @@ it does not forbid redirects (F4).
 
 - F4 in `prototype/M4-FINDINGS.md`.
 - Host tests `test_a_discovered_cross_origin_endpoint_is_refused`,
+  `test_a_configured_cross_origin_endpoint_is_refused`,
   `test_a_redirect_from_the_resolve_endpoint_is_not_followed` and
   `test_an_insecure_resolve_endpoint_is_refused`.
 
 **Proposed text.**
 
-> A host MUST accept a discovered `resolve_endpoint` only on the origin of the `resource` value. A host
-> MAY accept an operator-configured endpoint on another `https` origin. A host MUST use `https` for the
+> A host MUST send a resolver token only to a resolve endpoint on the origin of the `resource` value. This
+> applies to a discovered endpoint and to an operator-configured endpoint. A host MUST refuse an endpoint on
+> another origin before it starts an authorization. A host MUST use `https` for the
 > resolve endpoint. A host MAY use `http` only on a loopback address, for tests. A host MUST NOT follow
 > an HTTP redirect from the resolve endpoint or from the token endpoint.
 
-**Compatibility.** A server that hosts its resolve endpoint on another origin must change its layout or
-tell its users to configure the endpoint.
+An earlier version of this entry let an operator configure an endpoint on another origin. The token has
+the resource as its audience, and an unauthenticated configuration value is no proof that the other origin
+belongs to the resource. This revision removes that permission.
+
+**Compatibility.** A server that hosts its resolve endpoint on another origin must move it to the origin of
+the resource. If a deployment needs another origin, a later version must define a separately
+authenticated binding of the endpoint to the resource, and a token with the endpoint as its audience. This
+package does not define it. [SEP-READINESS.md](SEP-READINESS.md) lists it as an open item.
 
 ## SC-05. The resolver token is a separate token class
 
@@ -289,7 +341,8 @@ section 6, Gate A finding HIGH).
 **Proposed text.**
 
 > An authorization server MUST get an explicit approval from the user before it issues the first
-> authorization code with the resolve scope to a client. The consent page MUST name the client, the
+> authorization code with the resolve scope for a tuple of subject, client, resource, resolve scope and
+> sink-profile set (see the next paragraph). The consent page MUST name the client, the
 > protected resource (its RFC 9728 `resource` value) and the sink profiles that the approval covers.
 >
 > The authorization server MUST store the approval bound to the tuple of subject, client, resource,
@@ -515,12 +568,45 @@ detect such a refusal (`prototype/README.md`, "Independent MCP test host").
 **Proposed text.**
 
 > If a negotiated server refuses a tool call because a reference does not resolve, the server MUST return
-> a tool result with `isError: true`. The `structuredContent` of that result SHOULD contain
-> `error_code` with one of `reference_malformed`, `reference_unknown`, `reference_revoked` or
-> `reference_expired`, and counts. The result MUST NOT contain a value or a reference identifier.
+> a tool result with `isError: true`. The result MUST NOT contain a value or a reference identifier. The
+> result SHOULD have `structuredContent`. If it has it, the object MUST follow the schema below:
+>
+> - `error_code` (required): one of `reference_malformed`, `reference_unknown`, `reference_revoked` or
+>   `reference_expired`. If the refused references have more than one reason, `error_code` names the first
+>   reason in this order: malformed, unknown, revoked, expired.
+> - `reasons` (required): an object. Its keys are a subset of `malformed`, `unknown`, `revoked` and
+>   `expired`. Each value is an integer of 1 or more: the number of refused references with that reason. It
+>   MUST have the key of `error_code`. It MUST NOT have other keys.
+> - The object MAY have other members. Another member MUST NOT contain a value or a reference identifier.
+
+```json
+{
+  "type": "object",
+  "required": ["error_code", "reasons"],
+  "properties": {
+    "error_code": {"enum": ["reference_malformed", "reference_unknown", "reference_revoked", "reference_expired"]},
+    "reasons": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "malformed": {"type": "integer", "minimum": 1},
+        "unknown": {"type": "integer", "minimum": 1},
+        "revoked": {"type": "integer", "minimum": 1},
+        "expired": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}
+```
+
+Example: `{"error_code": "reference_unknown", "reasons": {"unknown": 1, "revoked": 2}}`. The JSON Schema
+cannot express "`reasons` has the key of `error_code`". That rule stays in the text. The `reasons` shape is
+the shape of the `reasons` object of SC-11.
 
 **Compatibility.** A server that returns `isError: false` today must change for negotiated sessions only.
-Legacy sessions keep their behaviour.
+Legacy sessions keep their behaviour. The test host does not check this schema. No test in this repository
+covers it.
 
 ## SC-13. Reference lifetime
 
@@ -708,14 +794,18 @@ a host and a server from completing the flow together (IMPLEMENTATION-GUIDE.md, 
 > authorization server MUST accept the IPv4 loopback literal `127.0.0.1` as the host of a
 > loopback redirect URI. A host SHOULD use `127.0.0.1`. An authorization server MAY refuse the IPv6
 > literal `[::1]`. If it refuses it, it MUST refuse it at client registration or at the authorization
-> request, before the consent page. An authorization server MUST NOT let its own response policy, for
-> example the Content Security Policy of its consent page, block the delivery of the authorization
-> response to the loopback redirect URI.
+> request, before the consent page. If the consent page carries a Content Security Policy with a
+> `form-action` directive, that directive MUST permit the exact origin (scheme, host and port) of the
+> matched loopback redirect URI, for example `form-action 'self' http://127.0.0.1:53124`. Otherwise the
+> policy of the consent page MUST NOT have a `form-action` directive. The same rule applies to every other
+> response of the authorization server in the redirect chain after the consent post.
 
 **Why this text is normative.** Each sentence describes behaviour that the other side depends on. A host
 that keeps one client and uses a new port each time fails at a server that matches the port. A host that
-uses `[::1]` fails at a server that cannot serve it, unless both agree on `127.0.0.1`. Every host fails at
-a server that blocks its own redirect. How a server builds its policy, how it checks the session (lesson
+uses `[::1]` fails at a server that cannot serve it, unless both agree on `127.0.0.1`. The `form-action`
+rule is a property of the response headers, so a test can check it without a browser. Whether a browser
+then delivers the redirect is browser behaviour. The package observed it in one browser only
+(IMPLEMENTATION-GUIDE.md, lessons L-a and L-b), so it stays guidance. How a server builds the rest of its policy, how it checks the session (lesson
 L-d), the single-use nonce (lesson L-e) and the renewal through refresh (lesson L-f) do not change what the
 other side sees. They stay guidance in IMPLEMENTATION-GUIDE.md.
 
