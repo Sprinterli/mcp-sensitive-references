@@ -281,6 +281,10 @@ class ResolveConfig:
     #: The operator says that the metadata of the server has no discovery object. Only then does
     #: the host go on without it (configuration mode, not SC-02 conformant).
     no_discovery_object: bool = False
+    #: Local mode of the fetch policy (D11): the operator allows non-public targets. The host uses it only
+    #: if all addresses of the MCP host are non-public, and then only for the MCP origin and ``local_origins``.
+    allow_local: bool = False
+    local_origins: tuple[str, ...] = ()
     open_browser: Any = None
     authorization_timeout: float = 300.0
     timeout: float = 30.0
@@ -310,8 +314,13 @@ def resolution_negotiated(agreed: Any) -> bool:
             and SINK_PROFILE in agreed.sink_profiles)
 
 
-def _resolver_setup(issuer: str, config: ResolveConfig,
-                    mcp_url: str | None = None) -> tuple[str, str, str, FetchPolicy, list[str]]:
+def fetch_policy(mcp_url: str, config: ResolveConfig) -> FetchPolicy:
+    """The fetch policy for ``mcp_url``. It resolves the MCP host now and keeps the result."""
+    return FetchPolicy(mcp_url, allow_local=config.allow_local, local_origins=config.local_origins)
+
+
+def _resolver_setup(issuer: str, config: ResolveConfig, mcp_url: str | None = None,
+                    policy: FetchPolicy | None = None) -> tuple[str, str, str, FetchPolicy, list[str]]:
     """The resolve endpoint, the authorization server, the resolve scope, the
     fetch policy and the deviations from SC-01 and SC-02 for ``issuer``.
 
@@ -326,9 +335,9 @@ def _resolver_setup(issuer: str, config: ResolveConfig,
     report labels the run as not conformant. The endpoint, discovered or
     configured, must be on the origin of the protected resource (SC-04); the
     metadata must name ``issuer`` itself. Every request passes the fetch policy
-    of the MCP URL (RFC 9728 section 7.7).
+    of the MCP URL (RFC 9728 section 7.7); ``policy`` is the policy made at connection.
     """
-    policy = FetchPolicy(mcp_url or issuer)
+    policy = policy or fetch_policy(mcp_url or issuer, config)
     deviations: list[str] = []
     # The WWW-Authenticate mechanism names metadata for the URL the request went to,
     # so it applies only when the issuer is the MCP URL itself.
@@ -385,7 +394,8 @@ def _resolver_setup(issuer: str, config: ResolveConfig,
 
 def materialize(*, issuer: str, references: list[str], provenance: ProvenanceStore, agreed: Any,
                 config: ResolveConfig, sentinels: list[str], agent_token: str | None,
-                mcp_url: str | None = None, deviations: list[str] | None = None) -> MaterializeReport:
+                mcp_url: str | None = None, deviations: list[str] | None = None,
+                policy: FetchPolicy | None = None) -> MaterializeReport:
     """Write ``config.template`` once per trusted reference through the protected sink.
 
     Only references with exactly one trusted issuer go into the content. The sink
@@ -410,7 +420,7 @@ def materialize(*, issuer: str, references: list[str], provenance: ProvenanceSto
     resolver = None
     credential = None
     try:
-        endpoint, server, scope, policy, found = _resolver_setup(issuer, config, mcp_url)
+        endpoint, server, scope, policy, found = _resolver_setup(issuer, config, mcp_url, policy)
         report.non_conformant += found
         credential = OAuthResolverCredential(
             resource=issuer, authorization_server=server, scope=scope, cache=TokenCache(config.token_cache),
@@ -484,6 +494,14 @@ async def run(args: argparse.Namespace) -> HostReport:
     extensions = {args.extension_id: host_settings} if declared else {}
     agreed = None
     first_references: list[str] = []
+    # D11: the host resolves the MCP host once, at connection, and keeps that result.
+    policy = None
+    if resolving:
+        try:
+            policy = fetch_policy(endpoint, resolve_config(args))
+        except ValueError:
+            report.failures.append("a local origin is not a valid URL")
+            return report
 
     async with httpx2.AsyncClient(headers=headers, timeout=args.timeout) as http:
         async with streamable_http_client(args.url, http_client=http) as (read, write, *_):
@@ -534,7 +552,7 @@ async def run(args: argparse.Namespace) -> HostReport:
         report.materialization = materialize(
             issuer=issuer, references=first_references, provenance=provenance, agreed=agreed,
             config=resolve_config(args), sentinels=sentinels, agent_token=token or None, mcp_url=endpoint,
-            deviations=parent)
+            deviations=parent, policy=policy)
         _check_materialization(report, report.materialization)
     return report
 
@@ -566,7 +584,9 @@ def resolve_config(args: argparse.Namespace) -> ResolveConfig:
         resolve_endpoint=args.resolve_endpoint, resolve_scope=args.resolve_scope,
         authorization_server=args.authorization_server, client_id=args.resolver_client_id,
         token_cache=args.resolver_token_cache, interactive=not args.no_interactive,
-        no_metadata=args.no_resource_metadata, no_discovery_object=args.no_discovery_object, open_browser=_print_url if args.no_browser else open_browser,
+        no_metadata=args.no_resource_metadata, no_discovery_object=args.no_discovery_object,
+        allow_local=args.allow_local_targets, local_origins=tuple(args.local_origin or ()),
+        open_browser=_print_url if args.no_browser else open_browser,
         authorization_timeout=args.authorization_timeout, timeout=args.timeout)
 
 
@@ -618,6 +638,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                          help="use only a cached or refreshed resolver token; never open an authorization page")
     resolve.add_argument("--no-browser", action="store_true",
                          help="print the authorization page URL to stderr instead of opening a browser")
+    resolve.add_argument("--allow-local-targets", action="store_true",
+                         help="local mode of the fetch policy: if all addresses of the MCP host are non-public, "
+                              "allow non-public targets on the MCP origin and on each --local-origin (never "
+                              "link-local, unspecified or multicast)")
+    resolve.add_argument("--local-origin", action="append", metavar="ORIGIN",
+                         help="an exact origin (scheme, host, port) that local mode also allows; repeatable")
     resolve.add_argument("--authorization-timeout", type=float, default=300.0)
     return parser.parse_args(argv)
 

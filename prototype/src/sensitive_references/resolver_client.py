@@ -31,7 +31,7 @@ import time
 from typing import Any, Callable, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from .oauth_profile import RESOLVE_SCOPE
 from .resolver import ResolutionError, SinkContext
@@ -63,7 +63,13 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
-_OPENER = build_opener(_NoRedirect)
+def _new_opener():
+    # No redirect (SC-01, SC-04) and no proxy from the environment: the fetch policy checks the
+    # address that the request goes to, and a proxy would choose another one.
+    return build_opener(ProxyHandler({}), _NoRedirect)
+
+
+_OPENER = _new_opener()
 
 
 def _is_loopback(host: str | None) -> bool:
@@ -87,22 +93,52 @@ def require_secure(url: str, what: str) -> str:
     raise ResolverClientError("insecure_url", f"the {what} URL is not https or loopback http")
 
 
-#: Targets that a host does not fetch for a protected resource on a public address (RFC 9728 section 7.7):
-#: unspecified, RFC 1918, shared (RFC 6598), loopback, link-local, multicast, reserved and the broadcast
-#: address; for IPv6 the unspecified and the loopback address, unique local (RFC 4193), link-local and
-#: multicast. An IPv4-mapped IPv6 address counts as its IPv4 address.
-_NON_PUBLIC = tuple(ipaddress.ip_network(n) for n in (
-    "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
-    "192.168.0.0/16", "224.0.0.0/4", "240.0.0.0/4",
-    "::/128", "::1/128", "fc00::/7", "fe80::/10", "ff00::/8"))
+#: Never a target, also not in local mode: link-local (with the cloud-metadata address 169.254.169.254),
+#: unspecified ("this network") and the limited broadcast address. Multicast is tested by ``is_multicast``.
+_NEVER = tuple(ipaddress.ip_network(n) for n in (
+    "169.254.0.0/16", "fe80::/10", "0.0.0.0/8", "::/128", "255.255.255.255/32"))
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
+_COMPATIBLE = ipaddress.ip_network("::/96")
+
+
+def _ip(address: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    return ipaddress.ip_address(address.split("%", 1)[0])
+
+
+def _embedded_ipv4(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> ipaddress.IPv4Address | None:
+    """The IPv4 address in an IPv4-mapped, IPv4-compatible, NAT64 (64:ff9b::/96) or 6to4 address."""
+    if not isinstance(ip, ipaddress.IPv6Address):
+        return None
+    if ip.ipv4_mapped is not None:
+        return ip.ipv4_mapped
+    if ip.sixtofour is not None:
+        return ip.sixtofour
+    if ip in _NAT64 or (ip in _COMPATIBLE and int(ip) > 1):
+        return ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+    return None
 
 
 def non_public_address(address: str) -> bool:
-    """True when ``address`` (an IP literal) is in one of the non-public ranges above."""
-    ip = ipaddress.ip_address(address.split("%", 1)[0])
-    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
-        ip = ip.ipv4_mapped
-    return any(ip in network for network in _NON_PUBLIC)
+    """True when ``address`` (an IP literal) is not globally reachable.
+
+    Not globally reachable: ``is_global`` is false (the IANA IPv4 and IPv6 Special-Purpose Address
+    Registries, as Python 3.13 or later implements them), a multicast address, an IPv6 site-local address
+    (fec0::/10, RFC 3879), or an address whose embedded IPv4 address (IPv4-mapped, IPv4-compatible,
+    NAT64 64:ff9b::/96, 6to4) is not globally reachable.
+    """
+    ip = _ip(address)
+    if not ip.is_global or ip.is_multicast or (isinstance(ip, ipaddress.IPv6Address) and ip.is_site_local):
+        return True
+    embedded = _embedded_ipv4(ip)
+    return embedded is not None and non_public_address(str(embedded))
+
+
+def never_a_target(address: str) -> bool:
+    """True for a link-local, unspecified, broadcast or multicast address, also an embedded one."""
+    ip = _ip(address)
+    embedded = _embedded_ipv4(ip)
+    return any(i.is_multicast or any(i in n for n in _NEVER if i.version == n.version)
+               for i in (ip, embedded) if i is not None)
 
 
 def _lookup(host: str) -> list[str]:
@@ -110,53 +146,57 @@ def _lookup(host: str) -> list[str]:
     return [info[4][0] for info in socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)]
 
 
+def _addresses(host: str | None) -> list[str] | None:
+    """The addresses of ``host``: the literal, or the DNS answer. None if the name does not resolve."""
+    if not host:
+        return None
+    if host.lower() == "localhost":
+        return ["127.0.0.1", "::1"]
+    try:
+        return [str(_ip(host))]
+    except ValueError:
+        pass
+    try:
+        return _lookup(host) or None
+    except OSError:
+        return None
+
+
 class FetchPolicy:
-    """The fetch policy of the host for one protected resource (RFC 9728 section 7.7).
+    """The fetch policy of the host for one MCP URL (SC-01, D11, RFC 9728 section 7.7).
 
     ``_exchange`` applies it before each request, and the discovery of the
-    authorization server applies it to each endpoint of the metadata. The host
-    resolves the host name by DNS. If one address is non-public, or the name
-    does not resolve, the host refuses the URL. Exception: the protected
-    resource itself is on a non-public address (a local test setup); then the
-    host allows such targets. Residual risk: the request resolves the name
-    again, so DNS rebinding between the check and the request stays possible.
+    authorization server applies it to the endpoints that the host uses. The
+    host resolves each host name by DNS. If one address is not globally
+    reachable, or the name does not resolve, the host refuses the URL.
+
+    Local mode: only if the operator sets ``allow_local`` and all addresses of
+    the MCP host are not globally reachable. The constructor resolves the MCP
+    host once (at connection) and keeps the result. In local mode the host
+    allows a non-public target only on the MCP origin or on an origin of
+    ``local_origins`` (exact scheme, host and port), and never a link-local,
+    unspecified, broadcast or multicast address. Residual risk: the request
+    resolves the name again, so DNS rebinding between the check and the
+    request stays possible.
     """
 
-    def __init__(self, protected_resource: str) -> None:
-        self.protected_resource = protected_resource
-        self._local: bool | None = None
-
-    @staticmethod
-    def _non_public_host(host: str | None, *, unresolvable: bool) -> bool:
-        if not host:
-            return True
-        if _is_loopback(host):
-            return True
-        try:
-            return non_public_address(host)
-        except ValueError:
-            pass
-        try:
-            addresses = _lookup(host)
-        except OSError:
-            return unresolvable
-        return not addresses or any(non_public_address(a) for a in addresses)
-
-    @property
-    def local(self) -> bool:
-        """True when the protected resource is on a non-public address."""
-        if self._local is None:
-            # A resource name that does not resolve gives no exception.
-            self._local = self._non_public_host(urlsplit(self.protected_resource).hostname, unresolvable=False)
-        return self._local
+    def __init__(self, mcp_url: str, *, allow_local: bool = False,
+                 local_origins: Sequence[str] = ()) -> None:
+        self.protected_resource = mcp_url
+        self.mcp_addresses = _addresses(urlsplit(mcp_url).hostname)
+        self.local = bool(allow_local and self.mcp_addresses
+                          and all(non_public_address(a) for a in self.mcp_addresses))
+        self.local_origins = frozenset({origin(mcp_url), *(origin(o) for o in local_origins)})
 
     def check(self, url: str, what: str) -> str:
-        if self.local:
+        addresses = _addresses(urlsplit(url).hostname)
+        if addresses is not None and not any(non_public_address(a) for a in addresses):
             return url
-        if self._non_public_host(urlsplit(url).hostname, unresolvable=True):
-            raise ResolverClientError(
-                "forbidden_target", f"the {what} URL is on a non-public address or does not resolve")
-        return url
+        if (self.local and addresses is not None and origin(url) in self.local_origins
+                and not any(never_a_target(a) for a in addresses)):
+            return url
+        raise ResolverClientError(
+            "forbidden_target", f"the {what} URL is on a non-public address or does not resolve")
 
 
 def origin(url: str) -> tuple[str, str, int | None]:

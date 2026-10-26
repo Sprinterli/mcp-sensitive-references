@@ -23,8 +23,8 @@ commands gave these results:
 
 ```bash
 cd prototype
-PYTHONPATH=src python -m pytest -q                  # 88 passed, 51 subtests passed
-PYTHONPATH=src python -m unittest discover -s tests # Ran 88 tests, OK
+PYTHONPATH=src python -m pytest -q                  # 121 passed, 164 subtests passed
+PYTHONPATH=src python -m unittest discover -s tests # Ran 121 tests, OK
 ```
 
 The tested commit is recorded in `protocol-package/CONFORMANCE-RESULTS.md` ("Test run").
@@ -128,11 +128,14 @@ has exactly one trusted issuer. It writes through `ProtectedFileSink`, so a fail
 - **Non-conformant runs are labelled.** The report field `materialization.non_conformant` lists each deviation
   that `--no-resource-metadata`, `--no-discovery-object` or `--resource` selected. It is empty for a run that
   follows SC-01 and SC-02.
-- **Fetch policy (RFC 9728 section 7.7).** Before each request, the host resolves the host name and refuses a
-  loopback, private, link-local or other non-public address, and a name that does not resolve. It checks each
-  endpoint of the authorization server metadata in the same way. If the MCP URL itself is on such an address (a
-  local test setup), the host allows such targets. The host does not pin the checked address, so DNS rebinding
-  stays a residual risk (`protocol-package/THREAT-MODEL.md`, TM-11).
+- **Fetch policy (SC-01, D11, RFC 9728 section 7.7).** Before each request, the host resolves the host name and
+  refuses an address that is not globally reachable, and a name that does not resolve. It checks the
+  authorization, token and registration endpoints of the authorization server metadata in the same way. It
+  follows no redirect and uses no proxy from the environment. There is no automatic exception for a local MCP
+  URL: `--allow-local-targets` enables local mode, only if all DNS addresses of the MCP host are non-public
+  (resolved once at connection). Local mode allows the MCP origin and each `--local-origin ORIGIN`, never a
+  link-local, unspecified, broadcast or multicast address. The host does not pin the checked address, so DNS
+  rebinding stays a residual risk (`protocol-package/THREAT-MODEL.md`, TM-11).
 - The resolver token is a second credential. It comes from the cache file (`--resolver-token-cache`, mode 0600),
   from a refresh, or from a new authorization: dynamic client registration, Authorization Code + PKCE S256, the
   `resource` indicator, the resolve scope only, and a redirect to `127.0.0.1`. The host opens the browser and waits

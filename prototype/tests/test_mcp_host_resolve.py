@@ -80,6 +80,18 @@ Third review round (``FetchPolicyTests`` and the tests named below; the result i
   [test_a_challenge_url_without_a_document_is_not_a_server_without_metadata];
 * ``run``: deviation P16 not labelled [test_a_configured_parent_resource_is_the_issuer];
 * ``resolve_config``: ``--no-discovery-object`` ignored [test_the_options_map_to_the_configuration].
+
+Fourth review round (``FetchPolicyTests``, ``NoRedirectNoProxyTests`` and the end-to-end test without the
+local option; the names of the mutations are in ``tests/tools/mutation_probe.py``):
+
+* ``FetchPolicy``: local mode without the operator option, with mixed DNS records of the MCP host, for any
+  origin, for link-local, unspecified and multicast targets, with the MCP host resolved again at each check;
+* ``non_public_address``: ``is_private`` in place of ``is_global``, multicast or site-local counted as public,
+  NAT64, IPv4-compatible and 6to4 addresses not unwrapped, the embedded address not judged;
+* ``_new_opener``: a proxy from the environment, redirects followed;
+* ``ResolveConfig`` and ``resolve_config``: local mode on by default
+  [test_the_default_configuration_has_no_local_mode], ``--allow-local-targets`` and ``--local-origin``
+  ignored [test_the_options_map_to_the_configuration].
 """
 
 from __future__ import annotations
@@ -351,8 +363,9 @@ class MaterializeTests(unittest.TestCase):
                                       result={"texts": [" ".join(tokens)]})
 
     def config(self, **overrides):
+        # The fake server is on loopback: the operator opts in to local mode (D11).
         values = dict(destination=str(self.dest), token_cache=str(self.cache), open_browser=follow,
-                      authorization_timeout=10, timeout=5)
+                      authorization_timeout=10, timeout=5, allow_local=True)
         values.update(overrides)
         return ResolveConfig(**values)
 
@@ -557,6 +570,16 @@ class MaterializeTests(unittest.TestCase):
                 self.assertEqual(report.failure, "resolution failed: malformed_batch")
                 self.assert_report_clean(report)
 
+    def test_the_default_configuration_has_no_local_mode(self):
+        # D11: a configuration without the option sends nothing to the loopback fake server.
+        config = ResolveConfig(destination=str(self.dest), token_cache=str(self.cache), open_browser=follow,
+                               authorization_timeout=10, timeout=5)
+        report = materialize(issuer=self.server.issuer, references=[self.alice], provenance=self.store,
+                             agreed=AGREED, config=config, sentinels=self.sentinels, agent_token=AGENT_TOKEN)
+        self.assert_nothing_written(report)
+        self.assertEqual(report.failure, "resolution failed: forbidden_target")
+        self.assertEqual((self.server.get_paths, self.server.authorize_requests), ([], []))
+
     def test_a_redirect_from_the_resolve_endpoint_is_not_followed(self):
         self.server.mode.add("redirect")
         report = self.run_materialize(resolve_endpoint=f"{self.server.base}/resolve")
@@ -691,6 +714,7 @@ class MaterializeTests(unittest.TestCase):
         self.store = ProvenanceStore()
         self.observe(self.alice, self.bob, issuer=issuer)
         configured = dict(resolve_endpoint="http://127.0.0.1:1/resolve", authorization_server=self.server.base)
+        configured["local_origins"] = (self.server.base,)
         report = self.run_materialize(issuer=issuer, **configured)
         self.assert_nothing_written(report)
         self.assertEqual(report.failure, "resolution failed: unreachable")
@@ -966,7 +990,7 @@ class EndToEndTests(unittest.TestCase):
         self.dir = Path(tempfile.mkdtemp(prefix="sref-m4b-e2e-"))
         self.dest = self.dir / "out.txt"
 
-    def run_host(self, settings, *extra, parent=False):
+    def run_host(self, settings, *extra, parent=False, strict=False):
         runner, url = _serve_mcp(f"mail {self.alice}", settings, self.fake.base)
         origin = url.rsplit("/", 1)[0]
         # The fake metadata names the MCP URL (or, with ``parent``, its origin) and an endpoint on that origin.
@@ -987,7 +1011,9 @@ class EndToEndTests(unittest.TestCase):
             code = mcp_host.main([
                 "--url", url, "--extension-id", "org.example/sensitive-references", "--tool", "read",
                 "--expect-negotiation", "--resolve-into", str(self.dest),
-                "--resolver-token-cache", str(self.dir / "tokens.json"), "--timeout", "10", *extra])
+                "--resolver-token-cache", str(self.dir / "tokens.json"), "--timeout", "10",
+                # Local mode (D11): the MCP server and the fake authorization server are on loopback.
+                *([] if strict else ["--allow-local-targets", "--local-origin", self.fake.base]), *extra])
         finally:
             builtins.print = original_print
             mcp_host.open_browser = saved[0]
@@ -1014,6 +1040,17 @@ class EndToEndTests(unittest.TestCase):
         # SC-01 and SC-02 without options: metadata of the MCP URL, endpoint from discovery on its origin.
         self.assertIn("/.well-known/oauth-protected-resource/mcp", self.fake.get_paths)
         self.assertEqual(len(self.fake.resolve_batches), 1)
+
+    def test_without_the_local_option_a_loopback_server_gets_no_request(self):
+        # D11: no automatic exception for a loopback MCP URL.
+        code, output = self.run_host(self.PROFILES, strict=True)
+        report = json.loads(output)
+
+        self.assertEqual(code, 1)
+        self.assertEqual(report["materialization"]["failure"], "resolution failed: forbidden_target")
+        self.assertFalse(self.dest.exists())
+        self.assertEqual((self.fake.get_paths, self.fake.authorize_requests, self.fake.resolve_batches),
+                         ([], [], []))
 
     def test_a_configured_parent_resource_is_the_issuer(self):
         # The server publishes its metadata for the origin, not for /mcp.
@@ -1175,9 +1212,11 @@ class FetchPolicyTests(unittest.TestCase):
     """
 
     MCP = "https://mcp.example.com/mcp"
-    DNS = {"mcp.example.com": ["192.0.2.10"], "as.example.com": ["192.0.2.20", "2001:db8::20"],
-           "internal.example.com": ["10.0.0.5"], "mixed.example.com": ["192.0.2.30", "192.168.1.1"],
-           "v6local.example.com": ["fd00::5"], "local-mcp.example.com": ["10.0.0.9"]}
+    # Globally reachable stand-ins (the documentation ranges 192.0.2.0/24 and 2001:db8::/32 are not).
+    DNS = {"mcp.example.com": ["20.0.0.10"], "as.example.com": ["20.0.0.20", "2a00:1::20"],
+           "internal.example.com": ["10.0.0.5"], "mixed.example.com": ["20.0.0.30", "192.168.1.1"],
+           "v6local.example.com": ["fd00::5"], "local-mcp.example.com": ["10.0.0.9"],
+           "mixed-mcp.example.com": ["20.0.0.40", "127.0.0.1"], "docs.example.com": ["192.0.2.10"]}
 
     def setUp(self):
         from email.message import Message
@@ -1239,17 +1278,32 @@ class FetchPolicyTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "forbidden_target")
 
     def test_the_non_public_ranges(self):
+        # Not globally reachable (IANA special-purpose registries), multicast, site-local, or an embedded
+        # IPv4 address that is not globally reachable (IPv4-mapped, IPv4-compatible, NAT64, 6to4).
         non_public = ["127.0.0.1", "127.8.9.1", "10.1.2.3", "172.16.0.1", "172.31.255.254", "192.168.0.1",
                       "169.254.169.254", "0.0.0.0", "224.0.0.1", "239.1.1.1", "255.255.255.255", "240.0.0.1",
-                      "100.64.0.1", "::1", "::", "fd00::1", "fc00::1", "fe80::1%en0", "ff02::1",
-                      "::ffff:127.0.0.1", "::ffff:10.0.0.1", "::ffff:169.254.169.254"]
-        public = ["192.0.2.10", "198.51.100.7", "172.32.0.1", "100.128.0.1", "2001:db8::1", "::ffff:192.0.2.1"]
+                      "100.64.0.1", "::1", "::", "fd00::1", "fc00::1", "fe80::1%en0", "ff02::1", "ff0e::1",
+                      "::ffff:127.0.0.1", "::ffff:10.0.0.1", "::ffff:169.254.169.254",
+                      "192.0.2.10", "198.51.100.7", "203.0.113.5", "2001:db8::1", "::ffff:192.0.2.1",
+                      "198.18.0.1", "192.0.0.8", "64:ff9b::a00:1", "64:ff9b::7f00:1", "64:ff9b:1::1",
+                      "2002:a00:1::1", "::10.0.0.1", "::127.0.0.1", "fec0::1", "2001::1"]
+        public = ["172.32.0.1", "100.128.0.1", "20.0.0.10", "2a00:1::20", "192.0.0.9", "64:ff9b::1400:a", "::ffff:20.0.0.10"]
         for address in non_public:
             with self.subTest(address=address):
                 self.assertTrue(self.rc.non_public_address(address))
         for address in public:
             with self.subTest(address=address):
                 self.assertFalse(self.rc.non_public_address(address))
+
+    def test_the_embedded_ipv4_address(self):
+        # 6to4 is not globally reachable in the registry itself; the unwrap also covers older tables.
+        cases = {"::ffff:10.0.0.1": "10.0.0.1", "::10.0.0.1": "10.0.0.1", "64:ff9b::a00:1": "10.0.0.1",
+                 "2002:a00:1::1": "10.0.0.1", "2a00:1::20": None, "::1": None, "::": None, "10.0.0.1": None}
+        import ipaddress
+        for address, expected in cases.items():
+            with self.subTest(address=address):
+                embedded = self.rc._embedded_ipv4(ipaddress.ip_address(address))
+                self.assertEqual(None if embedded is None else str(embedded), expected)
 
     def test_a_public_resource_discovers_normally(self):
         self.metadata()
@@ -1316,14 +1370,171 @@ class FetchPolicyTests(unittest.TestCase):
         self.assertFalse(dest.exists())
         self.assertFalse([url for url in self.requests if "127.0.0.1" in url])
 
-    def test_an_mcp_url_on_a_non_public_address_allows_local_targets(self):
+    def test_a_non_public_mcp_url_gives_no_exception_without_the_operator_option(self):
         for mcp_url in ("http://127.0.0.1:8080/mcp", "https://local-mcp.example.com/mcp", "https://[fd00::9]/mcp"):
             with self.subTest(mcp_url=mcp_url):
                 policy = self.rc.FetchPolicy(mcp_url)
+                self.assertFalse(policy.local)
+                origin = mcp_url.rsplit("/", 1)[0]
+                self.refused(lambda: policy.check(f"{origin}/x", "test"))
+                self.refused(lambda: policy.check("http://127.0.0.1:9/x", "test"))
+
+    def test_local_mode_allows_only_the_mcp_origin_and_configured_origins(self):
+        for mcp_url in ("http://127.0.0.1:8080/mcp", "https://local-mcp.example.com/mcp", "https://[fd00::9]/mcp"):
+            with self.subTest(mcp_url=mcp_url):
+                policy = self.rc.FetchPolicy(mcp_url, allow_local=True)
                 self.assertTrue(policy.local)
-                self.assertEqual(policy.check("http://127.0.0.1:9/x", "test"), "http://127.0.0.1:9/x")
-                self.assertEqual(policy.check("https://internal.example.com/x", "test"),
-                                 "https://internal.example.com/x")
+                origin = mcp_url.rsplit("/", 1)[0]
+                self.assertEqual(policy.check(f"{origin}/x", "test"), f"{origin}/x")
+                # A public target stays allowed.
+                self.assertEqual(policy.check("https://as.example.com/x", "test"), "https://as.example.com/x")
+                for target in ("http://127.0.0.1:2375/containers", "https://10.0.0.1/admin",
+                               "https://internal.example.com/x", "https://[fd00::1]/x",
+                               "https://unresolvable.example.com/x"):
+                    self.refused(lambda: policy.check(target, "test"))
+        policy = self.rc.FetchPolicy("http://127.0.0.1:8080/mcp", allow_local=True,
+                                     local_origins=("https://internal.example.com",))
+        self.assertEqual(policy.check("https://internal.example.com/x", "test"), "https://internal.example.com/x")
+        # Exact origin: another port or scheme of the same host is another origin.
+        self.refused(lambda: policy.check("https://internal.example.com:8443/x", "test"))
+        self.refused(lambda: policy.check("http://internal.example.com/x", "test"))
+
+    def test_a_loopback_mcp_server_never_reaches_link_local_unspecified_or_multicast(self):
+        never = ("http://169.254.169.254", "http://[fe80::1]", "http://[::ffff:169.254.169.254]",
+                 "http://0.0.0.0:8080", "http://[::]:8080", "http://224.0.0.251", "http://[ff02::1]",
+                 "http://255.255.255.255")
+        policy = self.rc.FetchPolicy("http://127.0.0.1:8080/mcp", allow_local=True, local_origins=never)
+        self.assertTrue(policy.local)
+        for target in never:
+            with self.subTest(target=target):
+                self.refused(lambda: policy.check(f"{target}/latest/meta-data/", "test"))
+        # An MCP server on a link-local address gets local mode, but not its own origin.
+        policy = self.rc.FetchPolicy("http://169.254.10.10/mcp", allow_local=True)
+        self.refused(lambda: policy.check("http://169.254.10.10/x", "test"))
+
+    def test_mixed_dns_records_of_the_mcp_host_give_no_local_mode(self):
+        policy = self.rc.FetchPolicy("https://mixed-mcp.example.com/mcp", allow_local=True)
+        self.assertFalse(policy.local)
+        for target in ("https://mixed-mcp.example.com/x", "http://127.0.0.1:2375/x",
+                       "http://169.254.169.254/latest/meta-data/", "https://10.0.0.1/admin"):
+            with self.subTest(target=target):
+                self.refused(lambda: policy.check(target, "test"))
+        # A documentation address is not globally reachable either: no local mode for a public stand-in.
+        self.assertTrue(self.rc.FetchPolicy("https://docs.example.com/mcp", allow_local=True).local)
+
+    def test_the_host_keeps_the_dns_answer_for_the_mcp_host_from_the_connection(self):
+        dns = dict(self.DNS)
+        self.addCleanup(setattr, self, "DNS", self.DNS)
+        self.DNS = dns
+        policy = self.rc.FetchPolicy(self.MCP, allow_local=True)
+        self.assertFalse(policy.local)
+        # Later the name points to loopback: the policy keeps its decision and refuses the target.
+        dns["mcp.example.com"] = ["127.0.0.1"]
+        self.assertFalse(policy.local)
+        self.assertEqual(policy.mcp_addresses, ["20.0.0.10"])
+        self.refused(lambda: policy.check("https://mcp.example.com/resolve", "test"))
+
+
+class NoRedirectNoProxyTests(unittest.TestCase):
+    """SC-01 and SC-04: no HTTP client of the host follows a redirect or uses a proxy from the environment.
+
+    Real loopback servers: one answers each request with 302 to the other, which counts what it gets.
+    """
+
+    def setUp(self):
+        from sensitive_references import resolver_client
+
+        self.rc = resolver_client
+        self.hits: dict[str, list] = {"target": [], "redirector": [], "proxy": []}
+        self.target = self._serve("target", 200, None)
+        self.redirector = self._serve("redirector", 302, f"{self.target}/moved")
+        self.proxy = self._serve("proxy", 200, None)
+        self.policy = resolver_client.FetchPolicy(f"{self.redirector}/mcp", allow_local=True,
+                                                  local_origins=(self.target, self.proxy))
+
+    def _serve(self, name, status, location):
+        hits = self.hits[name]
+
+        class Handler(BaseHTTPRequestHandler):
+            def _answer(self):
+                hits.append((self.command, self.path))
+                self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                body = b"{}"
+                self.send_response(status)
+                if location:
+                    self.send_header("Location", location)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            do_GET = do_POST = _answer
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return f"http://127.0.0.1:{server.server_address[1]}"
+
+    def test_no_client_follows_a_redirect(self):
+        rc, base = self.rc, self.redirector
+        # Protected-resource metadata: the challenge probe and the well-known URL.
+        self.assertIsNone(rc.discover_protected_resource(f"{base}/mcp", policy=self.policy, timeout=5))
+        # Authorization server metadata (discovery).
+        with self.assertRaises(ResolverClientError) as caught:
+            rc.discover_authorization_server(base, policy=self.policy, timeout=5)
+        self.assertEqual(caught.exception.code, "no_authorization_server")
+        metadata = rc.AuthorizationServer(issuer=base, authorization_endpoint=f"{base}/authorize",
+                                          token_endpoint=f"{base}/token", registration_endpoint=f"{base}/register")
+        cache = TokenCache(Path(tempfile.mkdtemp(prefix="sref-redirect-")) / "tokens.json")
+        credential = OAuthResolverCredential(resource=f"{base}/mcp", authorization_server=base, cache=cache,
+                                             metadata=lambda: metadata, interactive=False, timeout=5,
+                                             policy=self.policy)
+        # Registration.
+        with self.assertRaises(ResolverClientError) as caught:
+            credential._register("http://127.0.0.1:1/callback")
+        self.assertEqual(caught.exception.code, "registration_failed")
+        # Token endpoint (refresh).
+        cache.store(credential.key, {"client_id": "c", "refresh_token": "r"})
+        with self.assertRaises(ResolverClientError) as caught:
+            credential.access_token()
+        self.assertEqual(caught.exception.code, "unauthorized")
+        # Resolve endpoint.
+        cache.store(credential.key, {"client_id": "c", "access_token": "cached-resolver-token"})
+        resolver = OAuthHttpResolver({f"{base}/mcp": ResolveEndpoint(f"{base}/resolve", credential)}, timeout=5)
+        with self.assertRaises(ResolverClientError):
+            resolver.resolve(f"{base}/mcp", [make_token("email").token], SinkContext("local_file", "x", "p"))
+        self.assertEqual(self.hits["target"], [])
+        self.assertEqual({path.split("?")[0] for _, path in self.hits["redirector"]},
+                         {"/mcp", "/.well-known/oauth-protected-resource/mcp",
+                          "/.well-known/oauth-authorization-server", "/.well-known/openid-configuration",
+                          "/register", "/token", "/resolve"})
+
+    def test_no_client_uses_a_proxy_from_the_environment(self):
+        names = ("http_proxy", "HTTP_PROXY", "https_proxy", "HTTPS_PROXY", "no_proxy", "NO_PROXY")
+        saved = {name: os.environ.get(name) for name in names}
+
+        def restore():
+            for name, value in saved.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+
+        self.addCleanup(restore)
+        for name in names:
+            os.environ.pop(name, None)
+        os.environ["http_proxy"] = os.environ["HTTP_PROXY"] = self.proxy
+        saved_opener = self.rc._OPENER
+        self.addCleanup(setattr, self.rc, "_OPENER", saved_opener)
+        self.rc._OPENER = self.rc._new_opener()
+        status, _ = self.rc.http_json("GET", f"{self.target}/direct", policy=self.policy, timeout=5)
+        self.assertEqual(status, 200)
+        self.assertEqual(self.hits["proxy"], [])
+        self.assertEqual(self.hits["target"], [("GET", "/direct")])
 
 
 class HostOptionTests(unittest.TestCase):
@@ -1348,15 +1559,22 @@ class HostOptionTests(unittest.TestCase):
                                     "--resolve-into", "out.txt", "--resolve-endpoint", "https://s.example/r",
                                     "--resolve-scope", "s", "--resolver-token-cache", "c.json",
                                     "--no-interactive", "--materialize-template", "a {ref}",
-                                    "--no-resource-metadata", "--no-discovery-object"])
+                                    "--no-resource-metadata", "--no-discovery-object", "--allow-local-targets",
+                                    "--local-origin", "http://127.0.0.1:9000", "--local-origin", "https://a.test"])
         config = mcp_host.resolve_config(args)
         self.assertEqual((config.destination, config.resolve_endpoint, config.resolve_scope, config.token_cache,
-                          config.interactive, config.template, config.no_metadata, config.no_discovery_object),
-                         ("out.txt", "https://s.example/r", "s", "c.json", False, "a {ref}", True, True))
+                          config.interactive, config.template, config.no_metadata, config.no_discovery_object,
+                          config.allow_local, config.local_origins),
+                         ("out.txt", "https://s.example/r", "s", "c.json", False, "a {ref}", True, True,
+                          True, ("http://127.0.0.1:9000", "https://a.test")))
         default = mcp_host.resolve_config(mcp_host.parse_args(
             ["--url", "https://s.example/mcp", "--extension-id", "x/y", "--tool", "t"]))
         self.assertFalse(default.no_metadata)
         self.assertFalse(default.no_discovery_object)
+        self.assertFalse(default.allow_local)
+        self.assertEqual(default.local_origins, ())
+        policy = mcp_host.fetch_policy("http://127.0.0.1:9/mcp", config)
+        self.assertEqual((policy.local, ("https", "a.test", 443) in policy.local_origins), (True, True))
 
 
 if __name__ == "__main__":

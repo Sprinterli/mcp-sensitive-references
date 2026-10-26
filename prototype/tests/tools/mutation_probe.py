@@ -7,9 +7,9 @@ test failed) or SURVIVED. The script never writes into the repository.
 
     python prototype/tests/tools/mutation_probe.py [--work DIR] [--only TEXT]
 
-Rounds 2 and 3 of the review (see the docstring of ``test_mcp_host_resolve.py``
-and ``protocol-package/CONFORMANCE-RESULTS.md``). The round 2 mutations here
-are the round 2 guards on the text of round 3.
+Rounds 2, 3 and 4 of the review (see the docstring of ``test_mcp_host_resolve.py``
+and ``protocol-package/CONFORMANCE-RESULTS.md``). The mutations of earlier rounds
+are applied to the current text.
 """
 
 from __future__ import annotations
@@ -64,19 +64,14 @@ MUTATIONS = [
      "            return policy.check(require_secure(document[name], what), what)",
      "            return require_secure(document[name], what)"),
     ("r3 fetch policy: every target allowed", RC,
-     "    def check(self, url: str, what: str) -> str:\n        if self.local:",
-     "    def check(self, url: str, what: str) -> str:\n        if True:"),
-    ("r3 fetch policy: no exception for a local MCP URL", RC,
-     "    def check(self, url: str, what: str) -> str:\n        if self.local:",
-     "    def check(self, url: str, what: str) -> str:\n        if False:"),
-    ("r3 fetch policy: host names not resolved", RC,
-     "        return not addresses or any(non_public_address(a) for a in addresses)", "        return False"),
+     "    def check(self, url: str, what: str) -> str:\n        addresses =",
+     "    def check(self, url: str, what: str) -> str:\n        return url\n        addresses ="),
+    ("r3 fetch policy: host names not resolved", RC, "        return _lookup(host) or None", "        return []"),
     ("r3 fetch policy: an unresolvable name allowed", RC,
-     "        except OSError:\n            return unresolvable", "        except OSError:\n            return False"),
+     "    except OSError:\n        return None", "    except OSError:\n        return []"),
     ("r3 fetch policy: IPv4-mapped IPv6 not unwrapped", RC,
-     "    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:",
-     "    if False:"),
-    ("r3 fetch policy: RFC 4193 range removed", RC, '"fc00::/7", ', ""),
+     "    if ip.ipv4_mapped is not None:\n        return ip.ipv4_mapped",
+     "    if False:\n        return ip.ipv4_mapped"),
     ("r3 RFC 8414 keeps a terminating slash of the issuer", RC,
      '_well_known(issuer, "oauth-authorization-server", insert=True, strip_slash=True)',
      '_well_known(issuer, "oauth-authorization-server", insert=True)'),
@@ -85,12 +80,46 @@ MUTATIONS = [
      "        if False:\n            raise"),
     ("r3 configuration mode not labelled", HOST, "        report.non_conformant += found\n", ""),
     ("r3 P16 not labelled", HOST,
-     "            deviations=parent)", "            deviations=[])"),
+     "            deviations=parent, policy=policy)", "            deviations=[], policy=policy)"),
     ("r3 --no-discovery-object maps to the configuration", HOST,
      "no_discovery_object=args.no_discovery_object,", "no_discovery_object=False,"),
     ("r3 a challenge URL without a document is no metadata", RC,
      "        if document is None:\n            raise ResolverClientError(\"metadata_unavailable\"",
      "        if False:\n            raise ResolverClientError(\"metadata_unavailable\""),
+    # -- round 4
+    ("r4 local mode without the operator option", RC,
+     "self.local = bool(allow_local and self.mcp_addresses", "self.local = bool(self.mcp_addresses"),
+    ("r4 local mode when one MCP address is non-public (mixed records)", RC,
+     "and all(non_public_address(a) for a in self.mcp_addresses))",
+     "and any(non_public_address(a) for a in self.mcp_addresses))"),
+    ("r4 local mode removed", RC, "        if (self.local and addresses is not None", "        if (False and addresses is not None"),
+    ("r4 the MCP host resolved again at each check", RC,
+     "    def check(self, url: str, what: str) -> str:\n        addresses =",
+     "    def check(self, url: str, what: str) -> str:\n        self.local = self.local or all(non_public_address(a) "
+     "for a in (_addresses(urlsplit(self.protected_resource).hostname) or [\"20.0.0.1\"]))\n        addresses ="),
+    ("r4 local mode allows any origin", RC, " and origin(url) in self.local_origins", ""),
+    ("r4 local mode allows link-local, unspecified and multicast", RC,
+     "                and not any(never_a_target(a) for a in addresses)):", "                ):"),
+    ("r4 never-a-target ignores an embedded IPv4 address", RC,
+     "               for i in (ip, embedded) if i is not None)", "               for i in (ip,))"),
+    ("r4 is_global replaced by is_private", RC, "    if not ip.is_global or ip.is_multicast", "    if ip.is_private or ip.is_multicast"),
+    ("r4 multicast counted as public", RC, "    if not ip.is_global or ip.is_multicast or", "    if not ip.is_global or"),
+    ("r4 site-local counted as public", RC,
+     " or (isinstance(ip, ipaddress.IPv6Address) and ip.is_site_local):", ":"),
+    ("r4 NAT64 and IPv4-compatible not unwrapped", RC,
+     "    if ip in _NAT64 or (ip in _COMPATIBLE and int(ip) > 1):", "    if False:"),
+    ("r4 6to4 not unwrapped", RC, "    if ip.sixtofour is not None:", "    if False:"),
+    ("r4 the embedded IPv4 address not judged", RC,
+     "    return embedded is not None and non_public_address(str(embedded))", "    return False"),
+    ("r4 a proxy from the environment", RC,
+     "    return build_opener(ProxyHandler({}), _NoRedirect)", "    return build_opener(_NoRedirect)"),
+    ("r4 redirects followed", RC,
+     "    return build_opener(ProxyHandler({}), _NoRedirect)", "    return build_opener(ProxyHandler({}))"),
+    ("r4 local mode on by default", HOST, "    allow_local: bool = False\n", "    allow_local: bool = True\n"),
+    ("r4 --allow-local-targets maps to the configuration", HOST,
+     "allow_local=args.allow_local_targets,", "allow_local=False,"),
+    ("r4 --local-origin maps to the configuration", HOST,
+     "local_origins=tuple(args.local_origin or ()),", "local_origins=(),"),
 ]
 
 
