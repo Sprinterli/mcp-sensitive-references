@@ -98,7 +98,9 @@ endpoint. Variants:
 requires that it is identical to the MCP URL (SC-01). It gets the metadata only from the two locations of
 RFC 9728 and never from the origin root. The test host accepts a parent resource only through an explicit operator option
 (`--resource`). That option is a non-conformant tolerance for the reference server (P16). The host accepts a resolve endpoint, discovered or configured, only on the resource origin (SC-04). Without metadata the host stops, unless the operator states that the server has none. The host follows no
-redirect. The host checks the RFC 8414 issuer and the RFC 9207 `iss` parameter (SC-08).
+redirect. The host checks the RFC 8414 issuer and the RFC 9207 `iss` parameter (SC-08). Metadata
+without the discovery object stops the host, unless the operator states that the server publishes none
+(SC-02); the report then labels the run as not conformant.
 
 **Evidence.** Host tests `test_metadata_for_another_resource_is_refused`,
 `test_a_discovered_cross_origin_endpoint_is_refused`, `test_a_configured_cross_origin_endpoint_is_refused`,
@@ -194,6 +196,50 @@ with the reference of another principal.
 
 **Residual risk.** Inside one principal, the control does not stop an injected instruction that moves a
 value between two tools that the principal is authorized for (see the accepted risks below).
+
+### TM-11. Server-side request forgery through discovery URLs
+
+**Threat.** A remote MCP server names a URL that the host then fetches: the `resource_metadata` URL of its
+challenge, an authorization server in its RFC 9728 metadata, or an endpoint in the authorization server
+metadata. The URL points to a loopback, private or link-local address, for example a cloud metadata
+service or an administration interface on the network of the user. The host sends a request into a
+network that the server cannot reach itself (RFC 9728 section 7.7).
+
+**Control.** The host applies a fetch policy (SC-01, profile rule D11). Before each request it resolves
+the host name by DNS. It refuses a loopback, private (RFC 1918, RFC 4193), shared (RFC 6598), link-local,
+unspecified, multicast or reserved address, and a name that does not resolve. It checks each endpoint of
+the authorization server metadata when it reads the metadata, also the authorization endpoint that only
+the browser opens. Exception: the MCP URL itself is on such an address (a local test setup). The host
+follows no redirect, so a public URL cannot forward the request to a private one.
+
+**Evidence.** `FetchPolicyTests` in `prototype/tests/test_mcp_host_resolve.py`: loopback, private, IPv6
+unique-local, link-local, mixed and unresolvable targets for a public MCP URL, at the challenge, the
+authorization server, its endpoints and the resolve endpoint; the exception for a local MCP URL; the
+non-public ranges with IPv4-mapped IPv6 addresses. The existing fixtures on 127.0.0.1 use the exception.
+
+**Residual risk.** The check and the request resolve the name separately. A DNS server that answers with
+a public address first and with a private address second (DNS rebinding) passes the check. The test host
+does not pin the checked address for the connection. A host that pins it closes this gap. The exception
+for a local MCP URL gives a local server the same reach as before.
+
+### TM-12. A credential in the query of the MCP URL
+
+**Threat.** SC-01 makes the MCP URL with its query the issuer identity. If an operator puts a credential
+into the query, for example `https://mcp.example.com/mcp?api_key=...`, the host sends that string as the
+RFC 8707 `resource` parameter to the authorization server, keys its token cache with it and records it
+with each observation. The credential then reaches the authorization server, its logs and the cache file.
+
+**Control.** The proposed text of SC-01 says that a server SHOULD NOT put a credential into the query of
+its MCP URL, and RFC 9728 section 1.2 says that a resource identifier SHOULD NOT include a query
+component. The test host refuses user information in the URL, and its report shows the URL without the
+query (`public_endpoint`).
+
+**Evidence.** Host tests `test_a_url_with_user_information_or_a_fragment_is_no_issuer` and
+`test_the_report_holds_no_user_information_and_no_query`. No test refuses a credential in the query: the
+host cannot tell a credential from a tenant name.
+
+**Residual risk.** A server that needs a credential in the query exposes it to the authorization server
+and to the token cache. The host cannot detect this.
 
 ## Accepted residual risks of the reference server
 

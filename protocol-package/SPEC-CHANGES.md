@@ -62,7 +62,11 @@ RFC 9728 section 3.3 already answers the question. The `resource` value in the m
 to the resource identifier from which the client built the metadata URL. If the client found the metadata
 through the `resource_metadata` parameter of a `WWW-Authenticate` header, the `resource` value MUST be
 identical to the URL that the client sent its request to. For an MCP endpoint, that URL is the MCP URL.
-RFC 9728 does not allow a `resource` value of which the MCP URL is only a path below.
+In that challenge case, RFC 9728 does not allow a `resource` value of which the MCP URL is only a path
+below. If the client builds the well-known URL itself, RFC 9728 lets the client choose the resource
+identifier, and a parent of the MCP URL is possible. SC-01 requires the MCP URL in both cases. That choice
+is a decision of this package, not a requirement of RFC 9728. Its reason: one issuer string per MCP
+endpoint, the same string for both discovery mechanisms.
 
 **Evidence.**
 
@@ -89,6 +93,11 @@ RFC 9728 does not allow a `resource` value of which the MCP URL is only a path b
   the issuer keeps its query and trailing slash, and the well-known URL keeps them too.
 - Host tests `test_without_metadata_the_host_stops_unless_the_operator_says_there_is_none` and
   `test_unreachable_metadata_fails_closed`: without metadata the host does not resolve.
+  `test_a_challenge_url_without_a_document_is_not_a_server_without_metadata`: a challenge that names a
+  metadata URL says that metadata exists, so the operator statement does not apply.
+- `FetchPolicyTests` in `prototype/tests/test_mcp_host_resolve.py`: the fetch policy below, with loopback,
+  private, IPv6 unique-local, link-local, mixed and unresolvable targets for an MCP URL on a public
+  address, and the exception for an MCP URL on a non-public address.
 
 **Proposed text.**
 
@@ -109,11 +118,33 @@ RFC 9728 does not allow a `resource` value of which the MCP URL is only a path b
 >
 > If the host finds no metadata, or if the server does not answer, the host MUST NOT resolve. A host MAY
 > resolve without metadata only if an operator states explicitly that the server publishes no RFC 9728
-> metadata. Such a host does not conform to this entry for that server.
+> metadata. Such a host does not conform to this entry for that server. If the challenge names a
+> `resource_metadata` URL and that URL gives no metadata document, the host MUST NOT resolve, also with
+> such an operator statement.
+>
+> Fetch policy (RFC 9728 section 7.7). Before a host sends a request to a URL that a server supplied, the
+> host MUST resolve its host name by DNS. If one address is a loopback, private (RFC 1918, RFC 4193),
+> shared (RFC 6598), link-local, unspecified, multicast or reserved address, or if the name does not
+> resolve, the host MUST NOT send the request and MUST NOT resolve. This applies to the
+> `resource_metadata` URL of the challenge, the metadata URLs of the authorization server, each endpoint
+> in the authorization server metadata, and the resolve endpoint. The host MUST also refuse an
+> authorization endpoint on such an address, although only the browser opens it. Exception: if the
+> MCP URL itself resolves to such an address, the host MAY allow such targets. A host SHOULD connect to
+> the address that it checked, so that DNS rebinding cannot change the target between the check and the
+> request.
+>
+> A server SHOULD NOT put a credential into the query of its MCP URL. The query is part of the issuer
+> identity, so the host sends it to the authorization server as the RFC 8707 `resource` value and keeps
+> it with each cached token (RFC 9728 section 1.2: a resource identifier SHOULD NOT include a query
+> component).
 
 The proposed text does not permit a `resource` value of which the MCP URL is a path below. An earlier
-version of this entry permitted it. That rule is not compatible with RFC 9728 section 3.3, and this
-revision removes it.
+version of this entry permitted it. In the challenge case that rule is not compatible with RFC 9728
+section 3.3. In the well-known case RFC 9728 permits it, but this package chooses one issuer string per
+MCP endpoint, and this revision removes the rule.
+
+The test host implements the fetch policy without the SHOULD: it does not pin the checked address
+(THREAT-MODEL.md, TM-11). DNS rebinding is a residual risk of the test host.
 
 **Conflict with the MCP authorization specification.** The MCP specification (version 2025-11-25,
 "Protected Resource Metadata Discovery Requirements") tells a client to use the `resource_metadata` URL of
@@ -137,8 +168,9 @@ refuses a difference in case.
 host component" before it inserts the well-known string. This package reads that as the slash that is the
 whole path (`https://mcp.example.com/`). A slash at the end of a longer path stays:
 `https://mcp.example.com/mcp/` gives `https://mcp.example.com/.well-known/oauth-protected-resource/mcp/`.
-RFC 8414 section 3.1 removes a terminating slash of any path. The reading for RFC 9728 is **not verified**
-with the authors of RFC 9728. A SEP must confirm it.
+RFC 8414 section 3.1 removes a terminating slash of any issuer path. The host follows that rule for the
+authorization server (host test `test_rfc_8414_removes_a_terminating_slash_of_the_issuer`). The reading for
+RFC 9728 is **not verified** with the authors of RFC 9728. A SEP must confirm it.
 
 **Known deviation of the reference server (non-normative).** The reference server publishes its base URL
 as `resource`, and its MCP URL is a path below that value (P16). This behaviour is **not conformant** to
@@ -197,6 +229,10 @@ agent token authenticates the extension settings, while the resolver token is a 
   `test_a_discovery_object_with_a_malformed_member_is_refused` (one case per member, and an object that
   is not a JSON object), `test_a_discovery_object_without_the_negotiated_profiles_is_refused` and
   `test_a_configured_endpoint_does_not_excuse_a_bad_discovery_object`.
+- Host tests `test_metadata_without_a_discovery_object_stops_the_host`,
+  `test_without_a_discovery_object_configuration_mode_needs_the_option_and_is_not_conformant` and
+  `test_a_conformant_run_has_no_deviation`: metadata without the object stops the host, unless the
+  operator states that the server publishes no object; the report then labels the run.
 
 **Proposed text.**
 
@@ -212,6 +248,11 @@ agent token authenticates the extension settings, while the resolver token is a 
 > missing or malformed member. A host MAY use an operator-configured endpoint or scope instead of a
 > discovered value of a valid object. An operator-configured value MUST NOT make a refused object
 > acceptable.
+>
+> If the host and the server negotiated both profiles and the RFC 9728 metadata exists but holds no
+> `sensitive_references` object, the host MUST NOT resolve, as for an incomplete object. A host MAY use
+> operator configuration instead only if an operator states explicitly that the server publishes no
+> object. Such a run does not conform to this entry, and the host SHOULD say so in its report.
 
 Example:
 
@@ -231,8 +272,9 @@ Example:
 ```
 
 **Compatibility.** No conflict with concept 0.5, which leaves discovery open. A host without the object
-can use operator configuration only. The test host calls this "configuration mode" and does not claim
-SC-02 conformance in it (`prototype/README.md`). If the server has no metadata at all, configuration mode
+can use operator configuration only, and only after the explicit operator statement above (test host
+option `--no-discovery-object`). The test host calls this "configuration mode", does not claim SC-02
+conformance in it, and lists the deviation in `non_conformant` of its report (`prototype/README.md`). If the server has no metadata at all, configuration mode
 needs the explicit operator statement of SC-01. The field name
 `sensitive_references` is not registered in the IANA "OAuth Protected Resource Metadata" registry. A SEP
 must register it or choose another location (see [SEP-READINESS.md](SEP-READINESS.md)).
@@ -417,10 +459,12 @@ authorization server mix-up is possible.
 - Host tests `test_a_callback_without_iss_is_refused_when_the_server_advertises_iss`,
   `test_a_callback_without_iss_is_accepted_when_the_server_does_not_advertise_iss` and
   `test_a_wrong_iss_is_refused_also_when_the_server_does_not_advertise_iss`.
-- The host also checks RFC 8414 section 3.3 issuer equality, PKCE S256 in
-  `code_challenge_methods_supported`, and the number of authorization servers. These checks are in
-  `prototype/src/sensitive_references/resolver_client.py` and `prototype/demo/mcp_host.py`. **Not verified
-  by a test.**
+- Host tests `test_authorization_server_metadata_for_another_issuer_is_refused` (RFC 8414 section 3.3)
+  and `test_authorization_server_metadata_without_s256_is_refused` (absent, `plain` only, a string).
+- Host test `test_a_non_public_endpoint_in_authorization_server_metadata_is_refused`: the fetch policy of
+  SC-01 for the endpoints of the metadata.
+- The host also refuses to select one of several authorization servers (`prototype/demo/mcp_host.py`,
+  `_resolver_setup`). **Not verified by a test.**
 
 **Proposed text.**
 
@@ -430,8 +474,10 @@ authorization server mix-up is possible.
 > authorization server metadata has `authorization_response_iss_parameter_supported: true` and the
 > authorization response has no `iss` parameter, the host MUST refuse the response (RFC 9207 section 2.4).
 > A host MUST refuse authorization server metadata whose
-> `issuer` is not the requested issuer (RFC 8414 section 3.3). If the RFC 9728 metadata lists more than one
-> authorization server, the host MUST NOT select one automatically.
+> `issuer` is not the requested issuer (RFC 8414 section 3.3). A host MUST refuse authorization server
+> metadata in which `code_challenge_methods_supported` is absent, is not an array or does not list `S256`.
+> The fetch policy of SC-01 applies to the issuer and to each endpoint of the metadata. If the RFC 9728
+> metadata lists more than one authorization server, the host MUST NOT select one automatically.
 
 **Compatibility.** No conflict. These are current OAuth security practices.
 
@@ -527,8 +573,8 @@ as `unknown`, as the reference server does.
 **Proposed text.**
 
 > A resolve endpoint MUST answer a failure with one JSON object `{"error": "<code>"}` and an optional
-> `reasons` object that maps a reason to a count. The answer MUST NOT contain a value, a reference, an
-> identifier or a destination. The endpoint MUST use these codes:
+> `reasons` object that maps a reason to a count. The answer MUST NOT contain protected data (defined
+> below). The endpoint MUST use these codes:
 >
 > | Status | `error` | Meaning |
 > |---|---|---|
@@ -544,6 +590,33 @@ as `unknown`, as the reference server does.
 > A 401 answer MUST also carry a `WWW-Authenticate` header with the `Bearer` scheme (RFC 6750 section 3).
 > A 403 `insufficient_scope` answer SHOULD carry it with `error="insufficient_scope"`. A host MUST treat
 > only 401 as a reason to get a new token. A host MUST NOT show a server message to the model.
+>
+> **Protected data.** In SC-11 and SC-12, protected data is each of these items, in any encoding:
+>
+> 1. a plaintext value of a reference, or a part of one;
+> 2. a canonical reference token, or its random component, or a part of 8 or more characters of that
+>    component;
+> 3. a hash, a MAC or another value that is computed from item 1 or item 2;
+> 4. the `destination` of the request, or a hash of it;
+> 5. a credential: an access token, a refresh token, an authorization code, a PKCE verifier or a client
+>    secret.
+>
+> These items are not protected data: the `error` code, the reason names and counts of `reasons`, the
+> `error_code` of SC-12, the HTTP status, and a `client_id` of a public client.
+
+Vectors for SC-11 (`sref:email:AbCd...` stands for a complete canonical token; the vectors are text, and
+no test checks them):
+
+| Answer | Verdict |
+|---|---|
+| `{"error": "unresolvable", "reasons": {"unknown": 1}}` | Allowed |
+| `{"error": "invalid_token"}` | Allowed |
+| `{"error": "unresolvable", "reference": "sref:email:AbCd..."}` | Refused (item 2) |
+| `{"error": "unresolvable", "id": "AbCdEfGh"}` | Refused (item 2, a part of the random component) |
+| `{"error": "unresolvable", "ref_sha256": "9f2c..."}` | Refused (item 3) |
+| `{"error": "invalid_request", "destination": "report.txt"}` | Refused (item 4) |
+| `{"error": "unresolvable", "detail": "no value for alice@example.com"}` | Refused (item 1) |
+| `{"error": "invalid_token", "client_id": "c-123"}` | Allowed (public client) |
 
 **Compatibility.** The codes are the codes of the reference server (read in its source). The fake server
 in the host tests uses the same codes for the cases that it plays (400, 401, 409, 413). The fake server
@@ -575,7 +648,7 @@ detect such a refusal (`prototype/README.md`, "Independent MCP test host").
 **Proposed text.**
 
 > If a negotiated server refuses a tool call because a reference does not resolve, the server MUST return
-> a tool result with `isError: true`. The result MUST NOT contain a value or a reference identifier. The
+> a tool result with `isError: true`. The result MUST NOT contain protected data (SC-11). The
 > result SHOULD have `structuredContent`. If it has it, the object MUST follow the schema below:
 >
 > - `error_code` (required): one of `reference_malformed`, `reference_unknown`, `reference_revoked` or
@@ -584,7 +657,7 @@ detect such a refusal (`prototype/README.md`, "Independent MCP test host").
 > - `reasons` (required): an object. Its keys are a subset of `malformed`, `unknown`, `revoked` and
 >   `expired`. Each value is an integer of 1 or more: the number of refused references with that reason. It
 >   MUST have the key of `error_code`. It MUST NOT have other keys.
-> - The object MAY have other members. Another member MUST NOT contain a value or a reference identifier.
+> - The object MAY have other members. Another member MUST NOT contain protected data (SC-11).
 
 ```json
 {
@@ -610,6 +683,11 @@ detect such a refusal (`prototype/README.md`, "Independent MCP test host").
 Example: `{"error_code": "reference_unknown", "reasons": {"unknown": 1, "revoked": 2}}`. The JSON Schema
 cannot express "`reasons` has the key of `error_code`". That rule stays in the text. The `reasons` shape is
 the shape of the `reasons` object of SC-11.
+
+Vectors for SC-12 (text only, no test checks them): `{"error_code": "reference_unknown", "reasons":
+{"unknown": 1}, "hint": "Ask the user for a new reference."}` is allowed. The same object with
+`"reference": "sref:email:AbCd..."` or with `"detail": "no value for alice@example.com"` is refused
+(SC-11, items 2 and 1).
 
 **Compatibility.** A server that returns `isError: false` today must change for negotiated sessions only.
 Legacy sessions keep their behaviour. The test host does not check this schema. No test in this repository
