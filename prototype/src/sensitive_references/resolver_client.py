@@ -91,20 +91,29 @@ def origin(url: str) -> tuple[str, str, int | None]:
     return parts.scheme, (parts.hostname or ""), port
 
 
-def http_json(method: str, url: str, *, body: bytes | None = None, headers: dict[str, str] | None = None,
-              timeout: float = 10.0) -> tuple[int, Any]:
-    """One request without redirects. Returns the status and the JSON body (or None)."""
+def _exchange(method: str, url: str, *, body: bytes | None = None, headers: dict[str, str] | None = None,
+              timeout: float = 10.0, read: bool = True) -> tuple[int, Any, bytes]:
+    """One request without redirects. Returns the status, the headers and the body.
+
+    With ``read=False`` the body of a success answer is not read (a stream could hold the call open).
+    """
     request = Request(url, data=body, method=method, headers=headers or {})
     try:
         with _OPENER.open(request, timeout=timeout) as response:  # nosec B310: URLs pass require_secure
-            status, raw = response.status, response.read()
+            return response.status, response.headers, (response.read() if read else b"")
     except HTTPError as error:
         try:
-            status, raw = error.code, error.read()
+            return error.code, error.headers, error.read()
         finally:
             error.close()
     except (URLError, OSError) as error:
         raise ResolverClientError("unreachable", f"the server did not answer ({type(error).__name__})") from None
+
+
+def http_json(method: str, url: str, *, body: bytes | None = None, headers: dict[str, str] | None = None,
+              timeout: float = 10.0) -> tuple[int, Any]:
+    """One request without redirects. Returns the status and the JSON body (or None)."""
+    status, _, raw = _exchange(method, url, body=body, headers=headers, timeout=timeout)
     try:
         return status, json.loads(raw) if raw else None
     except ValueError:
@@ -130,46 +139,94 @@ def _well_known(url: str, suffix: str, *, insert: bool) -> str:
 class ProtectedResource:
     resource: str
     authorization_servers: tuple[str, ...]
+    #: True when the metadata holds the discovery object. Then the four members below are set and valid.
+    discovery: bool = False
     resolve_endpoint: str | None = None
     resolve_scope: str | None = None
     resolver_profiles: tuple[str, ...] | None = None
     sink_profiles: tuple[str, ...] | None = None
 
 
-def discover_protected_resource(resource: str, *, timeout: float = 10.0) -> ProtectedResource | None:
-    """RFC 9728 metadata of ``resource``: path-inserted URL first, then the root URL.
+#: The ``resource_metadata`` parameter of a ``WWW-Authenticate`` challenge (RFC 9728, section 5.1).
+_RESOURCE_METADATA = re.compile(r'(?i)(?:^|[\s,])resource_metadata\s*=\s*"([^"]*)"')
 
-    Returns None when no metadata exists. The metadata is refused when its
-    ``resource`` is not exactly ``resource`` (RFC 9728, section 3.3).
+
+def challenge_metadata_url(resource: str, *, timeout: float = 10.0) -> str | None:
+    """The metadata URL that the resource names in the ``WWW-Authenticate`` header of its 401 answer
+    to a request without a token (RFC 9728, section 5.1). None if the answer names none."""
+    status, headers, _ = _exchange("POST", resource, body=b"{}", timeout=timeout, read=False, headers={
+        "Content-Type": "application/json", "Accept": "application/json, text/event-stream"})
+    if status != 401 or headers is None:
+        return None
+    for value in headers.get_all("WWW-Authenticate") or []:
+        match = _RESOURCE_METADATA.search(value)
+        if match:
+            return match.group(1)
+    return None
+
+
+def _metadata_document(url: str, timeout: float) -> dict[str, Any] | None:
+    status, document = http_json("GET", url, headers={"Accept": "application/json"}, timeout=timeout)
+    return document if status == 200 and isinstance(document, dict) else None
+
+
+def _discovery_object(document: dict[str, Any]) -> dict[str, Any] | None:
+    """The ``sensitive_references`` object, or None when the metadata has none.
+
+    A present object must have all four members with the right types (SC-02). The
+    host does not put a default in place of a missing or malformed member.
+    """
+    if DISCOVERY_FIELD not in document:
+        return None
+    extra = document[DISCOVERY_FIELD]
+    if not isinstance(extra, dict):
+        raise ResolverClientError("malformed_discovery", "the discovery object is not a JSON object")
+    for name in ("resolve_endpoint", "resolve_scope"):
+        if not isinstance(extra.get(name), str) or not extra[name]:
+            raise ResolverClientError("malformed_discovery", f"the discovery object has no valid {name}")
+    for name in ("resolver_profiles", "sink_profiles"):
+        value = extra.get(name)
+        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+            raise ResolverClientError("malformed_discovery", f"the discovery object has no valid {name}")
+    return extra
+
+
+def discover_protected_resource(resource: str, *, use_challenge: bool = True,
+                                timeout: float = 10.0) -> ProtectedResource | None:
+    """RFC 9728 metadata of ``resource``.
+
+    The host uses two mechanisms only: the path-inserted well-known URL of
+    ``resource`` (section 3.1), and, if that gives no metadata and
+    ``use_challenge`` is set, the ``resource_metadata`` URL of the 401 answer of
+    ``resource`` itself (section 5.1). It tries no other URL, also not the origin
+    root. In both cases the metadata ``resource`` must be identical to
+    ``resource`` as an exact string (section 3.3). Returns None when no metadata
+    exists. A present discovery object that is malformed is refused.
     """
     require_secure(resource, "protected resource")
-    candidates = [_well_known(resource, "oauth-protected-resource", insert=True)]
-    root = urlunsplit((*urlsplit(resource)[:2], "/.well-known/oauth-protected-resource", "", ""))
-    if root not in candidates:
-        candidates.append(root)
-    for url in candidates:
-        status, document = http_json("GET", url, headers={"Accept": "application/json"}, timeout=timeout)
-        if status != 200 or not isinstance(document, dict):
-            continue
-        if document.get("resource") != resource:
-            raise ResolverClientError("wrong_issuer", "the protected-resource metadata names another resource")
-        servers = document.get("authorization_servers") or []
-        extra = document.get(DISCOVERY_FIELD)
-        extra = extra if isinstance(extra, dict) else {}
-
-        def _list(name):
-            value = extra.get(name)
-            return tuple(v for v in value if isinstance(v, str)) if isinstance(value, list) else None
-
-        return ProtectedResource(
-            resource=resource,
-            authorization_servers=tuple(s for s in servers if isinstance(s, str)),
-            resolve_endpoint=extra.get("resolve_endpoint") if isinstance(extra.get("resolve_endpoint"), str) else None,
-            resolve_scope=extra.get("resolve_scope") if isinstance(extra.get("resolve_scope"), str) else None,
-            resolver_profiles=_list("resolver_profiles"),
-            sink_profiles=_list("sink_profiles"),
-        )
-    return None
+    document = _metadata_document(_well_known(resource, "oauth-protected-resource", insert=True), timeout)
+    if document is None and use_challenge:
+        named = challenge_metadata_url(resource, timeout=timeout)
+        if named is not None:
+            document = _metadata_document(require_secure(named, "protected-resource metadata"), timeout)
+    if document is None:
+        return None
+    if document.get("resource") != resource:
+        raise ResolverClientError("wrong_issuer", "the protected-resource metadata names another resource")
+    servers = document.get("authorization_servers") or []
+    servers = tuple(s for s in servers if isinstance(s, str)) if isinstance(servers, list) else ()
+    extra = _discovery_object(document)
+    if extra is None:
+        return ProtectedResource(resource=resource, authorization_servers=servers)
+    return ProtectedResource(
+        resource=resource,
+        authorization_servers=servers,
+        discovery=True,
+        resolve_endpoint=extra["resolve_endpoint"],
+        resolve_scope=extra["resolve_scope"],
+        resolver_profiles=tuple(extra["resolver_profiles"]),
+        sink_profiles=tuple(extra["sink_profiles"]),
+    )
 
 
 @dataclass(frozen=True)

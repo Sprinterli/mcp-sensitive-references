@@ -58,7 +58,8 @@ receives it, before a model sees it:
 
 - the server advertised the extension with a version the host declared;
 - each canonical token gets a trusted observation with its issuer: the server URL the host connected to, without
-  credentials, query or fragment. **This issuer identity is experimental.** A URL is a locator, not an
+  credentials, query or fragment. The host keeps every other character as given (no change of case, port or
+  trailing slash) and compares issuers as exact strings. **This issuer identity is experimental.** A URL is a locator, not an
   independently verified issuer identity (a TLS origin at best); which identity a host should record is an open
   question, and the RFC 9728 resource identifier is one candidate;
 - every reference-like string in the result is a canonical token, and no sentinel value appears;
@@ -96,10 +97,19 @@ writes `--materialize-template` (default `{ref}` and a newline) once for each re
 has exactly one trusted issuer. It writes through `ProtectedFileSink`, so a failure leaves the file as it was.
 
 - The host declares both profiles. It resolves only if both are in the negotiated intersection.
-- The resolve endpoint is `--resolve-endpoint`. Without it, the host reads the provisional `sensitive_references`
-  field of the RFC 9728 protected-resource metadata of the MCP URL. A discovered endpoint must be on the origin of
-  the resource. The metadata `resource` must be the MCP URL exactly.
-- The resolve scope is `--resolve-scope`, else the metadata value, else `sensitive-references.resolve`.
+- The host reads the RFC 9728 protected-resource metadata of the MCP URL from two places only: the path-inserted
+  well-known URL, or the `resource_metadata` URL in the `WWW-Authenticate` header of the 401 answer of the MCP URL
+  to a request without a token. It never tries the origin root. The metadata `resource` must be the MCP URL as an
+  exact string.
+- If the metadata holds the provisional `sensitive_references` object, the object must have `resolve_endpoint`,
+  `resolve_scope`, `resolver_profiles` and `sink_profiles` with the right types, and must list both profiles.
+  Otherwise the host stops, also when an option is set. The endpoint and the scope come from the object, unless
+  `--resolve-endpoint` or `--resolve-scope` replaces them. A discovered endpoint must be on the origin of the
+  resource.
+- **Configuration mode.** Without the object, the host needs `--resolve-endpoint`, and the scope is
+  `--resolve-scope`, else `sensitive-references.resolve`. Without metadata, it also needs `--authorization-server`.
+  Configuration mode does not claim SC-02 conformance (`protocol-package/SPEC-CHANGES.md`). `--resource` (a
+  parent resource, for a server with the known deviation P16) does not claim SC-01 conformance.
 - The resolver token is a second credential. It comes from the cache file (`--resolver-token-cache`, mode 0600),
   from a refresh, or from a new authorization: dynamic client registration, Authorization Code + PKCE S256, the
   `resource` indicator, the resolve scope only, and a redirect to `127.0.0.1`. The host opens the browser and waits

@@ -38,7 +38,11 @@ endpoint of that issuer (``oauth-resolver-1``, ``local-file-1``):
 * it resolves only when both profiles are in the negotiated intersection;
 * the resolve endpoint comes from ``--resolve-endpoint`` or from the
   ``sensitive_references`` field of the RFC 9728 protected-resource metadata
-  (a provisional name; a discovered endpoint must be on the resource origin);
+  (a provisional name; a discovered endpoint must be on the resource origin).
+  A present field must hold all four members and both profiles, else the host
+  stops. The metadata comes from the path-inserted well-known URL, or from the
+  ``resource_metadata`` URL of the 401 answer of the MCP URL; never from the
+  origin root;
 * the resolver token is a second credential: a cached token (mode 0600), a
   refreshed one, or a new Authorization Code + PKCE S256 authorization with
   dynamic client registration and a 127.0.0.1 loopback redirect. The agent
@@ -67,7 +71,7 @@ import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -110,12 +114,18 @@ _REFUSAL_FIELDS = ("error_code", "code", "error")
 
 def public_endpoint(url: str) -> str:
     """The URL as a report and an issuer may hold it: no user information, no
-    query and no fragment, where a token or a password can sit."""
-    parts = urlsplit(url)
-    host = parts.hostname or ""
-    if parts.port:
-        host = f"{host}:{parts.port}"
-    return urlunsplit((parts.scheme, host, parts.path, "", ""))
+    query and no fragment, where a token or a password can sit.
+
+    Every other character stays as given: the issuer is compared as an exact
+    string (SC-01), so the host does not change the case of the host, a default
+    port or a trailing slash.
+    """
+    head = url.split("#", 1)[0].split("?", 1)[0]
+    scheme, separator, rest = head.partition("://")
+    if not separator:
+        return head
+    authority, slash, path = rest.partition("/")
+    return f"{scheme}://{authority.rpartition('@')[2]}{slash}{path}"
 
 
 @dataclass
@@ -272,30 +282,40 @@ def resolution_negotiated(agreed: Any) -> bool:
             and SINK_PROFILE in agreed.sink_profiles)
 
 
-def _resolver_setup(issuer: str, config: ResolveConfig) -> tuple[str, str, str]:
+def _resolver_setup(issuer: str, config: ResolveConfig, mcp_url: str | None = None) -> tuple[str, str, str]:
     """The resolve endpoint, the authorization server and the resolve scope for ``issuer``.
 
-    An explicit option wins over discovery. A discovered endpoint must be on the
-    origin of the protected resource; the metadata must name ``issuer`` itself.
+    If the metadata holds the discovery object, the object must be complete and
+    must offer both profiles (SC-02); a configured value can then replace the
+    endpoint or the scope, but never excuses a bad object. Without the object,
+    only configuration mode is left: the endpoint must be configured, and the
+    scope comes from configuration, else the default. Configuration mode does
+    not claim SC-02 conformance. A discovered endpoint must be on the origin of
+    the protected resource; the metadata must name ``issuer`` itself.
     """
+    # The WWW-Authenticate mechanism names metadata for the URL the request went to,
+    # so it applies only when the issuer is the MCP URL itself.
+    use_challenge = mcp_url is None or mcp_url == issuer
     try:
-        metadata = discover_protected_resource(issuer, timeout=config.timeout)
+        metadata = discover_protected_resource(issuer, use_challenge=use_challenge, timeout=config.timeout)
     except ResolverClientError as error:
         # Without metadata the host can still go on when both values are configured.
         if error.code != "unreachable" or not (config.resolve_endpoint and config.authorization_server):
             raise
         metadata = None
+    discovered = metadata is not None and metadata.discovery
+    if discovered:
+        if RESOLVER_PROFILE not in metadata.resolver_profiles:
+            raise ResolverClientError("profile_not_offered", "the metadata does not offer the resolver profile")
+        if SINK_PROFILE not in metadata.sink_profiles:
+            raise ResolverClientError("profile_not_offered", "the metadata does not offer the sink profile")
     endpoint = config.resolve_endpoint
     if endpoint is None:
-        if metadata is None or metadata.resolve_endpoint is None:
+        if not discovered:
             raise ResolverClientError("no_resolve_endpoint", "no resolve endpoint configured or discovered")
         if origin(metadata.resolve_endpoint) != origin(issuer):
             raise ResolverClientError("cross_origin_endpoint",
                                       "the discovered resolve endpoint is not on the origin of the protected resource")
-        if metadata.resolver_profiles is not None and RESOLVER_PROFILE not in metadata.resolver_profiles:
-            raise ResolverClientError("profile_not_offered", "the metadata does not offer the resolver profile")
-        if metadata.sink_profiles is not None and SINK_PROFILE not in metadata.sink_profiles:
-            raise ResolverClientError("profile_not_offered", "the metadata does not offer the sink profile")
         endpoint = metadata.resolve_endpoint
     require_secure(endpoint, "resolve endpoint")
     server = config.authorization_server
@@ -305,12 +325,18 @@ def _resolver_setup(issuer: str, config: ResolveConfig) -> tuple[str, str, str]:
             raise ResolverClientError("authorization_server",
                                       "zero or several authorization servers; set --authorization-server")
         server = servers[0]
-    scope = config.resolve_scope or (metadata.resolve_scope if metadata else None) or RESOLVE_SCOPE
+    if config.resolve_scope:
+        scope = config.resolve_scope
+    elif discovered:
+        scope = metadata.resolve_scope
+    else:
+        scope = RESOLVE_SCOPE
     return endpoint, server, scope
 
 
 def materialize(*, issuer: str, references: list[str], provenance: ProvenanceStore, agreed: Any,
-                config: ResolveConfig, sentinels: list[str], agent_token: str | None) -> MaterializeReport:
+                config: ResolveConfig, sentinels: list[str], agent_token: str | None,
+                mcp_url: str | None = None) -> MaterializeReport:
     """Write ``config.template`` once per trusted reference through the protected sink.
 
     Only references with exactly one trusted issuer go into the content. The sink
@@ -334,7 +360,7 @@ def materialize(*, issuer: str, references: list[str], provenance: ProvenanceSto
     resolver = None
     credential = None
     try:
-        endpoint, server, scope = _resolver_setup(issuer, config)
+        endpoint, server, scope = _resolver_setup(issuer, config, mcp_url)
         credential = OAuthResolverCredential(
             resource=issuer, authorization_server=server, scope=scope, cache=TokenCache(config.token_cache),
             open_browser=config.open_browser, interactive=config.interactive, client_id=config.client_id,
@@ -451,7 +477,7 @@ async def run(args: argparse.Namespace) -> HostReport:
         # After the MCP session: an interactive authorization can take minutes.
         report.materialization = materialize(
             issuer=issuer, references=first_references, provenance=provenance, agreed=agreed,
-            config=resolve_config(args), sentinels=sentinels, agent_token=token or None)
+            config=resolve_config(args), sentinels=sentinels, agent_token=token or None, mcp_url=endpoint)
         _check_materialization(report, report.materialization)
     return report
 
@@ -518,7 +544,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     resolve.add_argument("--resolve-endpoint", help="the resolve endpoint (default: protected-resource metadata)")
     resolve.add_argument("--resource", help="the protected-resource identifier (RFC 9728) when the server publishes "
                                             "its metadata for a parent of the MCP URL; default: the MCP URL")
-    resolve.add_argument("--resolve-scope", help=f"the resolve scope (default: metadata, else {RESOLVE_SCOPE})")
+    resolve.add_argument("--resolve-scope", help="the resolve scope (default: the discovery object; without "
+                                                 f"one, configuration mode: {RESOLVE_SCOPE})")
     resolve.add_argument("--authorization-server",
                          help="the authorization server issuer (default: the only one in the metadata)")
     resolve.add_argument("--resolver-client-id", help="a registered client; without it the host uses dynamic registration")
