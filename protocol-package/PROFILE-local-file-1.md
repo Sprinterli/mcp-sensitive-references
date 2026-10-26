@@ -20,7 +20,7 @@ model does not see the file content.
 | ID | Rule | Evidence |
 |---|---|---|
 | L1 | The host resolves only if both `oauth-resolver-1` and `local-file-1` are in the negotiated intersection of the host and the server. | Host `test_without_the_negotiated_profiles_nothing_is_sent`; host `test_without_advertised_profiles_the_host_does_not_resolve` (real MCP SDK 2.x server); host `test_a_resolving_host_declares_both_profiles` |
-| L2 | If the discovery object lists profiles, it must list both profiles. | Not yet tested (`demo/mcp_host.py`, `_resolver_setup`, `profile_not_offered`) |
+| L2 | If the metadata holds the discovery object, the object must list both profiles. Otherwise the host stops (`profile_not_offered`), also when the endpoint is configured. | Host `test_a_discovery_object_without_the_negotiated_profiles_is_refused`, `test_a_configured_endpoint_does_not_excuse_a_bad_discovery_object` |
 | L3 | The host chooses the destination under its own policy. The model does not choose it. In the test host the destination is the operator option `--resolve-into`. | Host `test_the_options_map_to_the_configuration` |
 | L4 | The content that the sink writes comes from host configuration (`--materialize-template`). It is not model output. | Host `test_the_template_is_configuration`. End-to-end run 2026-10-25: a forged reference in the template produced no file. |
 
@@ -37,7 +37,7 @@ model does not see the file content.
 
 | ID | Rule | Evidence |
 |---|---|---|
-| L9 | The sink resolves every reference of the content before it writes. If the host splits the references into batches of 100, every batch must succeed first. | Host `test_more_than_100_references_go_in_batches_of_100`; prototype `test_batch_is_all_or_nothing`. Observed (one operator run, not independently reproduced): E8 to E10 materialized. |
+| L9 | The sink resolves every reference of the content before it writes. If the host splits the references into batches, each batch has at most the effective limit of the server (SC-09: the published `max_references`, else 100), and every batch must succeed first. The test host uses batches of 100, which every server accepts. | Host `test_more_than_100_references_go_in_batches_of_100`; prototype `test_batch_is_all_or_nothing`. Observed (one operator run, not independently reproduced): E8 to E10 materialized. |
 | L10 | A failure leaves the destination unchanged. If the file existed, its content stays. No temporary file stays. | Host helper `assert_nothing_written` in every failure test, for example `test_a_partially_invalid_batch_writes_nothing` and `test_an_unreachable_resolve_endpoint_writes_nothing` (existing content kept) |
 | L11 | The sink writes a temporary file in the destination directory, calls `fsync`, and then replaces the destination atomically (`os.replace`). | `src/sensitive_references/sink.py`. The atomic replace is shown indirectly by L10. A crash between write and replace is not yet tested. |
 | L12 | The written file has no permission bits for group or others. | Host `test_interactive_authorization_materializes_and_reports_no_secret` (asserts `st_mode & 0o077 == 0`) |

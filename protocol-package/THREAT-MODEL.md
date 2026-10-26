@@ -8,7 +8,8 @@ does not replace it. The trust boundaries and the required controls of that file
 The two profiles add these assets to the model of concept 0.5:
 
 - **The resolver token.** An OAuth access token and a refresh token that release plaintext values.
-- **The consent record.** The approval of one user for one resolver client.
+- **The consent record.** The approval of one user for one resolver client, one resource, the resolve
+  scope and the set of sink profiles that the consent page showed (SC-06).
 - **The resolve endpoint.** An HTTP endpoint that returns plaintext to a program outside the model.
 - **The token cache of the host.** A local file that holds the resolver tokens.
 - **The destination.** The local file that receives plaintext, and its path.
@@ -23,18 +24,21 @@ residual risk.
 **Threat.** A local program that can open the browser of the user gets a resolver token without the
 knowledge of the user. The browser session of the user signs the request.
 
-**Control.** The authorization server shows a consent page for the first authorization of each pair of
-user and client. A browser session alone issues no code. The page cannot be framed. A one-time nonce binds
-the answer to the user and to every request parameter. The consent post must carry a same-origin `Origin`
-header (SC-06).
+**Control.** The authorization server shows a consent page for the first authorization of a client. A
+browser session alone issues no code. The page cannot be framed. A one-time nonce binds the answer to the
+user and to every request parameter. The consent post must carry a same-origin `Origin` header. SC-06
+also binds the approval to the resource, the resolve scope and the sink profiles that the page names, so
+that a later profile needs a new decision.
 
 **Evidence.** Reference server tests `test_the_first_authorization_shows_a_consent_page_and_issues_no_code`,
 `test_consent_cannot_be_given_without_the_users_own_answer_on_the_page` and
-`test_a_consent_post_without_an_origin_header_grants_nothing`.
+`test_a_consent_post_without_an_origin_header_grants_nothing`. The binding to resource, scope and profile
+set is **not verified** in the reference server.
 
 **Residual risk.** After consent, a program that can read the token cache of the host can use the token
 without interaction (see TM-8). The consent page names the client and its return host. A user can still
-approve a malicious client that has a plausible name. The page does not show the sink or the destination.
+approve a malicious client that has a plausible name. The page does not show the destination. This
+package did not verify that the page of the reference server names the resource and the sink profiles.
 
 ### TM-2. Token class confusion
 
@@ -90,14 +94,18 @@ endpoint. Variants:
   another authorization server (mix-up).
 - The MCP URL and the RFC 9728 `resource` differ, and the host picks one by guess (F12, P16).
 
-**Control.** The host compares `resource` as an exact string and requires that it is identical to the
-MCP URL (SC-01). The test host accepts a parent resource only through an explicit operator option
+**Control.** The host keeps the issuer string as given, compares `resource` as an exact string and
+requires that it is identical to the MCP URL (SC-01). It gets the metadata only from the two locations of
+RFC 9728 and never from the origin root. The test host accepts a parent resource only through an explicit operator option
 (`--resource`). That option is a non-conformant tolerance for the reference server (P16). The host accepts a discovered endpoint only on the resource origin (SC-04). The host follows no
 redirect. The host checks the RFC 8414 issuer and the RFC 9207 `iss` parameter (SC-08).
 
 **Evidence.** Host tests `test_metadata_for_another_resource_is_refused`,
 `test_a_discovered_cross_origin_endpoint_is_refused`, `test_a_redirect_from_the_resolve_endpoint_is_not_followed`,
-`test_a_callback_from_another_issuer_is_refused` and `test_a_resource_the_mcp_url_is_not_under_stops_the_host`.
+`test_a_callback_from_another_issuer_is_refused`, `test_a_resource_the_mcp_url_is_not_under_stops_the_host`,
+`test_a_near_miss_of_the_issuer_is_refused`, `test_root_metadata_is_not_a_fallback_for_a_resource_with_a_path`,
+`test_challenge_metadata_for_another_resource_is_refused` and
+`test_a_callback_without_iss_is_refused_when_the_server_advertises_iss`.
 The RFC 8414 check is not yet tested.
 
 **Residual risk.** The issuer identity is a URL, not a cryptographic identity (P10). An attacker who
