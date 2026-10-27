@@ -228,10 +228,14 @@ not with mixed DNS records of the MCP host, only for the MCP origin and configur
 `NoRedirectNoProxyTests`: no client follows a redirect, and no client uses a proxy from the environment.
 The fixtures on 127.0.0.1 use local mode through the option.
 
-DNS rebinding: SC-01 requires that the host connects to an address that it checked. The test host does
-that (`test_the_request_connects_to_the_checked_address`).
+DNS rebinding: SC-01 requires that the host connects to an address that it checked, for each request of
+its own HTTP client. The test host does that (`test_the_request_connects_to_the_checked_address`). The
+browser opens the authorization endpoint and resolves its name again. The host checks that name only
+before it opens the browser.
 
-**Residual risk.** A host that resolves the name again for the connection does not conform to SC-01, and
+**Residual risk.** A DNS server can answer the browser with a non-public address for the authorization
+endpoint, after the check of the host. The browser then sends a top-level GET request with the
+authorization parameters to that address. The request carries no credential of the host. A host that resolves the name again for the connection does not conform to SC-01, and
 a DNS server that answers with a public address first and with a private address second passes its check.
 In local mode,
 a malicious local MCP server can reach other paths on its own origin and on the configured origins. The

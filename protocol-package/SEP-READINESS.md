@@ -1,6 +1,6 @@
 # SEP readiness
 
-**Status: experimental, honest checklist, 2026-10-26.** This file lists what a Specification Enhancement Proposal (SEP)
+**Status: experimental, honest checklist, 2026-10-27.** This file lists what a Specification Enhancement Proposal (SEP)
 for Sensitive References needs, and the state of each item.
 
 The sources of this package do not include the MCP SEP process document. The list below is the set of

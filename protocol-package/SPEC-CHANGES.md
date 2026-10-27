@@ -1,8 +1,7 @@
 # Proposed changes to concept 0.5
 
 **Status: proposed change, experimental. Not concept text.** Each entry below proposes a change to concept 0.5. The
-concept files in the repository root do not change. One root change exists: commit `f9d34b4` adds a link
-to this package in the root `README.md`. It changes no concept text. If the community accepts an entry, a
+concept files in the repository root do not change. If the community accepts an entry, a
 later concept version can take its text.
 
 Each entry has four parts:
@@ -146,7 +145,8 @@ endpoint, the same string for both discovery mechanisms.
 > and MUST NOT resolve. This applies to the `resource_metadata` URL of the challenge, the metadata URLs
 > of the authorization server, the `authorization_endpoint`, `token_endpoint` and `registration_endpoint`
 > of the authorization server metadata, and the resolve endpoint. The host MUST also refuse an
-> authorization endpoint on a non-public address, although only the browser opens it. If a host uses
+> authorization endpoint on a non-public address, although only the browser opens it. The browser
+> resolves that name again, so the next rule does not apply to it. If a host uses
 > another endpoint of the metadata, for example `jwks_uri`, the same rule applies to it.
 >
 > Local mode. A host MUST NOT make an exception to the fetch policy by itself. A host MAY allow a
@@ -169,7 +169,8 @@ endpoint, the same string for both discovery mechanisms.
 > host treats a 3xx answer as a failed request. A host MUST NOT send these requests through a proxy that
 > does not apply this fetch policy, for example a proxy that an environment variable selects.
 >
-> A host MUST connect to an address that it checked. It MUST NOT resolve the host name again for the
+> For each request that the host sends with its own HTTP client, the host MUST connect to an address that
+> it checked. It MUST NOT resolve the host name again for the
 > connection, so that DNS rebinding cannot change the target between the check and the request. For TLS,
 > the host verifies the certificate for the host name of the URL. If the HTTP client of a host cannot
 > connect to a given address, the host MUST NOT send the request.
@@ -195,8 +196,11 @@ mode, and `--local-origin` adds an exact origin.
 The test host connects to the first checked address and sends the host name of the URL in the `Host`
 header and as the TLS server name. Its HTTP client refuses a request without a checked address. Tests:
 `test_the_request_connects_to_the_checked_address` (the system resolver does not know the name, so only
-the checked address can answer), `test_a_request_without_a_checked_address_is_refused` and
-`test_tls_verifies_the_host_name_of_the_url_on_the_checked_address`. The test host follows no redirect,
+the checked address can answer), `test_a_request_without_a_checked_address_is_refused`,
+`test_the_tls_server_name_is_the_host_name_of_the_url` and
+`test_the_real_opener_verifies_certificates_and_host_names` (the settings of the TLS context; no test runs a
+TLS handshake with a certificate). The test host gives the authorization URL to the system browser, which
+resolves the name again (THREAT-MODEL.md, TM-11). The test host follows no redirect,
 and it ignores proxy environment variables for these requests.
 
 **Conflict with the MCP authorization specification.** The MCP specification (version 2025-11-25,
@@ -679,10 +683,10 @@ as `unknown`, as the reference server does.
 > These members are not protected data, also if their text matches an item above: the `error` code, the
 > names and the counts of `reasons`, the `error_code` of SC-12, the HTTP status, and the `client_id` of a
 > public client.
->
-> A server SHOULD NOT put into an answer a hash, a MAC or another value that it computes from protected
-> data. This rule is not a conformance requirement: a validator finds such a value only if it knows the
-> function.
+
+Security guidance, not proposed text: a server should not put into an answer a hash, a MAC or another
+value that it computes from protected data. This is not a conformance requirement, because a validator
+finds such a value only if it knows the function.
 
 Vectors for SC-11. `sref:email:AbCdEfGhIjKlMnOp` stands for a complete canonical token with the random
 component `AbCdEfGhIjKlMnOp`, and `alice@example.com` for its value. The vectors are text, and no test

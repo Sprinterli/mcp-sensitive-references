@@ -97,11 +97,14 @@ Fifth review round (DNS rebinding, ``NoRedirectNoProxyTests``):
 
 * ``_PinnedHTTPConnection`` and ``_PinnedHTTPSConnection``: a connection to the host name in place of the
   checked address [test_the_request_connects_to_the_checked_address,
-  test_tls_verifies_the_host_name_of_the_url_on_the_checked_address];
+  test_the_tls_server_name_is_the_host_name_of_the_url];
 * ``_PinnedHTTPSConnection``: the TLS server name is the address, not the host name
-  [test_tls_verifies_the_host_name_of_the_url_on_the_checked_address];
+  [test_the_tls_server_name_is_the_host_name_of_the_url];
 * ``_pinned_address`` and ``_new_opener``: a request without a checked address is sent, the real opener
   does not pin [test_a_request_without_a_checked_address_is_refused].
+
+No test runs a TLS handshake with a certificate. ``test_the_real_opener_verifies_certificates_and_host_names``
+checks the settings of the TLS context of the real opener.
 """
 
 from __future__ import annotations
@@ -1593,7 +1596,16 @@ class NoRedirectNoProxyTests(unittest.TestCase):
             self.rc._OPENER.open(Request(f"{self.target}/unchecked"), timeout=5)
         self.assertEqual(self.hits["target"], [])
 
-    def test_tls_verifies_the_host_name_of_the_url_on_the_checked_address(self):
+    def test_the_real_opener_verifies_certificates_and_host_names(self):
+        import ssl
+
+        handlers = [h for h in self.rc._new_opener().handlers if isinstance(h, self.rc._PinnedHTTPS)]
+        self.assertEqual(len(handlers), 1)
+        self.assertEqual(handlers[0]._context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(handlers[0]._context.check_hostname)
+
+    def test_the_tls_server_name_is_the_host_name_of_the_url(self):
+        # SNI and the host name check of TLS use the name of the URL, the socket goes to the checked address.
         rc = self.rc
         seen = {}
 

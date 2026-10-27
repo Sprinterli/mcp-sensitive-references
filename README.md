@@ -71,11 +71,6 @@ python3 -m pip install -e '.[mcp-demo,resolver-http-demo]'
 PYTHONPATH=src:. python3 -m unittest discover -s tests -v
 ```
 
-## Protocol package (experimental)
-
-[protocol-package/](protocol-package/) collects proposed changes to concept 0.5, the tested resolver and
-local-file profiles, conformance results, and a SEP readiness checklist. It does not change concept 0.5.
-
 ## Out of scope
 
 This proposal does not define sensitive-data classification, DLP, NER, user interfaces, databases,

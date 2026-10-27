@@ -12,9 +12,7 @@ This package collects the protocol results of two implementations of concept 0.5
 - **The test host.** The independent MCP host in this repository, `prototype/demo/mcp_host.py`. It negotiates
   the extension, records issuer provenance, gets its own resolver token and writes a local file.
 
-The package does not change concept 0.5. The concept files in the repository root stay as they are. One
-root change exists: commit `f9d34b4` adds a link to this package in the root `README.md`. It changes no
-concept text. Each proposal in this folder is a **proposed change**. A reader must not treat a proposal as concept text.
+The package does not change concept 0.5. The files in the repository root stay as they are. Each proposal in this folder is a **proposed change**. A reader must not treat a proposal as concept text.
 
 ## Files
 
@@ -73,8 +71,8 @@ All changes stay proposals. None of them is concept text.
   names its restriction of RFC 8252 section 7.3.
 - **Fifth review round.** SC-01 requires that the host connects to the checked address (DNS rebinding),
   and the most specific registry entry decides. SC-20 requires only that a `form-action` directive, if
-  present, permits the loopback origin; the rest is a security recommendation in lesson L-a. SC-11 makes
-  derived values (a hash, a MAC) a SHOULD NOT outside conformance. SC-13 permits `unknown` after the
+  present, permits the loopback origin; the rest is a security recommendation in lesson L-a. SC-11 moves
+  derived values (a hash, a MAC) to security guidance outside the proposed text. SC-13 permits `unknown` after the
   server discards the record of an expired reference.
 - **OPEN-QUESTIONS.md** labels each recommendation as a provisional v1 design decision. OQ-7 now permits
   durable host provenance, and loss of trustworthy provenance must fail closed. SEP-READINESS.md follows.
@@ -96,7 +94,7 @@ with `local-file-1`. This package is milestone M6.
 
 | Source | Version |
 |---|---|
-| Concept 0.5 (the root files) | this repository. Unchanged on this branch, except the link in the root `README.md` (commit `f9d34b4`). |
+| Concept 0.5 (the root files) | this repository. Unchanged on this branch. |
 | The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `b934fa6` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`) |
 | The reference server plan, sections 4 to 8 | reference server revision R1 (not public) |
 | The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2. |
@@ -110,7 +108,7 @@ profile rows A8, C7, C9, C10, R9, R12, R13 and R14 cite tests of R2.
 This package did not run the reference server tests. It read their names and assertions at the revision
 above. A row that cites a reference server test is "read, not re-run".
 
-**Commit hashes.** Each commit hash in this package (for example `f9d34b4` or the tested commit) refers to
+**Commit hashes.** Each commit hash in this package (for example the tested commit) refers to
 the published history of the branch `m7-consolidation`. That branch is published as it is, without a
 squash, so the hashes stay valid.
 

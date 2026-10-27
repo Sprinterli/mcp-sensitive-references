@@ -18,7 +18,7 @@ PYTHONPATH=src python3 -m unittest tests.test_mcp_sdk_demo -v
 
 ### Supported configuration
 
-The tested configuration is Python 3.14.8 with `mcp` 2.3.0 and `PYTHONPATH=src`. On 2026-10-26 these
+The tested configuration is Python 3.14.8 with `mcp` 2.3.0 and `PYTHONPATH=src`. On 2026-10-27 these
 commands gave these results:
 
 ```bash
