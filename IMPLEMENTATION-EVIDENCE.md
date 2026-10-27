@@ -63,15 +63,18 @@ Limits:
 - The host does not check the refusal schema of WIRE-REPRESENTATION.md, section 5. A configurable pattern
   detects a refusal inside a successful result.
 - The host does not read `max_references`. It sends at most 100 references per request.
-- The host checks the mode of its token cache only, not access control lists.
+- The host checks the mode of its token cache only, not access control lists. So it meets recovery item 3
+  of RESOLVER-PROFILE.md, section 11.1, only for a cache that its mode bits make readable to others; a
+  cache that an access control list opens to another user is not detected.
 - Recovery (RESOLVER-PROFILE.md, section 11.1): tested are a refused refresh without interaction
   (`test_a_failed_refresh_without_interaction_writes_nothing`; the deletion of the refresh token is not
   asserted), a missing token without interaction (`test_without_a_token_and_without_interaction_nothing_is_written`)
   and a cache that others can read (`test_a_cache_file_that_others_can_read_is_refused`). Not tested: a
   refused refresh followed by a new interactive authorization, a cache that the host cannot parse (the host
-  treats it as empty), and a lost rotated refresh token. The end of an approval is covered by a reference
-  server test (`test_a_withdrawn_or_expired_consent_stops_refresh_and_the_live_token`, read, not run) and
-  by run E7.
+  treats it as empty), a lost rotated refresh token, and the host recovery after an ended approval (new
+  authorization and new approval). For an ended approval, the server side (refresh and live token stop) is
+  covered by a reference server test (`test_a_withdrawn_or_expired_consent_stops_refresh_and_the_live_token`,
+  read, not run), and the fail-closed result of the host (no file) by run E7.
 - With `--authorization-server`, the host does not check that the configured authorization server is in
   the `authorization_servers` list of the metadata (RESOLVER-PROFILE.md, section 9.1).
 - Not covered by a test: the refusal to select one of several authorization servers, duplicate removal,
