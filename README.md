@@ -68,7 +68,8 @@ Not normative:
 
 - **Reference server: MCPGate.** It issues references, implements `oauth-resolver-1` and accepts
   `local-file-1`. Its source is not public. Since 2026-10-27, its challenge names the metadata of its
-  MCP URL (P16 fixed; one operator check, E12).
+  MCP URL (P16 fixed; seen in a separate operator check). The host
+  then ran without a deviation option (E12).
 - **Reference host: [prototype/demo/mcp_host.py](prototype/demo/mcp_host.py).** An independent MCP host.
   It negotiates the extension, records provenance, gets its own resolver token and writes a local file.
   133 tests passed on 2026-10-27 in the tested configuration.
