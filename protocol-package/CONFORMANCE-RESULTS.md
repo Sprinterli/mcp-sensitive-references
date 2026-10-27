@@ -5,17 +5,17 @@ requirement to the evidence that exists for it on 2026-10-26.
 
 ## Test run
 
-**Supported, tested configuration (2026-10-26).** Python 3.14.8, MCP Python SDK (`mcp`) 2.3.0,
-`PYTHONPATH=src`, repository commit `c5e1eba` (branch `m7-consolidation`). This is "the tested
+**Supported, tested configuration (2026-10-27).** Python 3.14.8, MCP Python SDK (`mcp`) 2.3.0,
+`PYTHONPATH=src`, repository commit `fcc8c0c` (branch `m7-consolidation`). This is "the tested
 commit" of the whole package. The commits after it change only the documentation of
 `protocol-package/`, no code and no test.
 Commands and results:
 
 ```bash
 cd prototype && PYTHONPATH=src python -m pytest -q -p no:cacheprovider
-# 121 passed, 164 subtests passed
+# 125 passed, 175 subtests passed
 cd prototype && PYTHONPATH=src python -m unittest discover -s tests
-# Ran 121 tests, OK
+# Ran 125 tests, OK
 ```
 
 `demo/mcp_sdk_server.py` imports `MCPServer` (SDK 2.x) and falls back to `FastMCP` (SDK 1.x). Its test reads
@@ -23,7 +23,7 @@ both result shapes. **SDK 1.x was not tested in this run.** Only SDK 2.3.0 is a 
 
 | Test module | Tests | Result |
 |---|---|---|
-| `test_mcp_host_resolve.py` | 85 | 85 passed. Five of them run the host against a real MCP SDK 2.x server. |
+| `test_mcp_host_resolve.py` | 89 | 89 passed. Five of them run the host against a real MCP SDK 2.x server. |
 | `test_mcp_host.py` | 13 | 13 passed |
 | `test_sensitive_references.py` | 13 | 13 passed |
 | `test_oidc_and_resolve_http.py` | 4 | 4 passed |
@@ -43,13 +43,15 @@ policy D11, a stop without the discovery object, the labels of a non-conformant 
 without a document, the RFC 8414 well-known URL): 112 passed, 124 subtests passed. The tested commit above
 adds 10 host tests after the fourth review round (the fetch policy without an automatic local exception,
 the address cases, no redirect and no proxy for each client, the default configuration) and removes one
-(the old local exception): 121 passed, 164 subtests passed.
+(the old local exception): 121 passed, 164 subtests passed, at commit `c5e1eba`. The tested commit above adds
+4 host tests after the fifth review round (the connection to the checked address, a request without a
+checked address, the TLS server name, the most specific registry entry): 125 passed, 175 subtests passed.
 
 **Mutation check.** `prototype/tests/tools/mutation_probe.py` copies `prototype/` into a directory
 outside the repository, disables one guard per run, and runs `test_mcp_host_resolve.py` there. It does not
-write into the repository. At the tested commit it ran 43 mutants: the 13 guards of the second round and
-12 guards of the third round on the current text, and 18 guards of the fourth round. 43 of 43 failed at
-least one test (the run started on 2026-10-26 and ended on 2026-10-27, with the configuration above). The fourth round removed two
+write into the repository. At the tested commit it ran 48 mutants: the 13 guards of the second round and
+12 guards of the third round on the current text, 18 guards of the fourth round, and 5 guards of the
+fifth round. 48 of 48 failed at least one test (2026-10-27, with the configuration above). The fourth round removed two
 mutants of the third round (the local exception and the RFC 4193 range), because the code that they
 changed no longer exists; the round-4 mutants test the replacement. One guard has no mutant: the host passes the policy that
 it made at connection to `materialize`. A new policy gives the same result in the tests, because no

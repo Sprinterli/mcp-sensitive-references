@@ -92,6 +92,16 @@ local option; the names of the mutations are in ``tests/tools/mutation_probe.py`
 * ``ResolveConfig`` and ``resolve_config``: local mode on by default
   [test_the_default_configuration_has_no_local_mode], ``--allow-local-targets`` and ``--local-origin``
   ignored [test_the_options_map_to_the_configuration].
+
+Fifth review round (DNS rebinding, ``NoRedirectNoProxyTests``):
+
+* ``_PinnedHTTPConnection`` and ``_PinnedHTTPSConnection``: a connection to the host name in place of the
+  checked address [test_the_request_connects_to_the_checked_address,
+  test_tls_verifies_the_host_name_of_the_url_on_the_checked_address];
+* ``_PinnedHTTPSConnection``: the TLS server name is the address, not the host name
+  [test_tls_verifies_the_host_name_of_the_url_on_the_checked_address];
+* ``_pinned_address`` and ``_new_opener``: a request without a checked address is sent, the real opener
+  does not pin [test_a_request_without_a_checked_address_is_refused].
 """
 
 from __future__ import annotations
