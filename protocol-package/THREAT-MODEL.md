@@ -240,7 +240,8 @@ endpoint, after the check of the host, or the endpoint can redirect the browser 
 browser then sends a top-level GET request with the
 authorization parameters to that address. The request carries no credential of the host. The HTTP client
 of the MCP SDK resolves the MCP host again for the MCP session, so DNS rebinding can change the target of
-the session; the MCP URL comes from the operator. A host that resolves the name again for the connection does not conform to SC-01, and
+the session; the MCP URL comes from the operator. For a request of the fetch policy, a host that resolves the name again for the connection does not
+conform to SC-01, and
 a DNS server that answers with a public address first and with a private address second passes its check.
 In local mode,
 a malicious local MCP server can reach other paths on its own origin and on the configured origins. The
