@@ -5,8 +5,9 @@ Enhancement Proposal (SEP), and not a product specification.
 
 **Known conformance gap (E11, P16).** No conformant end-to-end run of the test host against the reference
 server succeeded. The challenge of the reference server names the protected-resource metadata of its base
-URL, not of the MCP endpoint (deviation P16), and the conformant test host stops there (E11). The
-production runs E8 to E10 succeeded only with the non-conformant option `--resource`. This package does
+URL, not of the MCP endpoint (deviation P16), and the conformant test host at commit `8394a02` stopped
+there (E11, one operator run). The production runs E8 to E10, observed in one operator run and not
+independently reproduced, succeeded only with the non-conformant option `--resource`. This package does
 not claim interoperability or conformance of the reference server. See
 [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#end-to-end-runs).
 

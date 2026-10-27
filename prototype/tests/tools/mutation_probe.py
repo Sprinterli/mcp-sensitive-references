@@ -7,7 +7,7 @@ test failed) or SURVIVED. The script never writes into the repository.
 
     python prototype/tests/tools/mutation_probe.py [--work DIR] [--only TEXT]
 
-Rounds 2 to 8 of the review (see the docstring of ``test_mcp_host_resolve.py``
+Rounds 2 to 9 of the review (see the docstring of ``test_mcp_host_resolve.py``
 and ``protocol-package/CONFORMANCE-RESULTS.md``). The mutations of earlier rounds
 are applied to the current text.
 """
@@ -125,6 +125,7 @@ MUTATIONS = [
     ("r8 the connection timeout is dropped", RC,
      "socket.create_connection((address, port), timeout, source_address)",
      "socket.create_connection((address, port), None, source_address)"),
+    ("r9 the Dummy IPv6 Prefix counted as public", RC, '"5f00::/16", "100:0:0:1::/64", ', '"5f00::/16", '),
     ("r8 the public IANA correction is dropped", RC, "    if any(ip in n for n in _GLOBAL_ADDED",
      "    if False and any(ip in n for n in _GLOBAL_ADDED"),
     ("r8 the non-public IANA corrections are dropped", RC, "    if any(ip in n for n in _NOT_GLOBAL_ADDED",

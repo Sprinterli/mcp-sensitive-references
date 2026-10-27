@@ -136,10 +136,11 @@ endpoint, the same string for both discovery mechanisms.
 > Teredo 2001::/32) or no value (for example the deprecated block 192.88.99.0/24), or the address is a
 > multicast address, or an IPv6 site-local address (fec0::/10, RFC 3879). If more than one entry of a
 > registry contains the address, the most specific entry (the longest prefix) decides. A host uses the
-> current version of the registries; a conformance test names the version that it uses. For an IPv4-mapped (::ffff:0:0/96),
-> IPv4-compatible (::/96 without `::` and `::1`), NAT64 (64:ff9b::/96) or 6to4 (2002::/16) address, the
-> host MUST also judge the embedded IPv4 address. If that IPv4 address is non-public, the IPv6 address is
-> non-public.
+> current version of the registries; a conformance test names the version that it uses. An IPv4-mapped
+> address (::ffff:0:0/96) is judged by its embedded IPv4 address only, because a connection to it goes to
+> that IPv4 address. For an IPv4-compatible (::/96 without `::` and `::1`), NAT64 (64:ff9b::/96) or 6to4
+> (2002::/16) address, the host MUST also judge the embedded IPv4 address. If that IPv4 address is
+> non-public, the IPv6 address is non-public.
 >
 > Before a host sends a request to a URL that a server supplied, the host MUST resolve its host name by
 > DNS. If one address is non-public, or if the name does not resolve, the host MUST NOT send the request
@@ -175,9 +176,10 @@ endpoint, the same string for both discovery mechanisms.
 > connect to an address that it checked. It MUST NOT resolve the host name again for the connection, so
 > that DNS rebinding cannot change the target between the check and the request. If the check gave more
 > than one address, the host MAY try them in turn. For TLS, the host MUST verify the certificate for the
-> host of the URL (RFC 9110 section 4.3.4, RFC 9525), not for the checked address. If the HTTP client of
-> a host cannot connect to a given address, the host MUST NOT send the request. The fetch policy does not
-> cover the MCP URL, which the operator gives.
+> host of the URL (RFC 9110 section 4.3.4, RFC 9525), also when the connection goes to a checked
+> address. If the HTTP client of a host cannot be told which address to connect to, the host MUST NOT
+> send the request. The fetch policy need not cover the MCP URL, which the operator gives. A host MAY
+> apply it to the MCP URL as well.
 >
 > A server SHOULD NOT put a credential into the query of its MCP URL. The query is part of the issuer
 > identity, so the host sends it to the authorization server as the RFC 8707 `resource` value and keeps
@@ -199,9 +201,11 @@ mode, and `--local-origin` adds an exact origin.
 
 The test host tries the checked addresses in turn and sends the host of the URL in the `Host` header and
 as the TLS server name. Its HTTP client refuses a request without a checked address. The definition of a
-non-public address follows the IANA registries of 2026-10-27; three entries differ from the Python tables
-(5f00::/16 and 192.88.99.0/24 are non-public, 2001:1::3/128 is public), and the test host corrects them.
-Tests: `test_three_registry_entries_that_the_python_tables_do_not_follow`,
+non-public address follows the IANA registries of 2026-10-27; four entries differ from the Python tables
+(5f00::/16, 100:0:0:1::/64 and 192.88.99.0/24 are non-public, 2001:1::3/128 is public), and the test host
+corrects them. Tests: `test_every_entry_of_the_iana_registries` (the first, middle and last address of
+each of the 51 entries of a registry snapshot in `prototype/tests/data/`),
+`test_the_registry_entries_that_the_python_tables_do_not_follow`,
 `test_the_host_tries_each_checked_address` (a server on `::1` only),
 `test_each_connection_attempt_gets_the_timeout_of_the_request`,
 `test_the_request_connects_to_the_checked_address` (the system resolver does not know the name, so only
@@ -213,7 +217,9 @@ test CA as its trust store: the certificate for the host name of the URL is acce
 another name and one from an untrusted CA are refused). No test sends a request through the default
 opener with the system trust store to a TLS server. The test host gives the authorization URL to the
 system browser, which resolves the name again (THREAT-MODEL.md, TM-11). The MCP session of the test host
-uses the HTTP client of the MCP SDK; it resolves the name of the MCP URL by itself. The test host follows no redirect,
+uses the HTTP client of the MCP SDK; it resolves the name of the MCP URL by itself. The unauthenticated
+challenge request of the test host to the MCP URL goes through its own client and the fetch policy, so
+without local mode the test host refuses a non-public MCP URL at the challenge. The test host follows no redirect,
 and it ignores proxy environment variables for these requests.
 
 **Conflict with the MCP authorization specification.** The MCP specification (version 2025-11-25,

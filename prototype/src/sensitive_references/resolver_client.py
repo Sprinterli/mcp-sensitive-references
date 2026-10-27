@@ -169,7 +169,7 @@ def _embedded_ipv4(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> ipaddre
 
 #: Entries of the IANA registries (2026-10-27) that the ``ipaddress`` tables of Python 3.14 do not follow.
 #: An entry without a "Globally Reachable" value (the deprecated 6to4 relay anycast block) counts as False.
-_NOT_GLOBAL_ADDED = tuple(ipaddress.ip_network(n) for n in ("5f00::/16", "192.88.99.0/24"))
+_NOT_GLOBAL_ADDED = tuple(ipaddress.ip_network(n) for n in ("5f00::/16", "100:0:0:1::/64", "192.88.99.0/24"))
 _GLOBAL_ADDED = (ipaddress.ip_network("2001:1::3/128"),)
 
 

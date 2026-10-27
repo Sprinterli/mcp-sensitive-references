@@ -115,7 +115,12 @@ Eighth review round (Opus):
 * ``_connect_checked``: only the first checked address tried [test_the_host_tries_each_checked_address],
   the timeout dropped [test_each_connection_attempt_gets_the_timeout_of_the_request];
 * ``_globally_reachable``: the IANA corrections dropped
-  [test_three_registry_entries_that_the_python_tables_do_not_follow].
+  [test_the_registry_entries_that_the_python_tables_do_not_follow].
+
+Ninth review round (Opus):
+
+* ``_NOT_GLOBAL_ADDED``: the Dummy IPv6 Prefix 100:0:0:1::/64 counted as public
+  [test_every_entry_of_the_iana_registries, test_the_registry_entries_that_the_python_tables_do_not_follow].
 """
 
 from __future__ import annotations
@@ -1330,14 +1335,57 @@ class FetchPolicyTests(unittest.TestCase):
             with self.subTest(address=address):
                 self.assertEqual(self.rc.non_public_address(address), non_public)
 
-    def test_three_registry_entries_that_the_python_tables_do_not_follow(self):
-        # IANA 2026-10-27: 5f00::/16 (SRv6 SIDs) False, 192.88.99.2/32 (6a44 relay anycast) False in the
+    def test_the_registry_entries_that_the_python_tables_do_not_follow(self):
+        # IANA 2026-10-27: 5f00::/16 (SRv6 SIDs) False, 100:0:0:1::/64 (Dummy IPv6 Prefix) False, 192.88.99.2/32 (6a44 relay anycast) False in the
         # deprecated 192.88.99.0/24 block without a value, 2001:1::3/128 (DNS-SD SRP anycast) True.
         cases = {"5f00::1": True, "192.88.99.2": True, "192.88.99.1": True, "2001:1::3": False,
-                 "2001:1::4": True, "5eff::1": False}
+                 "2001:1::4": True, "5eff::1": False,
+                 "100:0:0:1::1": True, "100:0:0:2::1": False}
         for address, non_public in cases.items():
             with self.subTest(address=address):
                 self.assertEqual(self.rc.non_public_address(address), non_public)
+
+    def test_every_entry_of_the_iana_registries(self):
+        """SC-01: each entry of the IANA special-purpose registries (snapshot of 2026-10-27 in tests/data).
+
+        For the first, the middle and the last address of each block, the most specific entry decides:
+        "True" is public; "False", "N/A" or no value is non-public. Two rules of SC-01 come first: an
+        IPv4-mapped address is judged by its embedded IPv4 address, and a NAT64, 6to4 or IPv4-compatible
+        address with a non-public embedded IPv4 address is non-public.
+        """
+        import csv
+        import ipaddress
+        import re
+
+        data = Path(__file__).resolve().parent / "data"
+        entries = []
+        for name in ("iana-ipv4-special-registry-2026-10-27.csv", "iana-ipv6-special-registry-2026-10-27.csv"):
+            with open(data / name, newline="", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    value = re.sub(r"\s*\[\d+\]", "", row["Globally Reachable"]).strip()
+                    for block in row["Address Block"].split(","):
+                        block = re.sub(r"\s*\[\d+\]", "", block).strip()
+                        if block:
+                            entries.append((ipaddress.ip_network(block), value))
+        self.assertGreaterEqual(len(entries), 50)
+
+        def expected(ip):
+            if ip.version == 6 and ip.ipv4_mapped is not None:
+                return self.rc.non_public_address(str(ip.ipv4_mapped))
+            embedded = self.rc._embedded_ipv4(ip)
+            if embedded is not None and self.rc.non_public_address(str(embedded)):
+                return True
+            net, value = max((e for e in entries if e[0].version == ip.version and ip in e[0]),
+                             key=lambda e: e[0].prefixlen)
+            return value != "True"
+
+        checked = 0
+        for net, _ in entries:
+            for ip in {net.network_address, net.broadcast_address, net.network_address + net.num_addresses // 2}:
+                with self.subTest(address=str(ip)):
+                    self.assertEqual(self.rc.non_public_address(str(ip)), expected(ip))
+                checked += 1
+        self.assertGreater(checked, 100)
 
     def test_the_embedded_ipv4_address(self):
         # The registry marks 6to4 and Teredo "N/A", which the fetch policy counts as non-public;
