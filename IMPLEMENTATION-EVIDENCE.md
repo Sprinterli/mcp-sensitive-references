@@ -35,8 +35,10 @@ Limits:
 - The `WWW-Authenticate` header on a 401 of the resolve endpoint is not verified.
 - PKCE S256 enforcement at the server and the audit event are not covered by a test.
 - The SC-20 redirect rules are not covered by a test.
-- The server implements an issuer-side sink. Concept 0.6 does not define it (OPEN-QUESTIONS.md, OQ-3). No
-  server test shows the refusal of an authorized tool call with the reference of another principal.
+- The server implements an issuer-side sink. Concept 0.6 does not define it as a conformant feature
+  (OPEN-QUESTIONS.md, OQ-3), and sets only an interim floor (SPEC-DRAFT.md, section 6.4). No server test
+  shows the refusal of an authorized tool call with the reference of another principal, so the owner rule
+  of the floor is not verified for the server.
 - The server uses a provisional extension identifier of its own.
 
 ## Reference host: `prototype/demo/mcp_host.py`
@@ -48,7 +50,7 @@ token and writes a local file through `local-file-1`. The resolver client is
 
 Tested configuration (2026-10-27): Python 3.14.8, MCP Python SDK 2.3.0, commit `6cdd658` of the branch
 `m7-consolidation`. Results: 133 tests passed (pytest: 133 passed, 310 subtests passed; unittest: 133 OK).
-Of these, `test_mcp_host_resolve.py` has 96 tests and `test_mcp_host.py` has 13 tests. A mutation check
+Of these, `test_mcp_host_resolve.py` has 97 tests and `test_mcp_host.py` has 13 tests. A mutation check
 disabled one guard per run: 54 of 54 mutants failed at least one test.
 
 Limits:

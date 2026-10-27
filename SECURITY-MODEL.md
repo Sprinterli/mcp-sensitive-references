@@ -18,21 +18,23 @@ because an authorized later action needs that value.
 
 ## 3. Required controls
 
-These controls are the core of the design. A profile MUST NOT weaken them.
+These controls are the core of the design. They bind every profile. A profile cannot relax them.
 
 1. **Trusted provenance.** A host trusts a reference only if it observed the reference in an
    authenticated MCP result of a negotiated server, and recorded it outside model text. The issuer comes
    from the authenticated connection, not from reference text or model text (HOST-INTEGRATION.md,
    sections 2 and 3).
-2. **Fail closed on loss or ambiguity.** An unobserved, ambiguous, unknown, revoked, expired, stale,
-   wrong-principal or unauthorized reference fails. Loss of trustworthy provenance fails closed.
+2. **Fail closed on loss or ambiguity.** At the host, an unobserved or ambiguous reference fails. At the
+   issuer, an unknown, revoked, expired, wrong-principal or unauthorized reference fails. Loss of trustworthy provenance fails closed.
 3. **Authorization separate from possession.** A reference has no bearer authority. The issuer authorizes
    each resolution independently from possession of the reference. The ordinary agent token does not
    automatically grant plaintext resolution rights (SPEC-DRAFT.md, section 5.2).
 4. **No rebinding.** An issuer does not bind an identifier to another value generation. The issuer
    registry is integrity-protected and bound to its principal (SPEC-DRAFT.md, section 5.4).
 5. **Out-of-model resolution.** A sink does not return resolved plaintext in an ordinary model-facing
-   result. No answer that the model can read contains protected data (SPEC-DRAFT.md, section 8).
+   result. No result that the model can read contains a resolved value. Resolve-endpoint answers, refusal
+   results, sink reports, and host error texts and logs contain no protected data (SPEC-DRAFT.md,
+   section 8). Ordinary issuer results and the model-facing sink result carry references by design.
 6. **All or nothing.** A sink resolves every reference of one write, or leaves the destination unchanged.
 7. **Separate credentials.** A resolver token does not authorize an MCP request. An agent token does not
    authorize a resolve request (RESOLVER-PROFILE.md, section 8).
@@ -59,9 +61,10 @@ These controls are the core of the design. A profile MUST NOT weaken them.
 | TM-7 | The destination path tells the server the layout of the local file system. | The host sends a label. The server uses the destination for audit only (RESOLVER-PROFILE.md, section 12). | A host that sends an absolute path discloses it. |
 | TM-8 | Another user or process reads the token cache. | Owner-only cache, rotating refresh tokens bound to the client (RESOLVER-PROFILE.md, section 11). | A process of the same user can read the cache. The tokens are not sender-constrained (OQ-5). |
 | TM-9 | A host that cannot verify negotiation resolves reference-shaped text from a file or a page. | Such a host is not a supporting host (SPEC-DRAFT.md, section 6.2). | A server cannot tell a false declaration. A false declaration gives references but no plaintext. |
-| TM-10 | A copied reference of another principal is resolved inside the issuer. | Open. The issuer-side sink is not defined in this version (OQ-3). | See OPEN-QUESTIONS.md, OQ-3. |
-| TM-11 | A server names a URL that makes the host send a request into a private network (SSRF). | Fetch policy with a connection to the checked address (RESOLVER-PROFILE.md, section 7). | The browser opens the authorization endpoint and resolves its name again. A DNS server can then give the browser a non-public address (DNS rebinding of the browser). |
+| TM-10 | A copied reference of another principal is used inside the issuer (issuer-side use). | Interim floor until OQ-3 is decided: possession is not authorization, the owner must be the authenticated principal, the reference must be exact and current, one failure refuses the whole call, and the issuer puts the reference back in every model-visible result (SPEC-DRAFT.md, section 6.4). | An injected instruction can still move a value of the same principal between tools that this principal may use. OQ-3 stays open. |
+| TM-11 | A server names a URL that makes the host send a request into a private network (SSRF). | Fetch policy with a connection to the checked address (RESOLVER-PROFILE.md, section 7). | The browser opens the authorization endpoint and resolves its name again. A DNS server can then give the browser a non-public address (DNS rebinding of the browser). The fetch policy need not cover the MCP URL, which the operator gives, and an MCP client library can resolve that name again for the session. |
 | TM-12 | A credential in the query of the MCP URL reaches the authorization server and the token cache. | A server SHOULD NOT put a credential into the query (HOST-INTEGRATION.md, section 2). | A host cannot tell a credential from a tenant name. |
+| TM-13 | A model or a local process plants an observation in a durable provenance store, so that a forged reference gets an issuer. | The host checks each stored observation for integrity and origin. The model cannot read or use the integrity key (HOST-INTEGRATION.md, section 3). | No integrity mechanism is defined (OQ-7). A process with the privileges of the host can plant provenance. |
 
 ## 6. Limits
 

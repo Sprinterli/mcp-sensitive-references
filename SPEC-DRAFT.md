@@ -25,11 +25,21 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 "NOT RECOMMENDED", "MAY", and "OPTIONAL" in the normative documents are to be interpreted as described in
 BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all capitals, as shown here.
 
-A paragraph that starts with **Provisional (OQ-n)** states a provisional v1 design decision. The
-implementations follow it. The community did not confirm it. [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) lists
-the options for each such decision.
+A paragraph that starts with **Provisional (OQ-n)** states a provisional v1 design decision. It is
+normative for Concept 0.6: its key words bind like every other rule. It is the working design for version 1,
+and a later version can change it. The community did not confirm it. An implementation can still differ
+from it; [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) lists the known differences.
+[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) lists the options for each such decision.
+
+A paragraph that starts with **Open (OQ-n)** names a question that this version does not decide. It is
+normative: a key word in it binds as written, and it states what an implementation must do until a later
+version decides the question.
 
 A paragraph that starts with **Note** is not normative.
+
+A rule marked **(not testable on the wire)** concerns the internal state of one party. A test that sees
+only the messages between the parties cannot check it. Only a test with access to that state, or a review,
+can check it.
 
 ## 2. Terms
 
@@ -42,11 +52,21 @@ A paragraph that starts with **Note** is not normative.
 - **Issuer identity.** The string that names an issuer in host state ([HOST-INTEGRATION.md](HOST-INTEGRATION.md#2-issuer-identity)).
 - **Value generation.** One binding of a reference identifier to one sensitive value.
 - **Supporting host.** A host that meets every rule of [HOST-INTEGRATION.md](HOST-INTEGRATION.md).
+- **Authenticated MCP result.** A tool result (`tools/call`) that the host received on an MCP connection
+  to the issuer identity, after the host authenticated the server. Over HTTPS, the host authenticates the
+  server by TLS certificate validation for the host of the MCP URL. A host MAY treat an `http` connection
+  to a loopback address as authenticated only in tests. Client authentication of the host is not part of
+  this term.
 - **Observation.** A record of a reference that a supporting host saw in an authenticated MCP result. It
   holds `(reference, issuer identity, first_observed, optional metadata)`.
+- **Owner of a reference.** The principal to which the issuer issued the reference: the authenticated
+  principal of the MCP request whose result carried it.
 - **Trusted provenance.** The set of observations that a supporting host holds outside model-visible text.
 - **Resolver.** A non-model component that asks the issuer for the sensitive value of a reference.
 - **Resolution.** The release of a sensitive value by the issuer to a resolver.
+- **Issuer-side use.** The use of a sensitive value by the issuer, for a reference in the arguments of a
+  tool call, in a call that the issuer sends to a system outside itself. Issuer-side use is not
+  resolution in the sense above. Section 6.3 sets the rules for it.
 - **Sink.** A destination that receives sensitive values outside model-visible content, for example a
   local file.
 - **Resolver profile.** A document that defines how a resolver discovers, authenticates and calls the
@@ -86,7 +106,7 @@ extension with a version that the server supports.
 Reference-shaped text never negotiates support.
 
 The MCP project assigned no extension identifier. Until it does, implementations SHOULD accept the
-identifier from configuration. A SEP MUST name one identifier. Examples use
+identifier from configuration. A SEP needs to name one identifier. Examples use
 `org.example/sensitive-references`.
 
 **Provisional (OQ-9).** Implementations ask the MCP project for an identifier before a SEP. A server MAY
@@ -98,7 +118,7 @@ advertise a provisional identifier and the official identifier together for one 
 
 An issuer MAY put a reference in place of a sensitive string value. An issuer MUST create the identifier
 of a reference at random. An issuer MUST NOT derive the identifier from the plaintext. Equal plaintext
-values MUST NOT give a predictable relation between their identifiers.
+values MUST NOT give a predictable relation between their identifiers. (not testable on the wire)
 
 An issuer MUST NOT bind an identifier to another value generation. An issuer MUST NOT silently reuse an
 identifier after revocation or expiry.
@@ -113,7 +133,8 @@ token MUST NOT automatically grant plaintext resolution rights.
 
 An issuer MUST state the lifetime rule of its references in its documentation. After a reference expires,
 a resolution of it MUST fail. While the issuer keeps the record of an expired reference, the reason MUST
-be `expired`. After the issuer discards that record, the reason MAY be `unknown`.
+be `expired` (not testable on the wire: a test of the messages cannot tell whether the issuer still keeps
+the record). After the issuer discards that record, the reason MAY be `unknown`.
 
 **Provisional (OQ-11).** The core sets no fixed minimum lifetime. Each issuer documents its own lifetime.
 
@@ -121,7 +142,8 @@ be `expired`. After the issuer discards that record, the reason MAY be `unknown`
 
 An issuer MUST protect each stored reference binding with a message authentication code or an
 authenticated-encryption tag. The issuer MUST compute it over the record and its principal, with a key
-that it does not store with the records. An issuer MUST verify the record before each resolution. If the
+that it does not store with the records (not testable on the wire). An issuer MUST verify the record
+before each resolution and before each issuer-side use. If the
 verification fails, the issuer MUST treat the reference as unknown, MUST NOT resolve it, and MUST NOT
 return any part of the record. A record copied from another principal therefore does not resolve.
 
@@ -129,8 +151,11 @@ A revocation MUST survive a replay of an older record of the same principal.
 
 ### 5.5 Failure
 
-An unknown, revoked, expired, stale, ambiguous or unauthorized reference MUST fail. The failure MUST NOT
-return plaintext. The failure MUST NOT return protected data (section 8).
+A resolution or an issuer-side use of an unknown, revoked, expired or unauthorized reference MUST fail.
+If the issuer replaced the value generation that a reference names, the issuer MUST treat that reference
+as revoked. The failure MUST NOT return plaintext. The failure MUST NOT return protected data (section 8).
+
+**Note.** "Ambiguous" is a state of host provenance (section 6.1), not of the issuer.
 
 ### 5.6 Server text
 
@@ -146,7 +171,7 @@ contain protected data (section 8). The result SHOULD have `structuredContent`. 
 MUST follow [WIRE-REPRESENTATION.md, section 5](WIRE-REPRESENTATION.md#5-refusal-result).
 
 **Note.** This rule tells the host that the server sent nothing upstream. It does not define when a
-server may resolve a reference into its own outbound calls. That question is open (section 6.3).
+server may resolve a reference into its own outbound calls. Section 6.4 sets the interim rules for that case.
 
 ## 6. Host and resolution rules
 
@@ -178,9 +203,9 @@ file that the host reads.
 
 ### 6.3 Resolution
 
-Resolution MUST use a resolver profile that the host and the server negotiated, or that an operator
-configured explicitly. The resolver MUST authenticate as a stable principal. The resolver and the issuer
-MUST NOT infer that principal from display text, from reference text or from model-provided fields.
+Resolution MUST use a resolver profile in the negotiated intersection (section 7). An operator
+configuration MUST NOT replace the negotiation of a profile. The resolver MUST authenticate as a stable
+principal. The resolver and the issuer MUST NOT infer that principal from display text, from reference text or from model-provided fields.
 
 The issuer MUST authorize each resolution request. The decision MUST NOT depend on possession of the
 reference. The issuer MUST refuse the whole request if one reference fails.
@@ -188,12 +213,30 @@ reference. The issuer MUST refuse the whole request if one reference fails.
 Resolved plaintext MUST NOT return through an ordinary model-visible MCP result. A sink profile defines the
 eligible destination and its output boundary.
 
-**Open (OQ-3).** An issuer can resolve its own references into its own outbound calls, under the agent
-token. This version does not define such an "issuer-side sink". It does not decide whether the
-agent-token rule of section 5.2 forbids it. [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md#oq-3-the-issuer-side-sink-and-the-agent-token-rule-sc-18)
-lists the options and the proposed checks.
+### 6.4 Issuer-side use
 
-### 6.4 Batches
+**Open (OQ-3).** An issuer can use the value of a reference in the arguments of a tool call in its own
+outbound call, under the agent token ("issuer-side sink"). This version does not decide whether such use
+needs a separate resolve grant, or whether the agent-token rule of section 5.2 forbids it.
+[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md#oq-3-the-issuer-side-sink-and-the-agent-token-rule-sc-18) lists the
+options. Until a later version decides OQ-3, an issuer that does issuer-side use MUST meet all these rules.
+They hold under every option of OQ-3:
+
+1. Possession of the reference MUST NOT authorize the use. The issuer MUST authorize the tool call for the
+   authenticated principal of the call before it uses a value.
+2. The owner of the reference MUST be the authenticated principal of the call. Else the issuer MUST refuse
+   the call.
+3. The reference MUST be exact (canonical form, exact code points) and current: the issuer issued it, it did
+   not expire, it is not revoked, and its record passes the check of section 5.4.
+4. If one reference of the call fails, the issuer MUST refuse the whole call and MUST NOT use any value of
+   the call. The refusal follows section 5.7.
+5. The issuer MUST put the reference back in place of each used value in every model-visible result of the
+   call, including error results.
+
+These rules are a floor. They do not make issuer-side use part of the conformant scope of version 1, and
+they do not decide OQ-3. An issuer-side use MUST NOT release a value to the host or to the model.
+
+### 6.5 Batches
 
 A sink profile MUST state that the sink resolves every reference of one write before it changes the
 destination. If one reference fails, the sink MUST NOT write partial output.
@@ -210,7 +253,7 @@ digit. Version 1 defines two profiles:
 
 A host MUST NOT resolve unless the negotiated intersection holds a resolver profile and a sink profile
 that the host supports. A resolver profile MUST define discovery, authentication, authorization, subject
-binding, endpoint behaviour, lifecycle errors, limits and recovery. A sink profile MUST define the
+binding, endpoint behaviour, lifecycle errors, audit, limits and recovery. A sink profile MUST define the
 destination, the content, the batch rule and the output boundary.
 
 No registry exists for profile identifiers.
@@ -227,6 +270,17 @@ representations:
 5. the destination of a sink write;
 6. a credential: an access token, a refresh token, an authorization code, a PKCE verifier or a client
    secret.
+
+The rule of this section applies to these answers only:
+
+- an answer of a resolve endpoint (the resolver profile names it);
+- a failure of section 5.5 and a refusal result of section 5.7;
+- the report of a sink, where the sink profile says so;
+- an error text and a log of the host that the model can read (HOST-INTEGRATION.md, section 6).
+
+The rule does not apply to an ordinary tool result of an issuer that carries references in place of
+values, or to the model-facing result of a sink. These results carry references by design (items 3 and 4).
+They MUST NOT carry items 1 and 2.
 
 An answer that must not contain protected data MUST NOT contain an item in any of these encodings: the
 string itself (UTF-8), a JSON string escape, percent-encoding (RFC 3986), base64 or base64url (RFC 4648,
@@ -251,5 +305,5 @@ This version does not define:
 - generic output redaction or generic filesystem policy;
 - a new MCP `ContentBlock` type;
 - `_meta` as a secrecy boundary;
-- an issuer-side sink (section 6.3);
+- an issuer-side sink as a conformant feature (section 6.4 sets only an interim floor);
 - an issuer identity for a transport other than HTTP ([HOST-INTEGRATION.md](HOST-INTEGRATION.md#2-issuer-identity)).

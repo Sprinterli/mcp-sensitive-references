@@ -87,7 +87,8 @@ object MUST follow this schema:
 }
 ```
 
-The negotiated version is a version that both sides list. The negotiated profiles are the intersection of
+The negotiated version is the highest version, as an integer, that both sides list. Version 1 defines only
+the version `"1"`. The negotiated profiles are the intersection of
 the profiles that both sides list. If no version is common, the extension is not negotiated.
 
 The settings object carries no resolver endpoint and no limit. A resolver profile defines where a host

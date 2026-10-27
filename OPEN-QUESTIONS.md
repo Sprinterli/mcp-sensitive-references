@@ -13,7 +13,7 @@ OQ-12 to OQ-18 are new in Concept 0.6.
 |---|---|---|---|
 | OQ-1 | Two independent issuers | A: keep cross-server disclosure deferred | SPEC-DRAFT.md, section 9 |
 | OQ-2 | Where a masked display travels | C: no display on the wire | WIRE-REPRESENTATION.md, section 4 |
-| OQ-3 | The issuer-side sink and the agent-token rule (SC-18) | A, with the SC-18 checks. **Not integrated** in Concept 0.6. | SPEC-DRAFT.md, section 6.3 |
+| OQ-3 | The issuer-side sink and the agent-token rule (SC-18) | None in Concept 0.6. The package proposed A. An interim floor applies. | SPEC-DRAFT.md, section 6.4 |
 | OQ-4 | Consent with dynamic registration and loopback ports | A: any loopback port, one client | RESOLVER-PROFILE.md, section 9.2 |
 | OQ-5 | Sender-constrained resolver tokens | B: DPoP optional; short lifetime and rotation | RESOLVER-PROFILE.md, section 11 |
 | OQ-6 | The destination field | B: a label | RESOLVER-PROFILE.md, section 12.1; LOCAL-FILE-PROFILE.md, section 3 |
@@ -26,7 +26,7 @@ OQ-12 to OQ-18 are new in Concept 0.6.
 | OQ-13 | Conflict with the MCP root fallback; reading of the RFC 9728 trailing slash | Do not use the root document for resolution | RESOLVER-PROFILE.md, section 3 |
 | OQ-14 | A resolve endpoint on another origin | Refuse it | RESOLVER-PROFILE.md, section 6 |
 | OQ-15 | Refusal of the IPv6 loopback literal | A server can refuse `[::1]` | RESOLVER-PROFILE.md, section 9.2 |
-| OQ-16 | Who authors the content of a local-file write | none | LOCAL-FILE-PROFILE.md, section 1 |
+| OQ-16 | Who authors the content of a local-file write | Both sources permitted | LOCAL-FILE-PROFILE.md, section 1 |
 | OQ-17 | Non-string sensitive values | none | none |
 | OQ-18 | Audit, rate-limit and recovery minimum | none | RESOLVER-PROFILE.md, section 15 |
 
@@ -73,7 +73,11 @@ uses the authenticated principal, the tool and the action that the issuer author
 and the owner of the reference. The reference must be exact and current. A failure of one reference refuses
 the whole call. The issuer replaces each resolved value with its reference in every model-visible result.
 
-**Provisional v1 design decision:** A, with the checks of SC-18.
+**No provisional decision in Concept 0.6.** The package proposed A ([protocol-package/OPEN-QUESTIONS.md](protocol-package/OPEN-QUESTIONS.md)).
+
+**Interim floor.** Until OQ-3 is decided, SPEC-DRAFT.md, section 6.4, requires the checks above for every
+issuer-side use. The floor holds under option A and under option B. It does not make issuer-side use part
+of the conformant scope of version 1.
 
 **Why Concept 0.6 does not integrate SC-18.** Option A lets the agent token, together with the tool
 authorization, release plaintext into an outbound call. In Concept 0.5, resolution authority was separate
@@ -200,8 +204,9 @@ remove the permission when browsers deliver the redirect to `[::1]`.
 - Option A: the model writes the content. Only observed references resolve.
 - Option B: the host takes the content from its own configuration only.
 
-No provisional decision. The reference host does B. The use case of Concept 0.5 (the model routes a
-reference into a file) needs A.
+**Provisional v1 design decision:** both sources are permitted (LOCAL-FILE-PROFILE.md, section 1). The
+reference host does B. The use case of Concept 0.5 (the model routes a reference into a file) needs A. No
+implementation tested A.
 
 ## OQ-17. Non-string sensitive values
 

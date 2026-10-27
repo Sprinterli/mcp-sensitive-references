@@ -22,6 +22,15 @@ normative text. Each line names its source: an SC entry of
 ### Core
 
 - References apply only to MCP protocol versions with an `extensions` map. (SC-16)
+- A server emits no reference in a session in which the client did not declare the extension with a
+  version that the server supports. (SC-16)
+- The negotiated version is the highest common version. (new; the prototype does the same)
+- "Provisional" and "Open" paragraphs are normative. Rules that only a test with internal access can check
+  carry the mark "(not testable on the wire)". (new, editorial)
+- New terms: "authenticated MCP result" (a `tools/call` result after TLS server authentication),
+  "owner of a reference" and "issuer-side use". (new, editorial)
+- An issuer creates reference identifiers at random and never from the plaintext; equal values give no
+  predictable relation. This was implicit in Concept 0.5 and its prototype. (Concept 0.5 profile draft)
 - The extension identifier comes from configuration until the MCP project assigns one. (SC-15, OQ-9)
 - An issuer documents the lifetime of its references. The reason is `expired` while it keeps the record,
   and can be `unknown` after. (SC-13, OQ-11)
@@ -29,15 +38,32 @@ normative text. Each line names its source: an SC entry of
   survives a replay. (SC-14)
 - A server emits the marker `⟦sref:` only inside a reference that it issued. (SC-17)
 - A refused reference in a tool call gives `isError: true` and a fixed `structuredContent` shape. (SC-12)
-- One definition of protected data, with exact representations and encodings. (SC-11)
+- One definition of protected data, with exact representations and encodings. It applies to resolve
+  answers, refusal results, sink reports, and host error texts and logs; not to ordinary issuer results or
+  the model-facing sink result. (SC-11, SC-12)
+- The issuer failure list no longer names "stale" and "ambiguous". A replaced value generation counts as
+  revoked; "ambiguous" is a host state. (editorial)
 - A host that cannot verify negotiation and the issuer is not a supporting host. (SC-19)
 - Over HTTP, the issuer identity is the MCP URL as given, with its query, compared as an exact string. A
   URL with user information or a fragment is no issuer identity. (SC-01)
-- A host can keep durable provenance. It must show that a stored observation is intact, or fail closed.
-  (OQ-7, provisional)
+- A host can keep durable provenance (OQ-7, provisional). Every durable store checks each observation, fails
+  closed on loss, and keeps its integrity key out of reach of the model (not provisional). New threat
+  TM-13. (OQ-7)
+- A host records no observation from an MCP connection that followed a redirect. (new)
 - No display text on the wire next to a reference. (OQ-2, provisional)
-- The issuer-side sink is not defined. The question is open. (SC-18 not integrated, OQ-3)
-- An issuer identity for non-HTTP transports is not defined. (new, OQ-12)
+- The issuer-side sink is not defined as a conformant feature, and OQ-3 has no provisional decision. An
+  interim floor applies to every issuer-side use: no authority from possession, the owner must be the
+  authenticated principal, exact and current references, whole-call refusal, references back in every
+  model-visible result. (SC-18 not integrated, OQ-3)
+- Concept 0.5 said the agent token must not resolve plaintext "unless it has a separate explicit resolve
+  grant". Concept 0.6 replaces this with the stricter rule that an agent token never authorizes a resolve
+  request. (SC-05)
+- An issuer identity is defined for HTTP only. A host records no observation over stdio or another
+  transport. **This narrows Concept 0.5, which did not exclude stdio servers.** (new, OQ-12)
+- A resolver profile again lists audit among the things it defines. (Concept 0.5)
+- The non-goal "universal plaintext secret" stays in SPEC-DRAFT.md, section 9. (Concept 0.5)
+- SECURITY-MODEL.md gets a threat table TM-1 to TM-13 with controls and residual risks. (package
+  THREAT-MODEL.md, OQ-7)
 
 ### `oauth-resolver-1`
 
@@ -65,6 +91,15 @@ normative text. Each line names its source: an SC entry of
 - A resolver code only to a loopback redirect URI while `local-file-1` is the only sink profile. (profile
   rule A8)
 - The resolve request carries `references`, `sink_type` and `destination`, never a principal. (SC-10)
+- The server never returns `destination` in any answer. SC-10 said "in an error"; Concept 0.6 extends it to
+  every answer. (SC-10)
+- Condition 3 of each resolve request: the issuer authorizes the subject for every reference, as in
+  Concept 0.5. The policy (owner only, or shared records) belongs to the issuer. (Concept 0.5 profile draft)
+- A `max_references` value that is not an integer of 100 or more makes the host refuse the discovery
+  object. (SC-09, new detail)
+- IPv4-mapped addresses are judged by the embedded IPv4 address only; TLS verification also on a checked
+  address; the fetch policy need not cover the MCP URL, and a host may apply it there. (SC-01, published round 9)
+- The profile states that the authorization server and the resource share the approval state. (new)
 - The destination is a label (recommended). (SC-10, OQ-6, provisional)
 - Batch limit of at least 100, `413 too_many_references`, duplicates count once. (SC-09)
 - A success answer has exactly the requested keys and `Cache-Control: no-store`. (profile rules R6 and
@@ -81,7 +116,12 @@ normative text. Each line names its source: an SC entry of
 - Split batches: the sink writes nothing until every request succeeded. (SC-09)
 - The wire value of `sink_type` is `local_file`. (SC-10)
 - The written file has no group or other permission bits. (profile rule L12)
-- Who authors the file content stays open. (new, OQ-16)
+- The file content may come from model output or from host configuration (provisional). The host never
+  takes the destination from model output. (new, OQ-16)
+- The sink report may name the destination, as in Concept 0.5; it holds no value, reference or credential.
+  (Concept 0.5 profile draft)
+- The sink writes a temporary file, replaces the destination atomically, and leaves no temporary file with
+  plaintext after a detected failure. (profile rules L10 and L11)
 
 ### Non-normative files
 

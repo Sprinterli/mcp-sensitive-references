@@ -83,7 +83,7 @@ SDK 1.x was not tested. The consent lessons come from one browser. See
 ```bash
 cd prototype
 python3 -m pip install -e '.[mcp-demo,resolver-http-demo]'
-PYTHONPATH=src:. python3 -m unittest discover -s tests -v
+PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
 ## Versions

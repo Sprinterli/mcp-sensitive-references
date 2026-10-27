@@ -37,6 +37,8 @@ connects to it, with its query if it has one.
   default port or a percent-encoding.
 - A host MUST compare two issuer identities as exact strings.
 - A host MUST NOT take the issuer identity from a reference, from model text or from a server message.
+- If the MCP connection follows an HTTP redirect, the host MUST NOT record observations from that
+  connection.
 
 A resolver profile can require that the server confirms this identity. `oauth-resolver-1` requires that
 the RFC 9728 `resource` value is identical to the issuer identity
@@ -54,8 +56,8 @@ the identity.
 
 ## 3. Observations and the provenance store
 
-A host MUST record an observation only from an authenticated MCP tool result of a server with which it
-negotiated the extension. The observation holds `(reference, issuer identity, first_observed, optional
+A host MUST record an observation only from an authenticated MCP result (SPEC-DRAFT.md, section 2) of a
+server with which it negotiated the extension. The observation holds `(reference, issuer identity, first_observed, optional
 metadata)`.
 
 - If one reference has trusted observations from more than one issuer, the host MUST mark it ambiguous.
@@ -66,10 +68,19 @@ metadata)`.
 A host MAY keep observations in memory only. After a restart, such a host needs a new observation before
 it resolves a reference.
 
-**Provisional (OQ-7).** A host MAY keep observations in a durable store. If it does, the host MUST be able
-to show that a stored observation is intact and comes from its own store. If it cannot show this, the host
-MUST treat the reference as not observed and MUST NOT resolve it. Loss of trustworthy provenance MUST fail
-closed. This version defines no integrity mechanism and no freshness rule for a durable store.
+**Provisional (OQ-7).** A host MAY keep observations in a durable store.
+
+The following rules apply to every host with a durable store. They are not provisional.
+
+- The host MUST check, before it uses a stored observation, that the observation is intact and comes from
+  its own store. If the check fails, or the host cannot make it, the host MUST treat the reference as not
+  observed and MUST NOT resolve it. (not testable on the wire)
+- Loss of trustworthy provenance MUST fail closed.
+- If the host protects the store with a key, a tool, a file or a process that the model can reach MUST NOT
+  be able to read or use that key. A model that can write the store and also has the key can plant
+  provenance. (not testable on the wire)
+
+This version defines no integrity mechanism and no freshness rule for a durable store (OQ-7).
 
 ## 4. Resolution path
 
@@ -92,8 +103,8 @@ the destination and the content rules.
 ## 6. Model-facing output
 
 - The model-facing result of a sink MUST keep the references. It MUST NOT contain a resolved value.
-- A host report, a log or an error text that the model can read MUST NOT contain protected data
-  (SPEC-DRAFT.md, section 8).
+- An error text or a log of the host that the model can read MUST NOT contain protected data
+  (SPEC-DRAFT.md, section 8). The sink profile sets the rule for the report of a sink.
 - A host MUST NOT show a server error message of a resolver endpoint to the model. It MAY report the error
   code.
 - If a later action echoes a value that the host resolved in the current operation, the host MAY put the

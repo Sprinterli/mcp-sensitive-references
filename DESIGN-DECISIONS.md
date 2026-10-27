@@ -56,4 +56,5 @@ Each decision names its source in [protocol-package/SPEC-CHANGES.md](protocol-pa
 ## Decision not integrated
 
 - **The issuer-side sink (SC-18)** is not part of the normative text. It can weaken the separation of
-  resolution authority from the agent token. See [OPEN-QUESTIONS.md, OQ-3](OPEN-QUESTIONS.md#oq-3-the-issuer-side-sink-and-the-agent-token-rule-sc-18).
+  resolution authority from the agent token. OQ-3 has no provisional decision. SPEC-DRAFT.md, section 6.4,
+  sets an interim floor for any issuer-side use. See [OPEN-QUESTIONS.md, OQ-3](OPEN-QUESTIONS.md#oq-3-the-issuer-side-sink-and-the-agent-token-rule-sc-18).

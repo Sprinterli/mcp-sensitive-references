@@ -12,13 +12,17 @@ model does not see the file content. The evidence for each rule is in
 
 1. The host MUST resolve only if the negotiated intersection holds `local-file-1` and a resolver profile
    that the host supports. Version 1 defines one resolver profile, `oauth-resolver-1`.
-2. If the resolver profile publishes a discovery object, the object MUST list `local-file-1`. Else the host
-   MUST NOT resolve. An operator-configured endpoint does not change this rule.
-3. The host MUST choose the destination under its own policy. The model MUST NOT choose the destination.
+2. If the resolver profile defines a discovery object (`oauth-resolver-1` does), the object MUST list
+   `local-file-1`, and the resolver profile's rules for a missing object apply. Else the host MUST NOT
+   resolve. An operator-configured endpoint does not change this rule.
+3. The host MUST choose the destination under its own policy. The host MUST NOT take the destination from
+   model output.
 
-**Open (OQ-16).** This version does not decide who authors the content of the file. The model can write
-content that holds references, or the host can take the content from its own configuration. In both cases
-only observed references resolve (section 2).
+4. The content of the file MAY come from model output or from host configuration. In both cases only
+   observed references resolve (section 2).
+
+**Provisional (OQ-16).** Rule 4 permits both sources of content. A later version can restrict them. No
+implementation tested content from model output.
 
 ## 2. Which references the sink resolves
 
@@ -58,8 +62,8 @@ absolute path.
 ## 5. What leaves the sink
 
 1. The model-facing result MUST keep the references. It MUST NOT hold a resolved value.
-2. The report of the sink MUST NOT contain protected data (SPEC-DRAFT.md, section 8). It MAY hold counts,
-   a status and error codes.
+2. The report of the sink MUST NOT contain protected data items 1 to 4 and 6 (SPEC-DRAFT.md, section 8).
+   It MAY hold counts, a status, error codes and the destination.
 3. If a later action echoes a value that this write resolved, the host MAY put the reference back in place
    of the value.
 

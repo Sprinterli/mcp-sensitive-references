@@ -15,6 +15,13 @@ The profile uses OAuth 2.0 Authorization Code with PKCE (RFC 7636), resource ind
 protected-resource metadata (RFC 9728), authorization server metadata (RFC 8414) and the authorization
 response `iss` parameter (RFC 9207). It applies to an MCP server over HTTP.
 
+The profile assumes that the authorization server and the protected resource share state. The resource
+must see the approval of section 10 (to stop live tokens when it ends, and to check an active approval on
+each request), and the consent page must name the sink profiles of the resource. The authorization server
+can be the same service as the resource, or share a store with it. A deployment with an independent
+authorization server needs a mechanism for this shared state, for example token introspection. This
+profile does not define one (section 16).
+
 ## 2. Roles
 
 | Role | Function |
@@ -97,7 +104,8 @@ A host MUST refuse the object, and MUST NOT resolve, in each of these cases:
 
 - a required member is absent or has another type;
 - the object does not list the resolver profile and the sink profile that the host and the server
-  negotiated.
+  negotiated;
+- `max_references` is present and is not an integer of 100 or more.
 
 A host MUST NOT put a default value in place of a missing or malformed member. A host MAY use an
 operator-configured endpoint or scope in place of a discovered value of a valid object. An
@@ -151,7 +159,8 @@ If more than one registry entry contains the address, the most specific entry (t
 decides. A host uses the current version of the registries. A conformance test names the version that it
 uses.
 
-For an IPv4-mapped (`::ffff:0:0/96`), IPv4-compatible (`::/96` without `::` and `::1`), NAT64
+A host MUST judge an IPv4-mapped address (`::ffff:0:0/96`) by its embedded IPv4 address only, because a
+connection to it goes to that IPv4 address. For an IPv4-compatible (`::/96` without `::` and `::1`), NAT64
 (`64:ff9b::/96`) or 6to4 (`2002::/16`) address, the host MUST also judge the embedded IPv4 address. If that
 IPv4 address is non-public, the IPv6 address is non-public.
 
@@ -171,17 +180,18 @@ The rule applies to:
 - the resolve endpoint.
 
 The host MUST also refuse an authorization endpoint on a non-public address, although only the browser
-opens it. The fetch policy does not cover the MCP URL, which the operator gives.
+opens it. The fetch policy need not cover the MCP URL, which the operator gives. A host MAY apply it to
+the MCP URL as well.
 
 ### 7.3 Checked address
 
 For each request of this policy that the host sends with its own HTTP client, the host MUST connect to an
 address that it checked. It MUST NOT resolve the host name again for the connection. If the check gave
-more than one address, the host MAY try them in turn. If the HTTP client cannot connect to a given
-address, the host MUST NOT send the request.
+more than one address, the host MAY try them in turn. If the HTTP client of the host cannot be told which
+address to connect to, the host MUST NOT send the request.
 
 For TLS, the host MUST verify the certificate for the host of the URL (RFC 9110 section 4.3.4, RFC 9525),
-not for the checked address.
+also when the connection goes to a checked address.
 
 **Note.** The browser resolves the name of the authorization endpoint again. Section 7.3 cannot apply to
 that connection (SECURITY-MODEL.md, TM-11).
@@ -349,11 +359,14 @@ For each request, the server MUST check all of these conditions:
 
 1. The audience or resource of the resolver token is the protected resource.
 2. The resolver token has the resolve scope and an active approval (section 10).
-3. The subject of the resolver token is the owner of every reference in the request.
+3. The issuer authorizes the subject of the resolver token for every reference in the request.
 4. Every reference was issued by this server, did not expire, and was not revoked.
 5. The request is within the limits of the server.
 
 If one condition fails for one reference, the server MUST return no value for the whole request.
+
+**Note.** The authorization policy of condition 3 belongs to the issuer. It can authorize only the owner
+of a reference (SPEC-DRAFT.md, section 2), or also other principals, for example for a shared record.
 
 ### 12.3 Batch limits and duplicates
 
@@ -394,9 +407,6 @@ section 8). The endpoint MUST use these codes:
 | 409 | `unresolvable` | At least one reference does not resolve. `reasons` counts `malformed`, `unknown`, `revoked` and `expired`. |
 | 413 | `too_many_references` | The request exceeds the effective limit. |
 | 429 | `quota_exceeded` | The principal exceeded a rate or a quota. |
-
-**Note.** The reference server reports a reference of another principal as `unknown`. Then the answer does
-not show that the reference exists.
 
 A 401 answer MUST carry a `WWW-Authenticate` header with the `Bearer` scheme (RFC 6750 section 3). A 403
 `insufficient_scope` answer SHOULD carry it with `error="insufficient_scope"`.
@@ -441,11 +451,14 @@ decided.
 - Token introspection.
 - Server-to-server redemption and cross-server delegation.
 - A resolve endpoint on another origin (section 6).
-- An issuer-side sink (SPEC-DRAFT.md, section 6.3).
+- An issuer-side sink (SPEC-DRAFT.md, section 6.4).
 
 ## 17. Evidence
 
-**Note.** Two implementations follow most of this profile: the reference server MCPGate and the reference
-host in `prototype/`. Neither implements the whole profile. The reference server does not conform to
+**Note.** Two implementations implement parts of this profile: the reference server MCPGate and the
+reference host in `prototype/`. Neither implements the whole profile.
+[protocol-package/PROFILE-oauth-resolver-1.md](protocol-package/PROFILE-oauth-resolver-1.md) maps each rule
+to its evidence. The reference server authorizes only the owner of a reference, and reports a reference of another
+principal as `unknown`. The reference server does not conform to
 section 3: its challenge names the metadata of its base URL. No conformant end-to-end run succeeded. See
 [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).
