@@ -6,16 +6,16 @@ requirement to the evidence that exists for it on 2026-10-27.
 ## Test run
 
 **Supported, tested configuration (2026-10-27).** Python 3.14.8, MCP Python SDK (`mcp`) 2.3.0,
-`PYTHONPATH=src`, repository commit `00dce0b` (branch `m7-consolidation`). This is "the tested
+`PYTHONPATH=src`, repository commit `ee7da0a` (branch `m7-consolidation`). This is "the tested
 commit" of the whole package. The commits after it change only documentation
 (`protocol-package/` and `prototype/README.md`), no code and no test.
 Commands and results:
 
 ```bash
 cd prototype && PYTHONPATH=src python -m pytest -q -p no:cacheprovider
-# 129 passed, 175 subtests passed
+# 132 passed, 181 subtests passed
 cd prototype && PYTHONPATH=src python -m unittest discover -s tests
-# Ran 129 tests, OK
+# Ran 132 tests, OK
 ```
 
 `demo/mcp_sdk_server.py` imports `MCPServer` (SDK 2.x) and falls back to `FastMCP` (SDK 1.x). Its test reads
@@ -23,7 +23,7 @@ both result shapes. **SDK 1.x was not tested in this run.** Only SDK 2.3.0 is a 
 
 | Test module | Tests | Result |
 |---|---|---|
-| `test_mcp_host_resolve.py` | 93 | 93 passed. Five of them run the host against a real MCP SDK 2.x server. |
+| `test_mcp_host_resolve.py` | 96 | 96 passed. Five of them run the host against a real MCP SDK 2.x server. |
 | `test_mcp_host.py` | 13 | 13 passed |
 | `test_sensitive_references.py` | 13 | 13 passed |
 | `test_oidc_and_resolve_http.py` | 4 | 4 passed |
@@ -43,18 +43,21 @@ policy D11, a stop without the discovery object, the labels of a non-conformant 
 without a document, the RFC 8414 well-known URL): 112 passed, 124 subtests passed. The tested commit above
 adds 10 host tests after the fourth review round (the fetch policy without an automatic local exception,
 the address cases, no redirect and no proxy for each client, the default configuration) and removes one
-(the old local exception): 121 passed, 164 subtests passed, at commit `c5e1eba`. The tested commit above adds
+(the old local exception): 121 passed, 164 subtests passed, at commit `c5e1eba`. The commits after it add
 4 host tests after the fifth review round (the connection to the checked address, a request without a
 checked address, the TLS server name, the most specific registry entry) and, after the sixth round, one
 test of the TLS context of the real opener and, after the seventh round, three tests with a real TLS server
-and a test CA: 129 passed, 175 subtests passed.
+and a test CA: 129 passed, 175 subtests passed, at commit `00dce0b`. The tested commit above adds 3
+host tests after the eighth round (each checked address in turn, a server on `::1` only; the timeout of
+each connection attempt; three IANA entries that the Python tables do not follow): 132 passed, 181
+subtests passed.
 
 **Mutation check.** `prototype/tests/tools/mutation_probe.py` copies `prototype/` into a directory
 outside the repository, disables one guard per run, and runs `test_mcp_host_resolve.py` there. It does not
-write into the repository. At commit `1a36945` it ran 50 mutants (the tested commit only renames one mutation from r6 to r7 and
-changes docstrings; the renamed mutation was run again there and failed three tests): the 13 guards of the second round and
-12 guards of the third round on the current text, 18 guards of the fourth round, 5 guards of the
-fifth round and 2 guards of the sixth and seventh rounds. 50 of 50 failed at least one test (2026-10-27, with the configuration above). The fourth round removed two
+write into the repository. At the tested commit it ran 53 mutants: the 13 guards of the second round and
+12 guards of the third round on the current text, 18 guards of the fourth round, 4 guards of the
+fifth round (the pinning mutants, written again for the code of the eighth round), 1 guard each of the
+sixth and seventh rounds, and 4 guards of the eighth round. 53 of 53 failed at least one test (2026-10-27, with the configuration above). The fourth round removed two
 mutants of the third round (the local exception and the RFC 4193 range), because the code that they
 changed no longer exists; the round-4 mutants test the replacement. One guard has no mutant: the host passes the policy that
 it made at connection to `materialize`. A new policy gives the same result in the tests, because no

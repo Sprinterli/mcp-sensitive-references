@@ -96,7 +96,7 @@ with `local-file-1`. This package is milestone M6.
 | Source | Version |
 |---|---|
 | Concept 0.5 (the root files) | this repository. Unchanged on this branch. |
-| The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `00dce0b` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`) |
+| The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `ee7da0a` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`) |
 | The reference server plan, sections 4 to 8 | reference server revision R1 (not public) |
 | The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2. |
 
@@ -113,8 +113,8 @@ above. A row that cites a reference server test is "read, not re-run".
 the published history of the branch `m7-consolidation`. That branch is published as it is, without a
 squash, so the hashes stay valid.
 
-The prototype test suite last ran on 2026-10-27 at commit `00dce0b` (branch `m7-consolidation`) with
-Python 3.14.8 and MCP Python SDK 2.3.0: 129 tests passed. SDK 1.x was not tested (see
+The prototype test suite last ran on 2026-10-27 at commit `ee7da0a` (branch `m7-consolidation`) with
+Python 3.14.8 and MCP Python SDK 2.3.0: 132 tests passed. SDK 1.x was not tested (see
 [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#test-run)).
 
 ## Naming in this package
