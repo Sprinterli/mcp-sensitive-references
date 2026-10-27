@@ -107,7 +107,8 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
     that is not globally reachable (SC-01, fetch policy; THREAT-MODEL.md, TM-11). Do not make an
     automatic exception for a local MCP URL. Allow local targets only after an explicit operator option,
     and only for the MCP origin and configured origins. Do not follow redirects, and do not use a proxy
-    from the environment for these requests. If you can, connect to the checked address.
+    from the environment for these requests. Connect to the checked address, and do not resolve the
+    name again for the connection (SC-01).
 14. Build the RFC 8414 well-known URL of an authorization server without a terminating "/" of the issuer
     path (RFC 8414 section 3.1). Keep a trailing slash of a longer path for the RFC 9728 URL (SC-01).
 
@@ -137,11 +138,12 @@ Other browsers were not tested.
   origin again from the parsed host and port of the redirect URI of this request, after
   that URI matched a registered one (SC-20). Never copy the raw redirect URI text into the policy: user
   information or other characters in the URI text can inject policy text.
-- Normative part: SC-20 requires a `form-action` directive on the consent page. It must contain the
-  origin of the authorization server and the exact origin of the validated loopback redirect URI, and no
-  other loopback origin. If the server cannot build that policy, it refuses the request before the consent
-  page. A test can
-  check this in the response headers. Whether a browser then delivers the redirect stays guidance, because
+- Security recommendation (not normative, because the host does not depend on it): give the consent
+  page a `form-action` directive, and list in it no other loopback origin. Then a page that an attacker
+  changes cannot post the consent decision to another origin.
+- Normative part: if the consent page has a `form-action` directive, SC-20 requires that it permits the
+  exact origin of the validated loopback redirect URI. If the server cannot build that directive, it
+  refuses the request before the consent page. A test can check this in the response headers. Whether a browser then delivers the redirect stays guidance, because
   only one browser was tested. The way to build the policy text also stays guidance.
 
 ### L-b. A browser can ignore an IPv6 literal as a policy source

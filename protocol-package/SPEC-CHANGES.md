@@ -132,7 +132,8 @@ endpoint, the same string for both discovery mechanisms.
 > such an operator statement.
 >
 > Fetch policy (RFC 9728 section 7.7). In this entry, an address is *non-public* if it is not globally
-> reachable. That is: the IANA IPv4 Special-Purpose Address Registry or the IANA IPv6 Special-Purpose
+> reachable. If more than one entry of a registry contains the address, the most specific entry (the
+> longest prefix) decides. That is: the IANA IPv4 Special-Purpose Address Registry or the IANA IPv6 Special-Purpose
 > Address Registry gives the address "Globally Reachable: False" or "N/A" (for example 6to4 2002::/16 and
 > Teredo 2001::/32), or the address is a multicast address,
 > or an IPv6 site-local address (fec0::/10, RFC 3879). For an IPv4-mapped (::ffff:0:0/96),
@@ -168,8 +169,10 @@ endpoint, the same string for both discovery mechanisms.
 > host treats a 3xx answer as a failed request. A host MUST NOT send these requests through a proxy that
 > does not apply this fetch policy, for example a proxy that an environment variable selects.
 >
-> A host SHOULD connect to the address that it checked, so that DNS rebinding cannot change the target
-> between the check and the request.
+> A host MUST connect to an address that it checked. It MUST NOT resolve the host name again for the
+> connection, so that DNS rebinding cannot change the target between the check and the request. For TLS,
+> the host verifies the certificate for the host name of the URL. If the HTTP client of a host cannot
+> connect to a given address, the host MUST NOT send the request.
 >
 > A server SHOULD NOT put a credential into the query of its MCP URL. The query is part of the issuer
 > identity, so the host sends it to the authorization server as the RFC 8707 `resource` value and keeps
@@ -189,9 +192,12 @@ same answer for the same address. The test host uses the tables of the Python `i
 test host has no automatic exception for a local MCP URL: the option `--allow-local-targets` enables local
 mode, and `--local-origin` adds an exact origin.
 
-The test host implements the fetch policy without the SHOULD: it does not pin the checked address
-(THREAT-MODEL.md, TM-11). DNS rebinding is a residual risk of the test host. The test host follows no
-redirect, and it ignores proxy environment variables for these requests.
+The test host connects to the first checked address and sends the host name of the URL in the `Host`
+header and as the TLS server name. Its HTTP client refuses a request without a checked address. Tests:
+`test_the_request_connects_to_the_checked_address` (the system resolver does not know the name, so only
+the checked address can answer), `test_a_request_without_a_checked_address_is_refused` and
+`test_tls_verifies_the_host_name_of_the_url_on_the_checked_address`. The test host follows no redirect,
+and it ignores proxy environment variables for these requests.
 
 **Conflict with the MCP authorization specification.** The MCP specification (version 2025-11-25,
 "Protected Resource Metadata Discovery Requirements") tells a client to use the `resource_metadata` URL of
@@ -661,8 +667,7 @@ as `unknown`, as the reference server does.
 > 4. the random component of a canonical token, or a contiguous part of 8 or more characters of it;
 > 5. the `destination` of the request;
 > 6. a credential: an access token, a refresh token, an authorization code, a PKCE verifier or a client
->    secret;
-> 7. a hash, a MAC or another value that the server computes from items 1 to 6.
+>    secret.
 >
 > A server MUST NOT put an item into an answer in any of these encodings: the string itself (UTF-8), a
 > JSON string escape, percent-encoding (RFC 3986), base64 or base64url (RFC 4648, with or without
@@ -673,7 +678,11 @@ as `unknown`, as the reference server does.
 >
 > These members are not protected data, also if their text matches an item above: the `error` code, the
 > names and the counts of `reasons`, the `error_code` of SC-12, the HTTP status, and the `client_id` of a
-> public client. Item 7 has no general test: a validator finds it only if it knows the function.
+> public client.
+>
+> A server SHOULD NOT put into an answer a hash, a MAC or another value that it computes from protected
+> data. This rule is not a conformance requirement: a validator finds such a value only if it knows the
+> function.
 
 Vectors for SC-11. `sref:email:AbCdEfGhIjKlMnOp` stands for a complete canonical token with the random
 component `AbCdEfGhIjKlMnOp`, and `alice@example.com` for its value. The vectors are text, and no test
@@ -691,7 +700,7 @@ checks them:
 | `{"error": "unresolvable", "v": "YWxpY2VAZXhhbXBsZS5jb20"}` | Refused (item 1, base64url without padding) |
 | `{"error": "unresolvable", "alice%40example.com": 1}` | Refused (item 1, percent-encoded, in a member name) |
 | `{"error": "invalid_request", "destination": "report.txt"}` | Refused (item 5) |
-| `{"error": "unresolvable", "ref_hmac": "9f2c..."}` | Refused (item 7), if the validator knows the key |
+| `{"error": "unresolvable", "ref_hmac": "9f2c..."}` | Not refused by a validator; the server breaks the SHOULD NOT on derived values |
 | `{"error": "invalid_token", "client_id": "c-123"}` | Allowed (public client) |
 | `{"error": "unresolvable"}`, where the value of the reference is the string `unresolvable` | Allowed (the `error` member) |
 
@@ -794,11 +803,13 @@ after the last use (plan section 4, G13).
 **Proposed text.**
 
 > A server MUST state the lifetime rule of its references in its documentation. After a reference
-> expires, a resolution of it MUST fail with the reason `expired`. A server SHOULD NOT report `unknown`
-> for a reference that it issued and that expired.
+> expires, a resolution of it MUST fail. While the server keeps the record of an expired reference, the
+> reason MUST be `expired`. After the server discards that record, the reason MAY be `unknown`.
 
 **Compatibility.** The reference server cannot always tell `expired` from `unknown` after the binding is
-gone (plan section 6, M3, "Limits"). The text therefore uses SHOULD NOT.
+gone (plan section 6, M3, "Limits"). The text therefore permits `unknown` after the record is discarded.
+The prototype test checks that the resolution fails. It does not check the reason. **The reason is not
+verified by a test.**
 
 ## SC-14. Integrity of the issuer registry
 
@@ -969,15 +980,12 @@ a host and a server from completing the flow together (IMPLEMENTATION-GUIDE.md, 
 > authorization server MUST accept the IPv4 loopback literal `127.0.0.1` as the host of a
 > loopback redirect URI. A host SHOULD use `127.0.0.1`. An authorization server MAY refuse the IPv6
 > literal `[::1]`. If it refuses it, it MUST refuse it at client registration or at the authorization
-> request, before the consent page. The consent page MUST carry a Content Security Policy with a
-> `form-action` directive. (This requirement is a security decision of this package, not an
-> interoperability need: the host does not depend on the directive. It stops a page that an attacker
-> changes from posting the consent decision to another origin.) That directive MUST contain the origin of the authorization server and the
-> exact origin (scheme, host and port) of the validated loopback redirect URI of this request, for example
-> `form-action 'self' http://127.0.0.1:53124`. It MUST NOT contain another loopback origin. If the server
-> cannot build this policy, it MUST refuse the authorization request before it shows the consent page.
-> The same rule applies to every other response of the authorization server in the redirect chain after
-> the consent post.
+> request, before the consent page. If the consent page carries a Content Security Policy with a
+> `form-action` directive, that directive MUST permit the exact origin (scheme, host and port) of the
+> validated loopback redirect URI of this request, for example
+> `form-action 'self' http://127.0.0.1:53124`. If the server cannot build such a directive, it MUST
+> refuse the authorization request before it shows the consent page. The same rule applies to every other
+> response of the authorization server in the redirect chain after the consent post.
 
 **A restriction of RFC 8252.** RFC 8252 section 7.3 counts `[::1]` as a loopback IP redirect URI and
 recommends that a native client tries both the IPv4 and the IPv6 loopback interface. The permission to
@@ -989,7 +997,9 @@ version must remove the permission when browsers deliver the redirect to `[::1]`
 **Why this text is normative.** Each sentence describes behaviour that the other side depends on. A host
 that keeps one client and uses a new port each time fails at a server that matches the port. A host that
 uses `[::1]` fails at a server that cannot serve it, unless both agree on `127.0.0.1`. The `form-action`
-rule is a property of the response headers, so a test can check it without a browser. Whether a browser
+rule is a property of the response headers, so a test can check it without a browser. The text does not
+require a `form-action` directive and does not forbid other loopback origins in it: the host does not
+depend on either point. IMPLEMENTATION-GUIDE.md, lesson L-a, recommends both as security measures. Whether a browser
 then delivers the redirect is browser behaviour. The package observed it in one browser only
 (IMPLEMENTATION-GUIDE.md, lessons L-a and L-b), so it stays guidance. How a server builds the rest of its policy, how it checks the session (lesson
 L-d), the single-use nonce (lesson L-e) and the renewal through refresh (lesson L-f) do not change what the

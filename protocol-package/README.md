@@ -47,7 +47,7 @@ All changes stay proposals. None of them is concept text.
   `unauthorized` is a host failure reason, not a server code. A 401 answer carries `WWW-Authenticate`.
 - **SC-20** (new) makes the loopback redirect rules normative: exact string comparison of the redirect URI
   with any port for a loopback IP redirect URI only, the literal `127.0.0.1`, and a `form-action`
-  directive of the consent page that permits the exact loopback origin, or no such directive.
+  directive of the consent page, if the page has one, that permits the exact loopback origin.
 - **SC-06** binds an approval to subject, client, resource, resolve scope and the sink profiles that the
   consent page names. SC-06, SC-14 and SC-18 define "resist framing and CSRF", "integrity" and "current"
   by observable outcomes.
@@ -70,7 +70,12 @@ All changes stay proposals. None of them is concept text.
   environment proxies for each request of the discovery and the authorization. SC-07 names the attacker
   boundary of the token cache. SC-10 requires `destination`. SC-11 defines protected data by exact
   representations and encodings. SC-12 states the `reasons` key without the `reference_` prefix. SC-20
-  requires a `form-action` directive and names its restriction of RFC 8252 section 7.3.
+  names its restriction of RFC 8252 section 7.3.
+- **Fifth review round.** SC-01 requires that the host connects to the checked address (DNS rebinding),
+  and the most specific registry entry decides. SC-20 requires only that a `form-action` directive, if
+  present, permits the loopback origin; the rest is a security recommendation in lesson L-a. SC-11 makes
+  derived values (a hash, a MAC) a SHOULD NOT outside conformance. SC-13 permits `unknown` after the
+  server discards the record of an expired reference.
 - **OPEN-QUESTIONS.md** labels each recommendation as a provisional v1 design decision. OQ-7 now permits
   durable host provenance, and loss of trustworthy provenance must fail closed. SEP-READINESS.md follows.
 

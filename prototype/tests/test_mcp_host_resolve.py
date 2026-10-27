@@ -1295,6 +1295,17 @@ class FetchPolicyTests(unittest.TestCase):
             with self.subTest(address=address):
                 self.assertFalse(self.rc.non_public_address(address))
 
+    def test_the_most_specific_registry_entry_decides(self):
+        # SC-01: an address in a broad "Globally Reachable: False" block and in a more specific "True"
+        # entry is public. IPv4 192.0.0.0/24 holds 192.0.0.9/32 and 192.0.0.10/32; IPv6 2001::/23 holds
+        # 2001:1::1/128, 2001:3::/32, 2001:4:112::/48 and 2001:20::/28.
+        cases = {"192.0.0.8": True, "192.0.0.9": False, "192.0.0.10": False, "192.0.0.11": True,
+                 "2001:2::1": True, "2001:1::1": False, "2001:1::4": True, "2001:3::1": False,
+                 "2001:4:112::1": False, "2001:4:113::1": True, "2001:20::1": False}
+        for address, non_public in cases.items():
+            with self.subTest(address=address):
+                self.assertEqual(self.rc.non_public_address(address), non_public)
+
     def test_the_embedded_ipv4_address(self):
         # The registry marks 6to4 and Teredo "N/A", which the fetch policy counts as non-public;
         # the unwrap still judges the embedded IPv4 address.

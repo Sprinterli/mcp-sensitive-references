@@ -134,8 +134,8 @@ has exactly one trusted issuer. It writes through `ProtectedFileSink`, so a fail
   follows no redirect and uses no proxy from the environment. There is no automatic exception for a local MCP
   URL: `--allow-local-targets` enables local mode, only if all DNS addresses of the MCP host are non-public
   (resolved once at connection). Local mode allows the MCP origin and each `--local-origin ORIGIN`, never a
-  link-local, unspecified, broadcast or multicast address. The host does not pin the checked address, so DNS
-  rebinding stays a residual risk (`protocol-package/THREAT-MODEL.md`, TM-11).
+  link-local, unspecified, broadcast or multicast address. Each request connects to an address that the
+  policy checked, so a second DNS answer cannot change the target (DNS rebinding).
 - The resolver token is a second credential. It comes from the cache file (`--resolver-token-cache`, mode 0600),
   from a refresh, or from a new authorization: dynamic client registration, Authorization Code + PKCE S256, the
   `resource` indicator, the resolve scope only, and a redirect to `127.0.0.1`. The host opens the browser and waits

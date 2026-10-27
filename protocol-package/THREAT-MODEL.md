@@ -228,9 +228,12 @@ not with mixed DNS records of the MCP host, only for the MCP origin and configur
 `NoRedirectNoProxyTests`: no client follows a redirect, and no client uses a proxy from the environment.
 The fixtures on 127.0.0.1 use local mode through the option.
 
-**Residual risk.** The check and the request resolve the name separately. A DNS server that answers with
-a public address first and with a private address second (DNS rebinding) passes the check. The test host
-does not pin the checked address for the connection. A host that pins it closes this gap. In local mode,
+DNS rebinding: SC-01 requires that the host connects to an address that it checked. The test host does
+that (`test_the_request_connects_to_the_checked_address`).
+
+**Residual risk.** A host that resolves the name again for the connection does not conform to SC-01, and
+a DNS server that answers with a public address first and with a private address second passes its check.
+In local mode,
 a malicious local MCP server can reach other paths on its own origin and on the configured origins. The
 operator accepts that when it enables local mode.
 
