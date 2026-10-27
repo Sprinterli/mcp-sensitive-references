@@ -118,7 +118,7 @@ content of a reference.
 
 ## 8. Evidence
 
-**Note.** The reference host `prototype/demo/mcp_host.py` keeps observations in memory. It loses them on
+**Note.** The reference host in `prototype/` keeps observations in memory. It loses them on
 restart and then fails closed. Its limits are in [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).
 The host checklist with its evidence is in
 [protocol-package/IMPLEMENTATION-GUIDE.md](protocol-package/IMPLEMENTATION-GUIDE.md).

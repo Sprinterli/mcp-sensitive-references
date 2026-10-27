@@ -3,7 +3,8 @@
 **Status: Concept 0.6 draft.** This file is not normative. It describes the two implementations and the
 evidence for the normative text. The full evidence record is
 [protocol-package/CONFORMANCE-RESULTS.md](protocol-package/CONFORMANCE-RESULTS.md). If this file and that
-record differ, the record is correct.
+record differ, the record is correct. The record ends at E11. The fix of P16 and run E12 are recorded
+only in this file.
 
 **Limited interoperability claim.** On 2026-10-27, the reference host ran against the reference server
 without a non-conformant option, and the flow of `oauth-resolver-1` and `local-file-1` succeeded (E12).
@@ -103,7 +104,8 @@ All runs used synthetic data. This repository did not repeat them.
 | E4 to E6 | production, reported | Negotiated sessions got references; legacy sessions got none; malformed references were refused. |
 | E8 to E10 | production, 2026-10-26, observed in one operator run, not independently reproduced | Interactive consent, cache, and refresh after expiry. The host materialized the file. Zero sentinel values in model-visible content. **All three runs used the non-conformant option `--resource`.** |
 | E11 | production, 2026-10-26, observed in one operator run | The host at commit `8394a02`, without `--resource`, read the metadata that the challenge names, found the base URL as `resource`, stopped with `wrong_issuer` and resolved nothing. |
-| E12 | production, server 2.0.3475, 2026-10-27, observed in one operator run of each step, not independently reproduced | The host at commit `9b95733` (host code equal to the tested commit `6cdd658`), with no deviation option, found the MCP URL as `resource` through the challenge. The authorization request named the MCP URL as `resource`. Three runs: interactive consent; a run from the cache that opened no page; a run after the real expiry of the access token that got a new one with the refresh token. Each run negotiated version 1, observed one reference with provenance, sent one resolve request and materialized the file with the synthetic value. Zero sentinel values in model-visible content, in the host report and in the token cache. |
+| E12 | production, server 2.0.3475, 2026-10-27, observed in one operator run of each step, not independently reproduced | The host at commit `9b95733` (host code equal to the tested commit `6cdd658`), with no deviation option, found the MCP URL as `resource` through the challenge (the server version and
+the challenge come from the operator check of the same day; the host reports show the result). The authorization request named the MCP URL as `resource`. Three runs: interactive consent; a run from the cache that opened no page; a run after the real expiry of the access token that got a new one with the refresh token. Each run negotiated version 1, observed one reference with provenance, sent one resolve request and materialized the file with the synthetic value. Zero sentinel values in model-visible content, in the host report and in the token cache. |
 
 E8 to E10 show the profile flow under the known deviation P16. They are no evidence of conformance. E12
 shows the same flow without a deviation.

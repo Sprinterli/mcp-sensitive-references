@@ -64,7 +64,8 @@ normative text. Each line names its source: an SC entry of
   resolve request. For issuer-side use, Concept 0.6 does not decide whether the 0.5 clause applies; that
   stays open as OQ-3, and the floor of section 6.4 applies in addition. (SC-05, OQ-3)
 - An issuer reports a reference that the principal is not authorized for with the reason `unknown`.
-  Concept 0.5 had no reason for this case. (new)
+  This holds also when that reference is revoked or expired. The `expired` reason of section 5.3 applies only
+  to a reference that the principal is authorized for. Concept 0.5 had no reason for this case. (new)
 - An issuer identity is defined for HTTP only. A host records no observation over stdio or another
   transport. **This narrows Concept 0.5, which did not exclude stdio servers.** (new, OQ-12)
 - A resolver profile again lists audit among the things it defines. (Concept 0.5)

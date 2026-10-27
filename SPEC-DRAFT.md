@@ -66,7 +66,8 @@ wire. They do not carry the mark.
   principal of the MCP request whose result carried it.
 - **Trusted provenance.** The set of observations that a supporting host holds outside model-visible text.
 - **Resolver.** A non-model component that asks the issuer for the sensitive value of a reference.
-- **Resolution.** The release of a sensitive value by the issuer to a resolver.
+- **Resolution.** The release of a sensitive value by the issuer to a resolver. Whether issuer-side use is
+  also resolution is open (OQ-3).
 - **Issuer-side use.** The use of a sensitive value by the issuer, for a reference in the arguments of a
   tool call, in a call that the issuer sends to a system outside itself. Whether section 5.2 covers
   issuer-side use is open (OQ-3). Section 6.4 sets the rules that hold until a later version decides it.
@@ -135,8 +136,8 @@ token MUST NOT automatically grant plaintext resolution rights.
 ### 5.3 Lifetime
 
 An issuer MUST state the lifetime rule of its references in its documentation. After a reference expires,
-a resolution of it MUST fail. While the issuer keeps the record of an expired reference, the reason MUST
-be `expired` (not testable on the wire: a test of the messages cannot tell whether the issuer still keeps
+a resolution of it MUST fail. While the issuer keeps the record of an expired reference that the principal
+is authorized for, the reason MUST be `expired` (not testable on the wire: a test of the messages cannot tell whether the issuer still keeps
 the record). After the issuer discards that record, the reason MAY be `unknown`.
 
 **Provisional (OQ-11).** The core sets no fixed minimum lifetime. Each issuer documents its own lifetime.
@@ -156,7 +157,8 @@ A revocation MUST survive a replay of an older record of the same principal.
 A resolution or an issuer-side use of an unknown, revoked, expired or unauthorized reference MUST fail.
 If the issuer replaced the value generation that a reference names, the issuer MUST treat that reference
 as revoked. The issuer MUST report a reference that the principal is not authorized for with the reason
-`unknown`, so that a failure does not show whether a reference of another principal exists. The failure
+`unknown`, also when that reference is revoked or expired, so that a failure does not show whether a
+reference of another principal exists. The failure
 MUST NOT return plaintext. The failure MUST NOT return protected data (section 8).
 
 **Note.** "Ambiguous" is a state of host provenance (section 6.1), not of the issuer.
