@@ -46,10 +46,10 @@ the MCP Python SDK client. It negotiates the extension, records issuer provenanc
 token and writes a local file through `local-file-1`. The resolver client is
 `prototype/src/sensitive_references/resolver_client.py`.
 
-Tested configuration (2026-10-27): Python 3.14.8, MCP Python SDK 2.3.0, commit `ee7da0a` of the branch
-`m7-consolidation`. Results: 132 tests passed (pytest: 132 passed, 181 subtests passed; unittest: 132 OK).
+Tested configuration (2026-10-27): Python 3.14.8, MCP Python SDK 2.3.0, commit `6cdd658` of the branch
+`m7-consolidation`. Results: 133 tests passed (pytest: 133 passed, 310 subtests passed; unittest: 133 OK).
 Of these, `test_mcp_host_resolve.py` has 96 tests and `test_mcp_host.py` has 13 tests. A mutation check
-disabled one guard per run: 53 of 53 mutants failed at least one test.
+disabled one guard per run: 54 of 54 mutants failed at least one test.
 
 Limits:
 

@@ -71,7 +71,7 @@ Not normative:
   names the metadata of its base URL (P16).
 - **Reference host: [prototype/demo/mcp_host.py](prototype/demo/mcp_host.py).** An independent MCP host.
   It negotiates the extension, records provenance, gets its own resolver token and writes a local file.
-  132 tests passed on 2026-10-27 in the tested configuration.
+  133 tests passed on 2026-10-27 in the tested configuration.
 
 **Known gaps.** No conformant end-to-end run of the reference host against the reference server succeeded
 (E11, P16). SC-20 has no automated test. Browser-side DNS rebinding remains a residual risk (TM-11). MCP
