@@ -1,5 +1,7 @@
 # Prior art and adjacent mechanisms
 
+**Status: Concept 0.6 draft.** This file is not normative.
+
 ## Client secret references
 
 [maisecrets](https://github.com/Mcpgate-de/maisecrets) and similar client-side secret-reference systems can
@@ -22,7 +24,12 @@ value returned by an MCP server.
 
 [MCP authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization) and
 [OAuth DPoP](https://www.rfc-editor.org/rfc/rfc9449) provide authorization and sender-constraint tools.
-This proposal does not replace them. A resolver profile can use them.
+This proposal does not replace them. The resolver profile `oauth-resolver-1` builds on OAuth
+protected-resource metadata ([RFC 9728](https://www.rfc-editor.org/rfc/rfc9728)), resource indicators
+([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707)), authorization server metadata
+([RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)), the `iss` response parameter
+([RFC 9207](https://www.rfc-editor.org/rfc/rfc9207)) and native-app loopback redirects
+([RFC 8252](https://www.rfc-editor.org/rfc/rfc8252)). DPoP is optional in its first version.
 
 ## DLP, NER, and tokenization
 

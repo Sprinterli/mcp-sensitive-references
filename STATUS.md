@@ -1,12 +1,21 @@
 # Status
 
-**Status: pre-SEP design exploration.**
+**Status: Concept 0.6 draft (not an MCP standard, not an accepted SEP).**
 
-Sensitive References is a possible optional MCP extension. It has a small Python feasibility prototype
-and focused tests. It is not an MCP standard, an accepted SEP, or a product specification.
+Sensitive References is a possible optional MCP extension. Concept 0.6 is one normative text: a core and
+two profiles. It replaces the combination of Concept 0.5 and the proposed changes SC-01 to SC-20.
 
-The design remains open for community review. The largest unresolved risk is host support for durable,
-authenticated `(token, issuer)` provenance and protected-sink interception.
+Two implementations exist: the reference server MCPGate (source not public) and the reference host in
+[prototype/](prototype/). No conformant end-to-end run of the two succeeded (E11, P16). Concept 0.6 makes
+no conformance or interoperability claim.
 
-The OAuth resolver experiment validates one profile candidate with Keycloak. It does not establish a
-portable standard profile or interoperability with every host or authorization server.
+The largest open risks are:
+
+- host support for durable, authenticated provenance and for protected-sink interception;
+- the conflict of the discovery rules with the root fallback of the MCP authorization specification
+  (OQ-13);
+- provisional decisions that no community review confirmed (OQ-1 to OQ-11);
+- the issuer-side sink, which Concept 0.6 does not define (OQ-3).
+
+A SEP is not ready. [protocol-package/SEP-READINESS.md](protocol-package/SEP-READINESS.md) lists the
+blocking items.

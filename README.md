@@ -1,69 +1,84 @@
 # Sensitive References for MCP
 
-> **Status: pre-SEP design exploration.**
+> **Status: Concept 0.6 draft (not an MCP standard, not an accepted SEP).**
 >
-> This repository explores a possible MCP extension for opaque references to server-held sensitive data.
-> It is not an MCP standard, not an accepted SEP, and is not affiliated with the Model Context Protocol project.
+> This repository describes a possible optional MCP extension for opaque references to server-held
+> sensitive data. It is not affiliated with the Model Context Protocol project.
 
-An MCP server can know a customer email, an API key, a health identifier, or another sensitive value.
-An agent can need that value in a later action without needing to read it.
+An MCP server can hold a customer email, an API key, a health identifier or another sensitive value. An
+agent can need that value in a later action without the need to read it.
 
-Sensitive References explore another option:
+Sensitive References give another option:
 
 ```text
 email = ⟦sref:email:01JCK7KF9X4Y3M4N6Q6YB2D8P0⟧
 ```
 
-The model can carry, sort, format, and route the reference. An authorized non-model resolver can
-materialize the plaintext into an eligible sink when an action requires it. The short goal is:
-**referencable but not visible**.
+The model can carry, sort, format and route the reference. An authorized non-model resolver can later put
+the plaintext into an eligible sink when an action needs it. The plaintext never goes back into
+model-visible text. The short goal is: **referencable but not visible**.
 
 ## Problem
 
-Today, a server often exposes plaintext when an agent must later use a value. Redaction can also make
-the required file, document, or action impossible. This work explores an MCP extension that separates
-reference from plaintext and reference possession from resolution authority.
+Today, a server often shows plaintext when an agent must use a value later. Redaction can make the
+requested file, document or action impossible. This extension separates the reference from the plaintext,
+and the possession of a reference from the authority to resolve it.
 
-## Definition
+## Core properties
 
-A Sensitive Reference is an opaque identifier issued by an MCP server in place of a sensitive plaintext
-value. It lets an agent refer to that value without receiving its plaintext. An authorized non-model
-component associated with the issuer can later resolve it.
+- A Sensitive Reference is an opaque string that a server issues in place of a sensitive value. It is not
+  an authorization grant. Possession alone does not authorize resolution.
+- A host trusts a reference only if it observed it in an authenticated MCP result of a negotiated server,
+  and recorded it outside model text. On loss or ambiguity of that record, the host fails closed.
+- A separately authorized resolver resolves references into an eligible sink. The model-facing result
+  keeps the references.
 
-A Sensitive Reference is not an authorization grant. Possession alone must not authorize resolution.
+## Documents
 
-## Core security property
+Normative core:
 
-For a supporting host, resolver profile, and eligible sink, sensitive data remains referencable and
-actionable without requiring plaintext in model context.
+| Document | Content |
+|---|---|
+| [SPEC-DRAFT.md](SPEC-DRAFT.md) | Terms, negotiation, issuer rules, host rules, resolution, protected data |
+| [WIRE-REPRESENTATION.md](WIRE-REPRESENTATION.md) | Canonical form, test vectors, settings object, refusal result |
+| [HOST-INTEGRATION.md](HOST-INTEGRATION.md) | Issuer identity, provenance store, observation point, sink input point |
+| [SECURITY-MODEL.md](SECURITY-MODEL.md) | Trust boundaries, required controls, threats, limits |
 
-## Architecture
+Normative profiles:
 
-1. A negotiated supporting MCP server replaces a sensitive string with a canonical text reference.
-2. The host records trusted observation state: `(token, authenticated issuer, first_observed, optional metadata)`.
-3. The model may copy the token. Token-shaped text gains no provenance by itself.
-4. A protected sink asks a separately authorized non-model resolver to materialize known references.
-5. The sink returns reference-only content to the model and sends plaintext only to the eligible destination.
+| Document | Profile |
+|---|---|
+| [RESOLVER-PROFILE.md](RESOLVER-PROFILE.md) | `oauth-resolver-1`: a separate OAuth resolver client |
+| [LOCAL-FILE-PROFILE.md](LOCAL-FILE-PROFILE.md) | `local-file-1`: resolution into one local file |
 
-The token contains no authoritative issuer, resolver URL, subject, or plaintext. If one token has trusted
-observations from multiple issuers, resolution fails closed. If the host loses provenance after restart,
-it fails closed or obtains a new trusted observation.
+Not normative:
 
-See [SPEC-DRAFT.md](SPEC-DRAFT.md), [WIRE-REPRESENTATION.md](WIRE-REPRESENTATION.md), and
-[HOST-INTEGRATION.md](HOST-INTEGRATION.md).
+| Document | Content |
+|---|---|
+| [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | Remaining design decisions, with options and provisional choices |
+| [DESIGN-DECISIONS.md](DESIGN-DECISIONS.md) | The decisions that the normative text applies |
+| [CHANGELOG.md](CHANGELOG.md) | Every change from Concept 0.5 to 0.6, with its source |
+| [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) | The two implementations, the evidence and the known gaps |
+| [STATUS.md](STATUS.md) | The current state |
+| [PRIOR-ART.md](PRIOR-ART.md) | Adjacent mechanisms |
+| [protocol-package/](protocol-package/) | Supporting rationale, implementation evidence and history (SC-01 to SC-20) |
+| [prototype/](prototype/) | The reference host and the feasibility prototype |
 
-## Prototype evidence
+## Implementations
 
-The included [prototype](prototype/) demonstrates canonical text references in ordinary string schemas,
-trusted issuer provenance, rejection of forged, wrong-issuer, ambiguous, unknown, revoked, expired,
-and unauthorized references, and all-or-nothing local-file materialization. Model-facing results remain
-reference-only. Equal plaintext values receive unrelated opaque IDs.
+- **Reference server: MCPGate.** It issues references, implements `oauth-resolver-1` and accepts
+  `local-file-1`. Its source is not public. It does not conform to the issuer identity rule: its challenge
+  names the metadata of its base URL (P16).
+- **Reference host: [prototype/demo/mcp_host.py](prototype/demo/mcp_host.py).** An independent MCP host.
+  It negotiates the extension, records provenance, gets its own resolver token and writes a local file.
+  132 tests passed on 2026-10-27 in the tested configuration.
 
-The prototype also includes local Keycloak probes for JWT/JWKS verification and Authorization Code plus
-PKCE. These probes validate a separate OAuth resolver client as a viable resolver-profile candidate.
-They do not decide a final resolver profile or prove portability across authorization servers.
+**Known gaps.** No conformant end-to-end run of the reference host against the reference server succeeded
+(E11, P16). SC-20 has no automated test. Browser-side DNS rebinding remains a residual risk (TM-11). MCP
+SDK 1.x was not tested. The consent lessons come from one browser. See
+[IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).
 
-Run the prototype:
+## Run the prototype
 
 ```bash
 cd prototype
@@ -71,40 +86,27 @@ python3 -m pip install -e '.[mcp-demo,resolver-http-demo]'
 PYTHONPATH=src:. python3 -m unittest discover -s tests -v
 ```
 
+## Versions
+
+- **Concept 0.5** is the git tag `concept-0.5`:
+  <https://github.com/Sprinterli/mcp-sensitive-references/tree/concept-0.5>.
+- **Concept 0.6** is the current text in this repository. [CHANGELOG.md](CHANGELOG.md) lists the changes.
+
 ## Out of scope
 
-This proposal does not define sensitive-data classification, DLP, NER, user interfaces, databases,
-generic filesystem policy, cross-server redemption, delegation, or a new MCP `ContentBlock` type.
-It does not rely on `_meta` as a secrecy boundary.
-
-## Open design questions
-
-- How should a host persist trusted provenance across restart?
-- Which host integration point should protect local sinks?
-- Where should resolver endpoint discovery live?
-- Is a separate narrow OAuth resolver client the best interoperable profile?
-- What sender constraint, audit, and recovery rules should a profile require?
-- Should cross-server redemption remain deferred for v1?
-
-See [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).
-
-## Implementation evidence
-
-The design is informed by production implementation experience in
-[maisecrets](https://github.com/Mcpgate-de/maisecrets) and MCPGate, but this repository separates the
-protocol design from those implementations. Client-Vault is historical implementation and security
-evidence, not a competing protocol. See [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) and
-[PRIOR-ART.md](PRIOR-ART.md).
+This extension does not define sensitive-data classification, DLP, NER, user interfaces, databases,
+generic filesystem policy, cross-server redemption, delegation or a new MCP `ContentBlock` type. It does not
+use `_meta` as a secrecy boundary.
 
 ## Community discussion
 
-[COMMUNITY-DISCUSSION.md](COMMUNITY-DISCUSSION.md) is a ready-to-post discussion draft. Feedback about
-host provenance, protected sinks, resolver profiles, and extension fit is welcome.
+[COMMUNITY-DISCUSSION.md](COMMUNITY-DISCUSSION.md) is a discussion draft. Feedback on host provenance,
+protected sinks, the resolver profile and the remaining design decisions is welcome.
 
 ## Disclaimer
 
-This repository is independent pre-SEP design work. It does not imply endorsement by Anthropic, OpenAI,
-MCP maintainers, or an MCP working group.
+This repository is independent design work. It does not imply endorsement by any AI vendor, by the MCP
+maintainers or by an MCP working group.
 
 ## License
 
