@@ -23,8 +23,8 @@ commands gave these results:
 
 ```bash
 cd prototype
-PYTHONPATH=src python -m pytest -q                  # 132 passed, 181 subtests passed
-PYTHONPATH=src python -m unittest discover -s tests # Ran 132 tests, OK
+PYTHONPATH=src python -m pytest -q                  # 133 passed, 310 subtests passed
+PYTHONPATH=src python -m unittest discover -s tests # Ran 133 tests, OK
 ```
 
 The tested commit is recorded in `protocol-package/CONFORMANCE-RESULTS.md` ("Test run").
