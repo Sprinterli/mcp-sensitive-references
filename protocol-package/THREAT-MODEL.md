@@ -210,8 +210,10 @@ the host name by DNS. It refuses an address that is not globally reachable (the 
 registries, plus multicast, site-local and an embedded IPv4 address that is not globally reachable), and
 a name that does not resolve. It checks the authorization, token and registration endpoints of the
 authorization server metadata when it reads the metadata, also the authorization endpoint that only the
-browser opens. The host follows no redirect for these requests, and it uses no proxy from the
-environment, so a public URL cannot forward the request to a private one.
+browser opens. For the requests of its own HTTP client, the host follows no redirect and uses no proxy
+from the environment, so a public URL cannot forward such a request to a private one. The system browser
+opens the authorization endpoint. The host does not control the redirects, the proxy and the DNS
+resolution of the browser; the residual risk below names that.
 
 There is no automatic exception for a local MCP URL. Local mode needs an explicit operator option, and
 all DNS addresses of the MCP host must be non-public. The host resolves the MCP host once, at
@@ -234,7 +236,8 @@ browser opens the authorization endpoint and resolves its name again. The host c
 before it opens the browser.
 
 **Residual risk.** A DNS server can answer the browser with a non-public address for the authorization
-endpoint, after the check of the host. The browser then sends a top-level GET request with the
+endpoint, after the check of the host, or the endpoint can redirect the browser to such an address. The
+browser then sends a top-level GET request with the
 authorization parameters to that address. The request carries no credential of the host. A host that resolves the name again for the connection does not conform to SC-01, and
 a DNS server that answers with a public address first and with a private address second passes its check.
 In local mode,

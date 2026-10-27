@@ -1,4 +1,8 @@
-"""Host-side HTTP adapter for the OAuth Resolver Profile."""
+"""Early host-side HTTP adapter for the OAuth Resolver Profile, used by the Keycloak probes.
+
+It does not apply the SC-01 fetch policy, the redirect rule or the address binding. The test host uses
+``resolver_client.OAuthHttpResolver`` instead.
+"""
 
 from __future__ import annotations
 

@@ -103,8 +103,11 @@ Fifth review round (DNS rebinding, ``NoRedirectNoProxyTests``):
 * ``_pinned_address`` and ``_new_opener``: a request without a checked address is sent, the real opener
   does not pin [test_a_request_without_a_checked_address_is_refused].
 
-No test runs a TLS handshake with a certificate. ``test_the_real_opener_verifies_certificates_and_host_names``
-checks the settings of the TLS context of the real opener.
+Sixth review round (``NoRedirectNoProxyTests``, ``PinnedTlsTests``):
+
+* ``_new_opener``: an unverified TLS context [test_the_real_opener_verifies_certificates_and_host_names];
+* ``_PinnedHTTPSConnection``: no certificate check [test_a_certificate_for_another_host_name_is_refused,
+  test_a_certificate_from_an_untrusted_ca_is_refused].
 """
 
 from __future__ import annotations
@@ -1620,6 +1623,96 @@ class NoRedirectNoProxyTests(unittest.TestCase):
         self.addCleanup(connection.close)
         connection.connect()
         self.assertEqual(seen, {"peer": "127.0.0.1", "name": "as.example.com"})
+
+
+
+class PinnedTlsTests(unittest.TestCase):
+    """SC-01: a TLS request on the checked address still verifies the certificate for the host name of the URL.
+
+    A real TLS server on 127.0.0.1 with a certificate for ``as.example.com`` from a test CA. The certificates
+    come from the ``openssl`` command line tool; without it the tests are skipped.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import shutil
+        import ssl
+        import subprocess
+
+        if shutil.which("openssl") is None:
+            raise unittest.SkipTest("needs the openssl command line tool")
+        cls.dir = Path(tempfile.mkdtemp(prefix="sref-tls-"))
+
+        def run(*args):
+            subprocess.run(["openssl", *args], cwd=cls.dir, check=True, capture_output=True)
+
+        for ca in ("ca", "other-ca"):
+            run("req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", f"{ca}.key", "-out", f"{ca}.pem",
+                "-days", "2", "-subj", f"/CN={ca}", "-addext", "basicConstraints=critical,CA:TRUE",
+                "-addext", "keyUsage=critical,keyCertSign")
+        (cls.dir / "leaf.ext").write_text("subjectAltName=DNS:as.example.com\nbasicConstraints=CA:FALSE\n"
+                                         "extendedKeyUsage=serverAuth\nauthorityKeyIdentifier=keyid,issuer\n"
+                                         "subjectKeyIdentifier=hash\n")
+        run("req", "-newkey", "rsa:2048", "-nodes", "-keyout", "leaf.key", "-out", "leaf.csr",
+            "-subj", "/CN=as.example.com")
+        run("x509", "-req", "-in", "leaf.csr", "-CA", "ca.pem", "-CAkey", "ca.key", "-CAcreateserial",
+            "-out", "leaf.pem", "-days", "2", "-extfile", "leaf.ext")
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                body = b"{}"
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):
+                pass
+
+        server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        server_context.load_cert_chain(cls.dir / "leaf.pem", cls.dir / "leaf.key")
+        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        cls.server.socket = server_context.wrap_socket(cls.server.socket, server_side=True)
+        cls.port = cls.server.server_address[1]
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        import shutil
+
+        cls.server.shutdown()
+        cls.server.server_close()
+        shutil.rmtree(cls.dir, ignore_errors=True)
+
+    def _get(self, host, ca):
+        import ssl
+        from urllib.request import ProxyHandler, Request, build_opener
+
+        from sensitive_references import resolver_client as rc
+
+        context = ssl.create_default_context(cafile=str(self.dir / ca))
+        opener = build_opener(ProxyHandler({}), rc._NoRedirect, rc._PinnedHTTPS(context=context))
+        request = Request(f"https://{host}:{self.port}/x")
+        request.pinned_address = "127.0.0.1"
+        with opener.open(request, timeout=5) as response:
+            return response.status
+
+    def _refused(self, host, ca):
+        import ssl
+        from urllib.error import URLError
+
+        with self.assertRaises(URLError) as caught:
+            self._get(host, ca)
+        self.assertIsInstance(caught.exception.reason, ssl.SSLCertVerificationError)
+
+    def test_a_certificate_for_the_host_name_of_the_url_is_accepted_on_the_checked_address(self):
+        self.assertEqual(self._get("as.example.com", "ca.pem"), 200)
+
+    def test_a_certificate_for_another_host_name_is_refused(self):
+        self._refused("other.example.com", "ca.pem")
+
+    def test_a_certificate_from_an_untrusted_ca_is_refused(self):
+        self._refused("as.example.com", "other-ca.pem")
 
 
 class HostOptionTests(unittest.TestCase):

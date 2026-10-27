@@ -198,8 +198,9 @@ header and as the TLS server name. Its HTTP client refuses a request without a c
 `test_the_request_connects_to_the_checked_address` (the system resolver does not know the name, so only
 the checked address can answer), `test_a_request_without_a_checked_address_is_refused`,
 `test_the_tls_server_name_is_the_host_name_of_the_url` and
-`test_the_real_opener_verifies_certificates_and_host_names` (the settings of the TLS context; no test runs a
-TLS handshake with a certificate). The test host gives the authorization URL to the system browser, which
+`test_the_real_opener_verifies_certificates_and_host_names` (the settings of the TLS context), and
+`PinnedTlsTests` (a real TLS server on the checked address with a test CA: the certificate for the host
+name of the URL is accepted; a certificate for another name and one from an untrusted CA are refused). The test host gives the authorization URL to the system browser, which
 resolves the name again (THREAT-MODEL.md, TM-11). The test host follows no redirect,
 and it ignores proxy environment variables for these requests.
 

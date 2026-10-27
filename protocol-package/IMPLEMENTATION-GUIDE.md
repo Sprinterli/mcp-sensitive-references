@@ -106,9 +106,10 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
 13. Before each request to a URL that a server supplied, resolve the host name and refuse an address
     that is not globally reachable (SC-01, fetch policy; THREAT-MODEL.md, TM-11). Do not make an
     automatic exception for a local MCP URL. Allow local targets only after an explicit operator option,
-    and only for the MCP origin and configured origins. Do not follow redirects, and do not use a proxy
-    from the environment for these requests. Connect to the checked address, and do not resolve the
-    name again for the connection (SC-01).
+    and only for the MCP origin and configured origins. For the requests of your own HTTP client, do not
+    follow redirects, do not use a proxy from the environment, connect to the checked address, and do
+    not resolve the name again for the connection (SC-01). The browser that opens the authorization
+    endpoint is outside this control.
 14. Build the RFC 8414 well-known URL of an authorization server without a terminating "/" of the issuer
     path (RFC 8414 section 3.1). Keep a trailing slash of a longer path for the RFC 9728 URL (SC-01).
 

@@ -130,12 +130,14 @@ has exactly one trusted issuer. It writes through `ProtectedFileSink`, so a fail
   follows SC-01 and SC-02.
 - **Fetch policy (SC-01, D11, RFC 9728 section 7.7).** Before each request, the host resolves the host name and
   refuses an address that is not globally reachable, and a name that does not resolve. It checks the
-  authorization, token and registration endpoints of the authorization server metadata in the same way. It
-  follows no redirect and uses no proxy from the environment. There is no automatic exception for a local MCP
+  authorization, token and registration endpoints of the authorization server metadata in the same way. Its
+  HTTP client follows no redirect and uses no proxy from the environment. There is no automatic exception for a local MCP
   URL: `--allow-local-targets` enables local mode, only if all DNS addresses of the MCP host are non-public
   (resolved once at connection). Local mode allows the MCP origin and each `--local-origin ORIGIN`, never a
-  link-local, unspecified, broadcast or multicast address. Each request connects to an address that the
-  policy checked, so a second DNS answer cannot change the target (DNS rebinding).
+  link-local, unspecified, broadcast or multicast address. Each request of the HTTP client connects to an
+  address that the policy checked, so a second DNS answer cannot change the target (DNS rebinding). The
+  system browser opens the authorization endpoint; the host does not control its redirects, proxy or DNS
+  (`protocol-package/THREAT-MODEL.md`, TM-11).
 - The resolver token is a second credential. It comes from the cache file (`--resolver-token-cache`, mode 0600),
   from a refresh, or from a new authorization: dynamic client registration, Authorization Code + PKCE S256, the
   `resource` indicator, the resolve scope only, and a redirect to `127.0.0.1`. The host opens the browser and waits
@@ -186,6 +188,9 @@ The protocol gaps that this work found are in `M4-FINDINGS.md`.
 - `COMPLETION-AUDIT.md` — requirement-by-requirement evidence for the prototype scope.
 - `src/sensitive_references/oidc.py` and `resolve_http.py` — PKCE/OIDC and a non-model resolver-endpoint PoC.
 - `src/sensitive_references/http_resolver.py` — host adapter that calls only issuer-configured resolver endpoints and rejects partial responses.
+- `oidc.py` and `http_resolver.py` are early probes for the Keycloak demos. They use `urlopen` and do not
+  apply the SC-01 fetch policy, the redirect rule or the address binding. The test host does not use them,
+  and they are not a conformant implementation of the profile.
 - `src/sensitive_references/output_guard.py` — re-redacts only values from the current protected operation if a downstream action echoes them.
 - `src/sensitive_references/capabilities.py` — version/profile intersection before the host records provenance.
 - `src/sensitive_references/resolver_client.py` — host-side `oauth-resolver-1` client: resource and authorization-server discovery, token cache, PKCE with a loopback redirect, and the resolve call.

@@ -1,4 +1,8 @@
-"""OIDC discovery, PKCE construction, and JWT verification for oauth-resolver-1."""
+"""OIDC discovery, PKCE construction, and JWT verification for oauth-resolver-1 (early probe).
+
+Used by the Keycloak probes. It does not apply the SC-01 fetch policy, the redirect rule or the address
+binding. The test host uses ``resolver_client`` instead.
+"""
 
 from __future__ import annotations
 
