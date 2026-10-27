@@ -60,8 +60,11 @@ normative text. Each line names its source: an SC entry of
   authenticated principal, exact and current references, whole-call refusal, references back in every
   model-visible result. (SC-18 not integrated, OQ-3)
 - Concept 0.5 said the agent token must not resolve plaintext "unless it has a separate explicit resolve
-  grant". Concept 0.6 replaces this with the stricter rule that an agent token never authorizes a resolve
-  request. (SC-05)
+  grant". For the resolve endpoint, Concept 0.6 makes this stricter: an agent token never authorizes a
+  resolve request. For issuer-side use, Concept 0.6 does not decide whether the 0.5 clause applies; that
+  stays open as OQ-3, and the floor of section 6.4 applies in addition. (SC-05, OQ-3)
+- An issuer reports a reference that the principal is not authorized for with the reason `unknown`.
+  Concept 0.5 had no reason for this case. (new)
 - An issuer identity is defined for HTTP only. A host records no observation over stdio or another
   transport. **This narrows Concept 0.5, which did not exclude stdio servers.** (new, OQ-12)
 - A resolver profile again lists audit among the things it defines. (Concept 0.5)

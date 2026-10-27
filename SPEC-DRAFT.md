@@ -27,8 +27,8 @@ BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all capitals, as
 
 A paragraph that starts with **Provisional (OQ-n)** states a provisional v1 design decision. It is
 normative for Concept 0.6: its key words bind like every other rule. It is the working design for version 1,
-and a later version can change it. The community did not confirm it. An implementation can still differ
-from it; [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) lists the known differences.
+and a later version can change it. The community did not confirm it. An implementation that differs from it
+does not conform to it; [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) lists the known differences.
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) lists the options for each such decision.
 
 A paragraph that starts with **Open (OQ-n)** names a question that this version does not decide. It is
@@ -68,8 +68,8 @@ wire. They do not carry the mark.
 - **Resolver.** A non-model component that asks the issuer for the sensitive value of a reference.
 - **Resolution.** The release of a sensitive value by the issuer to a resolver.
 - **Issuer-side use.** The use of a sensitive value by the issuer, for a reference in the arguments of a
-  tool call, in a call that the issuer sends to a system outside itself. Issuer-side use is not
-  resolution in the sense above. Section 6.4 sets the rules for it.
+  tool call, in a call that the issuer sends to a system outside itself. Whether section 5.2 covers
+  issuer-side use is open (OQ-3). Section 6.4 sets the rules that hold until a later version decides it.
 - **Sink.** A destination that receives sensitive values outside model-visible content, for example a
   local file.
 - **Resolver profile.** A document that defines how a resolver discovers, authenticates and calls the
@@ -155,7 +155,9 @@ A revocation MUST survive a replay of an older record of the same principal.
 
 A resolution or an issuer-side use of an unknown, revoked, expired or unauthorized reference MUST fail.
 If the issuer replaced the value generation that a reference names, the issuer MUST treat that reference
-as revoked. The failure MUST NOT return plaintext. The failure MUST NOT return protected data (section 8).
+as revoked. The issuer MUST report a reference that the principal is not authorized for with the reason
+`unknown`, so that a failure does not show whether a reference of another principal exists. The failure
+MUST NOT return plaintext. The failure MUST NOT return protected data (section 8).
 
 **Note.** "Ambiguous" is a state of host provenance (section 6.1), not of the issuer.
 

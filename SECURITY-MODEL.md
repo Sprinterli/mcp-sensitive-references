@@ -33,7 +33,7 @@ These controls are the core of the design. They bind every profile. A profile ca
    registry is integrity-protected and bound to its principal (SPEC-DRAFT.md, section 5.4).
 5. **Out-of-model resolution.** A sink does not return resolved plaintext in an ordinary model-facing
    result. No result that the model can read contains a resolved value. Resolve-endpoint answers, refusal
-   results, sink reports, and host error texts and logs contain no protected data (SPEC-DRAFT.md,
+   results, sink reports as the sink profile sets them, and host error texts and logs contain no protected data (SPEC-DRAFT.md,
    section 8). Ordinary issuer results and the model-facing sink result carry references by design.
 6. **All or nothing.** A sink resolves every reference of one write, or leaves the destination unchanged.
 7. **Separate credentials.** A resolver token does not authorize an MCP request. An agent token does not

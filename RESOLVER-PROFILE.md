@@ -477,8 +477,8 @@ beyond section 11.1 is not decided.
 
 ## 17. Evidence
 
-**Note.** Two implementations implement parts of this profile: the reference server MCPGate and the
-reference host in `prototype/`. Neither implements the whole profile.
+**Note.** Two implementations implement parts of this profile: the reference server and the reference host
+in `prototype/` ([IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) names them). Neither implements the whole profile.
 [protocol-package/PROFILE-oauth-resolver-1.md](protocol-package/PROFILE-oauth-resolver-1.md) maps each rule
 to its evidence. The reference server authorizes only the owner of a reference, and reports a reference of another
 principal as `unknown`. The reference server does not conform to

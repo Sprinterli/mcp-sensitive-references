@@ -27,7 +27,7 @@ What the evidence shows:
 Limits:
 
 - **Not conformant to the issuer identity rule (P16).** The server publishes its base URL as the RFC 9728
-  `resource`. Its MCP URL is a path below that value. On 2026-10-26, one operator check observed that the
+  `resource`. Its MCP URL is a path below that value. On 2026-10-26, one operator check (not independently reproduced) observed that the
   path-specific metadata document of the MCP URL exists, with the correct `resource` and the discovery
   object. The `resource_metadata` parameter of the 401 challenge still names the metadata of the base URL.
 - The binding of an approval to resource, scope and sink-profile set, and the names on the consent page,
@@ -138,6 +138,7 @@ authorization. It is not the protocol, and its product mechanics are not core re
 - [protocol-package/PROFILE-oauth-resolver-1.md](protocol-package/PROFILE-oauth-resolver-1.md) and
   [protocol-package/PROFILE-local-file-1.md](protocol-package/PROFILE-local-file-1.md): each profile rule
   with its test.
-- [protocol-package/THREAT-MODEL.md](protocol-package/THREAT-MODEL.md): TM-1 to TM-12 with evidence.
+- [protocol-package/THREAT-MODEL.md](protocol-package/THREAT-MODEL.md): TM-1 to TM-12 with evidence. TM-13
+  (SECURITY-MODEL.md) is new in Concept 0.6 and has no evidence entry yet.
 - [protocol-package/SEP-READINESS.md](protocol-package/SEP-READINESS.md): the state of each SEP item.
 - [prototype/M4-FINDINGS.md](prototype/M4-FINDINGS.md): findings F1 to F13.
