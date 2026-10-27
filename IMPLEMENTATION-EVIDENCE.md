@@ -29,10 +29,12 @@ What the evidence shows:
 Limits:
 
 - **The issuer identity rule (P16), fixed on 2026-10-27.** Until then, the 401 challenge of the MCP URL
-  named the metadata of the base URL, whose `resource` is the base URL (E11). Since server version
-  2.0.3475, the challenge names the path-specific metadata document of the MCP URL, and its `resource` is
-  the MCP URL. The metadata document of the base URL still names the base URL. One operator check (not
-  independently reproduced) observed this on 2026-10-27; run E12 used it.
+  named the metadata of the base URL, whose `resource` is the base URL (E11). After a server fix on
+  2026-10-27, an operator check observed that the challenge names the path-specific metadata document of
+  the MCP URL, and that its `resource` is the MCP URL. The metadata document of the base URL still names
+  the base URL. The operator keeps the raw output of that check (the 401 headers and both metadata
+  documents); it is not in this repository, and nobody reproduced it independently. The host reports of
+  E12 do not record the challenge.
 - The binding of an approval to resource, scope and sink-profile set, and the names on the consent page,
   are not verified.
 - The `WWW-Authenticate` header on a 401 of the resolve endpoint is not verified.
@@ -104,7 +106,7 @@ All runs used synthetic data. This repository did not repeat them.
 | E4 to E6 | production, reported | Negotiated sessions got references; legacy sessions got none; malformed references were refused. |
 | E8 to E10 | production, 2026-10-26, observed in one operator run, not independently reproduced | Interactive consent, cache, and refresh after expiry. The host materialized the file. Zero sentinel values in model-visible content. **All three runs used the non-conformant option `--resource`.** |
 | E11 | production, 2026-10-26, observed in one operator run | The host at commit `8394a02`, without `--resource`, read the metadata that the challenge names, found the base URL as `resource`, stopped with `wrong_issuer` and resolved nothing. |
-| E12 | production, server 2.0.3475, 2026-10-27, observed in one operator run of each step, not independently reproduced | The host at commit `9b95733` (host code equal to the tested commit `6cdd658`), with no deviation option, found the MCP URL as `resource` through the challenge (the server version and the challenge come from the operator check of the same day; the host reports show the result). The authorization request named the MCP URL as `resource`. Three runs: interactive consent; a run from the cache that opened no page; a run after the real expiry of the access token that got a new one with the refresh token. Each run negotiated version 1, observed one reference with provenance, sent one resolve request and materialized the file with the synthetic value. Zero sentinel values in model-visible content, in the host report and in the token cache. |
+| E12 | production, 2026-10-27, observed in one operator run of each step, not independently reproduced | The host at commit `9b95733` (host code equal to the tested commit `6cdd658`), with no deviation option, discovered the MCP URL as `resource` and used it. The authorization request named the MCP URL as `resource`. Three runs: interactive consent; a run from the cache that opened no page; a run after the real expiry of the access token that got a new one with the refresh token. Each run negotiated version 1, observed one reference with provenance, sent one resolve request and materialized the file with the synthetic value. Zero sentinel values in model-visible content, in the host report and in the token cache. |
 
 E8 to E10 show the profile flow under the known deviation P16. They are no evidence of conformance. E12
 shows the same flow without a deviation.
