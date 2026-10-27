@@ -7,8 +7,8 @@ two profiles. It replaces the combination of Concept 0.5 and the proposed change
 SC-18 (the issuer-side sink) is not integrated and stays open as OQ-3, with an interim floor.
 
 Two implementations exist: the reference server MCPGate (source not public) and the reference host in
-[prototype/](prototype/). No conformant end-to-end run of the two succeeded (E11, P16). Concept 0.6 makes
-no conformance or interoperability claim.
+[prototype/](prototype/). One run of the two without a deviation option succeeded on
+2026-10-27 (E12, one operator run of each step). Concept 0.6 makes no claim of full conformance.
 
 The largest open risks are:
 

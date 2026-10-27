@@ -5,9 +5,10 @@ evidence for the normative text. The full evidence record is
 [protocol-package/CONFORMANCE-RESULTS.md](protocol-package/CONFORMANCE-RESULTS.md). If this file and that
 record differ, the record is correct.
 
-**No interoperability claim.** No conformant end-to-end run of the reference host against the reference
-server succeeded (E11, P16). Concept 0.6 does not claim that either implementation conforms, or that the
-two implementations interoperate.
+**Limited interoperability claim.** On 2026-10-27, the reference host ran against the reference server
+without a non-conformant option, and the flow of `oauth-resolver-1` and `local-file-1` succeeded (E12).
+This is one operator run of each step, not independently reproduced. Concept 0.6 does not claim that
+either implementation conforms to the whole specification.
 
 ## Reference server: MCPGate
 
@@ -26,10 +27,11 @@ What the evidence shows:
 
 Limits:
 
-- **Not conformant to the issuer identity rule (P16).** The server publishes its base URL as the RFC 9728
-  `resource`. Its MCP URL is a path below that value. On 2026-10-26, one operator check (not independently reproduced) observed that the
-  path-specific metadata document of the MCP URL exists, with the correct `resource` and the discovery
-  object. The `resource_metadata` parameter of the 401 challenge still names the metadata of the base URL.
+- **The issuer identity rule (P16), fixed on 2026-10-27.** Until then, the 401 challenge of the MCP URL
+  named the metadata of the base URL, whose `resource` is the base URL (E11). Since server version
+  2.0.3475, the challenge names the path-specific metadata document of the MCP URL, and its `resource` is
+  the MCP URL. The metadata document of the base URL still names the base URL. One operator check (not
+  independently reproduced) observed this on 2026-10-27; run E12 used it.
 - The binding of an approval to resource, scope and sink-profile set, and the names on the consent page,
   are not verified.
 - The `WWW-Authenticate` header on a 401 of the resolve endpoint is not verified.
@@ -101,8 +103,10 @@ All runs used synthetic data. This repository did not repeat them.
 | E4 to E6 | production, reported | Negotiated sessions got references; legacy sessions got none; malformed references were refused. |
 | E8 to E10 | production, 2026-10-26, observed in one operator run, not independently reproduced | Interactive consent, cache, and refresh after expiry. The host materialized the file. Zero sentinel values in model-visible content. **All three runs used the non-conformant option `--resource`.** |
 | E11 | production, 2026-10-26, observed in one operator run | The host at commit `8394a02`, without `--resource`, read the metadata that the challenge names, found the base URL as `resource`, stopped with `wrong_issuer` and resolved nothing. |
+| E12 | production, server 2.0.3475, 2026-10-27, observed in one operator run of each step, not independently reproduced | The host at commit `9b95733` (host code equal to the tested commit `6cdd658`), with no deviation option, found the MCP URL as `resource` through the challenge. The authorization request named the MCP URL as `resource`. Three runs: interactive consent; a run from the cache that opened no page; a run after the real expiry of the access token that got a new one with the refresh token. Each run negotiated version 1, observed one reference with provenance, sent one resolve request and materialized the file with the synthetic value. Zero sentinel values in model-visible content, in the host report and in the token cache. |
 
-E8 to E10 show the profile flow under the known deviation P16. They are no evidence of conformance.
+E8 to E10 show the profile flow under the known deviation P16. They are no evidence of conformance. E12
+shows the same flow without a deviation.
 
 ## Lessons with limited evidence
 
@@ -113,8 +117,8 @@ The consent-page lessons L-a and L-b come from one operator run in one browser (
 
 ## Known gaps
 
-- **E11/P16.** No conformant end-to-end run of the reference host against the reference server. The
-  challenge of the server names the metadata of its base URL.
+- **E12 is one run of each step.** Nobody else reproduced it. The automated tests of this repository do
+  not run against the reference server.
 - **SC-20 has no automated test.** No test in this repository and no server test that this repository read
   covers the loopback redirect rules.
 - **TM-11.** Browser-side DNS rebinding of the authorization endpoint is a residual risk.

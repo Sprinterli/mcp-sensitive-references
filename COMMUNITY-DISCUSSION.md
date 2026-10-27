@@ -25,8 +25,9 @@ local file, all or nothing. The extension does not need a new `ContentBlock` typ
 fields and does not use `_meta` as a secrecy boundary.
 
 Two implementations exist: a reference server (MCPGate, source not public) and an independent reference
-host in the repository. They do not yet interoperate in a conformant run: the server challenge names the
-metadata of its base URL, and the host, without its non-conformant option `--resource`, stops there (E11). Several decisions are provisional and
+host in the repository. Until 2026-10-27, the server challenge named the metadata of its base URL, and the host without its
+non-conformant option `--resource` stopped there (E11). After a server fix, one run without a deviation
+option succeeded (E12). Several decisions are provisional and
 need review.
 
 We did not find a first-class MCP mechanism that combines server-issued opaque references, host-trusted

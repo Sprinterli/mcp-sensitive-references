@@ -481,6 +481,6 @@ beyond section 11.1 is not decided.
 in `prototype/` ([IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) names them). Neither implements the whole profile.
 [protocol-package/PROFILE-oauth-resolver-1.md](protocol-package/PROFILE-oauth-resolver-1.md) maps each rule
 to its evidence. The reference server authorizes only the owner of a reference, and reports a reference of another
-principal as `unknown`. The reference server does not conform to
-section 3: its challenge names the metadata of its base URL. No conformant end-to-end run succeeded. See
+principal as `unknown`. Until 2026-10-27, the challenge of the reference server
+named the metadata of its base URL (section 3). One run without a deviation option succeeded after the fix. See
 [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).

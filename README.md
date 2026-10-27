@@ -67,14 +67,14 @@ Not normative:
 ## Implementations
 
 - **Reference server: MCPGate.** It issues references, implements `oauth-resolver-1` and accepts
-  `local-file-1`. Its source is not public. It does not conform to the issuer identity rule: its challenge
-  names the metadata of its base URL (P16).
+  `local-file-1`. Its source is not public. Since 2026-10-27, its challenge names the metadata of its
+  MCP URL (P16 fixed, E12).
 - **Reference host: [prototype/demo/mcp_host.py](prototype/demo/mcp_host.py).** An independent MCP host.
   It negotiates the extension, records provenance, gets its own resolver token and writes a local file.
   133 tests passed on 2026-10-27 in the tested configuration.
 
-**Known gaps.** No conformant end-to-end run of the reference host against the reference server succeeded
-(E11, P16). SC-20 has no automated test. Browser-side DNS rebinding remains a residual risk (TM-11). MCP
+**Known gaps.** The run of the reference host against the reference server without a deviation option
+(E12) is one operator run of each step and is not independently reproduced. SC-20 has no automated test. Browser-side DNS rebinding remains a residual risk (TM-11). MCP
 SDK 1.x was not tested. The consent lessons come from one browser. See
 [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).
 

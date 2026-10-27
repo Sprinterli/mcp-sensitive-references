@@ -140,7 +140,9 @@ normative text. Each line names its source: an SC entry of
 
 - README.md: status line, "Versions" section, document map, implementations, known gaps.
 - IMPLEMENTATION-EVIDENCE.md: MCPGate as the reference server, `prototype/demo/mcp_host.py` as the
-  reference host, the evidence of CONFORMANCE-RESULTS.md and the known gaps (E11/P16 and others).
+  reference host, the evidence of CONFORMANCE-RESULTS.md and the known gaps. New run E12 (2026-10-27):
+  after the server fix of P16, the host ran without a deviation option, with consent, cache, refresh and
+  materialization. One operator run of each step.
 - OPEN-QUESTIONS.md: "Remaining design decisions" with OQ-1 to OQ-18.
 - DESIGN-DECISIONS.md, STATUS.md, PRIOR-ART.md, COMMUNITY-DISCUSSION.md and OUTREACH-POST.md follow
   Concept 0.6.
