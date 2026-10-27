@@ -44,7 +44,7 @@ Legend: **Done**, **Partial**, **Missing**.
 | Item | State | Evidence or gap |
 |---|---|---|
 | One server implementation | Done | The reference server, milestones M0 to M4 (plan section 6). Its source is not public. |
-| One host implementation | Done | `prototype/demo/mcp_host.py`, 90 resolve tests and 13 host tests passed on 2026-10-27 at commit `7e2f5d4`. |
+| One host implementation | Done | `prototype/demo/mcp_host.py`, 93 resolve tests and 13 host tests passed on 2026-10-27 at commit `1a36945`. |
 | End-to-end run of host and server | Partial | E1 to E3 and E7 (local), E4 to E6 (production, synthetic). E8 to E10: materialization in production on 2026-10-26, observed in one operator run, not independently reproduced, and only with the non-conformant option `--resource` (deviation P16). No conformant run succeeded: in E11 the conformant host stops at the challenge of the reference server, which names the metadata of the base URL. See [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#end-to-end-runs). |
 | A second independent server | Missing | No other server implements the extension. |
 | A second independent host | Missing | No general-purpose MCP host supports the extension. A plugin host cannot (P11, SC-19). |
@@ -63,7 +63,7 @@ Legend: **Done**, **Partial**, **Missing**.
 | Independent security review of the implementations | Partial | The reference server had one external review round on M4a (plan section 6, "Review round 1"). Its verdict was NO-SHIP with no BLOCKER, and the implementer fixed four findings. The implementer reported a second review round, after which revision R2 exists (CONFORMANCE-RESULTS.md). This package has no verdict of that round. |
 | Sponsor in the MCP project | **Not verified** | The sources do not mention one. |
 | Vendor-neutral text | Partial | The normative text of this package (SPEC-CHANGES.md and the rules of the two profiles) names no product. The evidence names two: Keycloak, only for the prototype probes (PROFILE-oauth-resolver-1.md section 8 and the row above), and Google Chrome, only as the tested browser of lessons L-a and L-b in IMPLEMENTATION-GUIDE.md. The concept files `HOST-INTEGRATION.md`, `IMPLEMENTATION-EVIDENCE.md` and `README.md` name products. Before submission, the product-specific reproduction evidence and the repository-history identifiers (branch, commit hashes, the labels R1 and R2) must move into a non-normative evidence appendix with a stable release tag. |
-| Prototype tests green | Done | 126 of 126 passed on 2026-10-27 with Python 3.14.8 and MCP SDK 2.3.0 at the tested commit `7e2f5d4` (pytest: 126 passed, 175 subtests passed; unittest: 126 OK). MCP SDK 1.x was not tested. |
+| Prototype tests green | Done | 129 of 129 passed on 2026-10-27 with Python 3.14.8 and MCP SDK 2.3.0 at the tested commit `1a36945` (pytest: 129 passed, 175 subtests passed; unittest: 129 OK). MCP SDK 1.x was not tested. |
 
 ## Summary
 
