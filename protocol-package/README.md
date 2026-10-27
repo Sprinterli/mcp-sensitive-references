@@ -3,6 +3,13 @@
 **Status: experimental, pre-SEP.** This package is not an MCP standard, not an accepted Specification
 Enhancement Proposal (SEP), and not a product specification.
 
+**Known conformance gap (E11, P16).** No conformant end-to-end run of the test host against the reference
+server succeeded. The challenge of the reference server names the protected-resource metadata of its base
+URL, not of the MCP endpoint (deviation P16), and the conformant test host stops there (E11). The
+production runs E8 to E10 succeeded only with the non-conformant option `--resource`. This package does
+not claim interoperability or conformance of the reference server. See
+[CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#end-to-end-runs).
+
 ## What this package is
 
 This package collects the protocol results of two implementations of concept 0.5:
