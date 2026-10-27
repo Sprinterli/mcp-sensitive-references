@@ -6,7 +6,7 @@ requirement to the evidence that exists for it on 2026-10-27.
 ## Test run
 
 **Supported, tested configuration (2026-10-27).** Python 3.14.8, MCP Python SDK (`mcp`) 2.3.0,
-`PYTHONPATH=src`, repository commit `1a36945` (branch `m7-consolidation`). This is "the tested
+`PYTHONPATH=src`, repository commit `00dce0b` (branch `m7-consolidation`). This is "the tested
 commit" of the whole package. The commits after it change only documentation
 (`protocol-package/` and `prototype/README.md`), no code and no test.
 Commands and results:
@@ -51,7 +51,8 @@ and a test CA: 129 passed, 175 subtests passed.
 
 **Mutation check.** `prototype/tests/tools/mutation_probe.py` copies `prototype/` into a directory
 outside the repository, disables one guard per run, and runs `test_mcp_host_resolve.py` there. It does not
-write into the repository. At the tested commit it ran 50 mutants: the 13 guards of the second round and
+write into the repository. At commit `1a36945` it ran 50 mutants (the tested commit only renames one mutation from r6 to r7 and
+changes docstrings; the renamed mutation was run again there and failed three tests): the 13 guards of the second round and
 12 guards of the third round on the current text, 18 guards of the fourth round, 5 guards of the
 fifth round and 2 guards of the sixth and seventh rounds. 50 of 50 failed at least one test (2026-10-27, with the configuration above). The fourth round removed two
 mutants of the third round (the local exception and the RFC 4193 range), because the code that they
