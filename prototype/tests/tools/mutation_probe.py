@@ -7,7 +7,7 @@ test failed) or SURVIVED. The script never writes into the repository.
 
     python prototype/tests/tools/mutation_probe.py [--work DIR] [--only TEXT]
 
-Rounds 2 to 6 of the review (see the docstring of ``test_mcp_host_resolve.py``
+Rounds 2 to 7 of the review (see the docstring of ``test_mcp_host_resolve.py``
 and ``protocol-package/CONFORMANCE-RESULTS.md``). The mutations of earlier rounds
 are applied to the current text.
 """
@@ -120,7 +120,7 @@ MUTATIONS = [
     ("r6 the real opener does not verify certificates", RC,
      "_NoRedirect, _PinnedHTTP, _PinnedHTTPS)",
      "_NoRedirect, _PinnedHTTP, _PinnedHTTPS(context=__import__('ssl')._create_unverified_context()))"),
-    ("r6 the pinned TLS connection does not verify", RC,
+    ("r7 the pinned TLS connection does not verify", RC,
      "        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)",
      "        self.sock = __import__('ssl')._create_unverified_context().wrap_socket(sock, server_hostname=self.host)"),
     ("r4 multicast counted as public", RC, "    if not ip.is_global or ip.is_multicast or", "    if not ip.is_global or"),

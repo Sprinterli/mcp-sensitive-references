@@ -103,9 +103,12 @@ Fifth review round (DNS rebinding, ``NoRedirectNoProxyTests``):
 * ``_pinned_address`` and ``_new_opener``: a request without a checked address is sent, the real opener
   does not pin [test_a_request_without_a_checked_address_is_refused].
 
-Sixth review round (``NoRedirectNoProxyTests``, ``PinnedTlsTests``):
+Sixth review round (``NoRedirectNoProxyTests``):
 
-* ``_new_opener``: an unverified TLS context [test_the_real_opener_verifies_certificates_and_host_names];
+* ``_new_opener``: an unverified TLS context [test_the_real_opener_verifies_certificates_and_host_names].
+
+Seventh review round (``PinnedTlsTests``, a real TLS server with a test CA):
+
 * ``_PinnedHTTPSConnection``: no certificate check [test_a_certificate_for_another_host_name_is_refused,
   test_a_certificate_from_an_untrusted_ca_is_refused].
 """
