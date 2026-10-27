@@ -16,6 +16,8 @@ from __future__ import annotations
 from base64 import urlsafe_b64encode
 from dataclasses import dataclass
 from hashlib import sha256
+from functools import partial
+import http.client
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import hmac
 import ipaddress
@@ -31,7 +33,7 @@ import time
 from typing import Any, Callable, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
-from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+from urllib.request import HTTPHandler, HTTPRedirectHandler, HTTPSHandler, ProxyHandler, Request, build_opener
 
 from .oauth_profile import RESOLVE_SCOPE
 from .resolver import ResolutionError, SinkContext
@@ -63,10 +65,50 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    # Connects to the address that the fetch policy checked, not to a new DNS answer (DNS rebinding).
+    def __init__(self, *args, address: str, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._address = address
+
+    def connect(self) -> None:
+        self.sock = socket.create_connection((self._address, self.port), self.timeout)
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    # TLS still verifies the certificate for the host name of the URL.
+    def __init__(self, *args, address: str, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._address = address
+
+    def connect(self) -> None:
+        sock = socket.create_connection((self._address, self.port), self.timeout)
+        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+
+
+def _pinned_address(req: Request) -> str:
+    address = getattr(req, "pinned_address", None)
+    if not address:
+        raise URLError("no checked address for the request")
+    return address
+
+
+class _PinnedHTTP(HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(partial(_PinnedHTTPConnection, address=_pinned_address(req)), req)
+
+
+class _PinnedHTTPS(HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(partial(_PinnedHTTPSConnection, address=_pinned_address(req)), req,
+                            context=self._context)
+
+
 def _new_opener():
     # No redirect (SC-01, SC-04) and no proxy from the environment: the fetch policy checks the
-    # address that the request goes to, and a proxy would choose another one.
-    return build_opener(ProxyHandler({}), _NoRedirect)
+    # address that the request goes to, and a proxy would choose another one. The connection goes
+    # to the checked address (``Request.pinned_address``); without one the request fails.
+    return build_opener(ProxyHandler({}), _NoRedirect, _PinnedHTTP, _PinnedHTTPS)
 
 
 _OPENER = _new_opener()
@@ -175,9 +217,9 @@ class FetchPolicy:
     host once (at connection) and keeps the result. In local mode the host
     allows a non-public target only on the MCP origin or on an origin of
     ``local_origins`` (exact scheme, host and port), and never a link-local,
-    unspecified, broadcast or multicast address. Residual risk: the request
-    resolves the name again, so DNS rebinding between the check and the
-    request stays possible.
+    unspecified, broadcast or multicast address. ``_exchange`` connects to
+    an address that ``targets`` checked, so a second DNS answer cannot change
+    the target (DNS rebinding).
     """
 
     def __init__(self, mcp_url: str, *, allow_local: bool = False,
@@ -189,12 +231,17 @@ class FetchPolicy:
         self.local_origins = frozenset({origin(mcp_url), *(origin(o) for o in local_origins)})
 
     def check(self, url: str, what: str) -> str:
+        self.targets(url, what)
+        return url
+
+    def targets(self, url: str, what: str) -> list[str]:
+        """The checked addresses of ``url``. The request connects to one of them."""
         addresses = _addresses(urlsplit(url).hostname)
         if addresses is not None and not any(non_public_address(a) for a in addresses):
-            return url
+            return addresses
         if (self.local and addresses is not None and origin(url) in self.local_origins
                 and not any(never_a_target(a) for a in addresses)):
-            return url
+            return addresses
         raise ResolverClientError(
             "forbidden_target", f"the {what} URL is on a non-public address or does not resolve")
 
@@ -213,8 +260,9 @@ def _exchange(method: str, url: str, *, policy: FetchPolicy, body: bytes | None 
     ``policy`` checks the target before the request. With ``read=False`` the
     body of a success answer is not read (a stream could hold the call open).
     """
-    policy.check(url, "request")
+    addresses = policy.targets(url, "request")
     request = Request(url, data=body, method=method, headers=headers or {})
+    request.pinned_address = addresses[0]
     try:
         with _OPENER.open(request, timeout=timeout) as response:  # nosec B310: URLs pass require_secure
             return response.status, response.headers, (response.read() if read else b"")

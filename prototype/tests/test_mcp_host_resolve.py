@@ -1538,6 +1538,57 @@ class NoRedirectNoProxyTests(unittest.TestCase):
         self.assertEqual(self.hits["target"], [("GET", "/direct")])
 
 
+    def _use_real_opener(self):
+        saved_opener = self.rc._OPENER
+        self.addCleanup(setattr, self.rc, "_OPENER", saved_opener)
+        self.rc._OPENER = self.rc._new_opener()
+
+    def test_the_request_connects_to_the_checked_address(self):
+        """SC-01: the host resolves the name once. The system resolver does not know the name."""
+        self._use_real_opener()
+        port = int(self.target.rsplit(":", 1)[1])
+        lookups = []
+
+        def lookup(host):
+            lookups.append(host)
+            return ["127.0.0.1"]
+
+        saved_lookup = self.rc._lookup
+        self.addCleanup(setattr, self.rc, "_lookup", saved_lookup)
+        self.rc._lookup = lookup
+        policy = self.rc.FetchPolicy(f"http://rebind.invalid:{port}/mcp", allow_local=True)
+        lookups.clear()
+        status, _ = self.rc.http_json("GET", f"http://rebind.invalid:{port}/pinned", policy=policy, timeout=5)
+        self.assertEqual(status, 200)
+        self.assertEqual(lookups, ["rebind.invalid"])
+        self.assertEqual(self.hits["target"], [("GET", "/pinned")])
+
+    def test_a_request_without_a_checked_address_is_refused(self):
+        self._use_real_opener()
+        from urllib.error import URLError
+        from urllib.request import Request
+
+        with self.assertRaises(URLError):
+            self.rc._OPENER.open(Request(f"{self.target}/unchecked"), timeout=5)
+        self.assertEqual(self.hits["target"], [])
+
+    def test_tls_verifies_the_host_name_of_the_url_on_the_checked_address(self):
+        rc = self.rc
+        seen = {}
+
+        class Context:
+            def wrap_socket(self, sock, server_hostname):
+                seen["peer"], seen["name"] = sock.getpeername()[0], server_hostname
+                return sock
+
+        port = int(self.target.rsplit(":", 1)[1])
+        connection = rc._PinnedHTTPSConnection("as.example.com", port, timeout=5, context=Context(),
+                                               address="127.0.0.1")
+        self.addCleanup(connection.close)
+        connection.connect()
+        self.assertEqual(seen, {"peer": "127.0.0.1", "name": "as.example.com"})
+
+
 class HostOptionTests(unittest.TestCase):
     def test_the_mcp_url_must_lie_under_the_resource(self):
         cases = [("https://s.example/mcp", "https://s.example", True),

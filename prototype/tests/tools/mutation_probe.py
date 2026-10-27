@@ -7,7 +7,7 @@ test failed) or SURVIVED. The script never writes into the repository.
 
     python prototype/tests/tools/mutation_probe.py [--work DIR] [--only TEXT]
 
-Rounds 2, 3 and 4 of the review (see the docstring of ``test_mcp_host_resolve.py``
+Rounds 2, 3, 4 and 5 of the review (see the docstring of ``test_mcp_host_resolve.py``
 and ``protocol-package/CONFORMANCE-RESULTS.md``). The mutations of earlier rounds
 are applied to the current text.
 """
@@ -59,7 +59,8 @@ MUTATIONS = [
     ("r2 --no-resource-metadata maps to the configuration", HOST,
      "no_metadata=args.no_resource_metadata,", "no_metadata=False,"),
     # -- round 3
-    ("r3 fetch policy: no check before a request", RC, '    policy.check(url, "request")\n', ""),
+    ("r3 fetch policy: no check before a request", RC, '    addresses = policy.targets(url, "request")\n',
+     '    addresses = ["127.0.0.1"]\n'),
     ("r3 fetch policy: endpoints of authorization-server metadata not checked", RC,
      "            return policy.check(require_secure(document[name], what), what)",
      "            return require_secure(document[name], what)"),
@@ -103,6 +104,19 @@ MUTATIONS = [
     ("r4 never-a-target ignores an embedded IPv4 address", RC,
      "               for i in (ip, embedded) if i is not None)", "               for i in (ip,))"),
     ("r4 is_global replaced by is_private", RC, "    if not ip.is_global or ip.is_multicast", "    if ip.is_private or ip.is_multicast"),
+    # -- round 5 (Codex H2: the request connects to the checked address)
+    ("r5 http connects to the host name again", RC,
+     "        self.sock = socket.create_connection((self._address, self.port), self.timeout)\n",
+     "        self.sock = socket.create_connection((self.host, self.port), self.timeout)\n"),
+    ("r5 https connects to the host name again", RC,
+     "        sock = socket.create_connection((self._address, self.port), self.timeout)\n",
+     "        sock = socket.create_connection((self.host, self.port), self.timeout)\n"),
+    ("r5 https verifies the address instead of the host name", RC,
+     "server_hostname=self.host)", "server_hostname=self._address)"),
+    ("r5 a request without a checked address is sent", RC,
+     '        raise URLError("no checked address for the request")', "        return req.host.split(':')[0]"),
+    ("r5 the real opener does not pin", RC,
+     "_NoRedirect, _PinnedHTTP, _PinnedHTTPS)", "_NoRedirect)"),
     ("r4 multicast counted as public", RC, "    if not ip.is_global or ip.is_multicast or", "    if not ip.is_global or"),
     ("r4 site-local counted as public", RC,
      " or (isinstance(ip, ipaddress.IPv6Address) and ip.is_site_local):", ":"),
