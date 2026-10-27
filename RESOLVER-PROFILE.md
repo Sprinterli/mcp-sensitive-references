@@ -385,7 +385,8 @@ For each request, the server MUST check all of these conditions:
 4. Every reference was issued by this server, did not expire, and was not revoked.
 5. The request is within the limits of the server.
 
-If one condition fails for one reference, the server MUST return no value for the whole request.
+If one condition fails for one reference, the server MUST return no value for the whole request. If condition 3 fails, the
+reason for that reference is `unknown` (SPEC-DRAFT.md, section 5.5).
 
 **Note.** The authorization policy of condition 3 belongs to the issuer. It can authorize only the owner
 of a reference (SPEC-DRAFT.md, section 2), or also other principals, for example for a shared record.
