@@ -251,8 +251,11 @@ section 3.3). A host MUST refuse authorization server metadata in which `code_ch
 is absent, is not an array or does not list `S256`. A host MUST build the RFC 8414 well-known URL without a
 terminating slash of the issuer path (RFC 8414 section 3.1).
 
-If the RFC 9728 metadata lists more than one authorization server, the host MUST NOT select one
-automatically.
+If the RFC 9728 metadata lists exactly one authorization server, the host uses it. If the metadata lists
+no authorization server, or more than one, the host MUST NOT select one automatically. The host MAY use an
+authorization server that an operator configures explicitly. If the metadata lists authorization servers,
+a configured authorization server MUST be one of them. Without such a configuration, the host MUST NOT
+resolve.
 
 ### 9.2 Loopback redirect URIs
 
@@ -321,6 +324,25 @@ A host MUST key a cached token by the triple of resource, authorization server a
 
 After a 401 answer from the resolve endpoint, a host MAY get one new token and try once again. After a
 second 401 answer, the host MUST stop and MUST NOT write the sink.
+
+### 11.1 Recovery
+
+1. **Refused refresh.** If the authorization server refuses a refresh token, the host MUST delete that
+   refresh token from its cache and MUST NOT send it again. The host MAY then start a new interactive
+   authorization. If interaction is off, the host MUST stop and MUST NOT write the sink.
+2. **Lost token cache.** If the cache is absent, the host has no resolver token. It MAY start a new
+   interactive authorization. If interaction is off, the host MUST stop and MUST NOT write the sink.
+3. **Cache that others can read.** The host MUST NOT use a token from a cache that breaks section 11. The
+   host MUST NOT change the permissions of such a cache by itself, and MUST stop.
+4. **Cache that the host cannot parse.** The host MUST NOT use any entry of it. It continues as for a lost
+   cache.
+5. **Ended approval.** After an approval is withdrawn or expires, the authorization server refuses the
+   refresh and the resolve endpoint answers 401 (section 10). The host recovers as in item 1. A new
+   authorization needs a new approval of the user.
+6. **Lost rotated refresh token.** If the host stops after the server rotated a refresh token and before
+   the host stored the new one, the host continues as for a refused refresh. The user authorizes again.
+
+In every case of this section, a host MUST NOT write the sink with values from an earlier, failed attempt.
 
 **Provisional (OQ-5).** This profile version does not require sender-constrained tokens. A server and a
 host MAY use DPoP (RFC 9449). Short access-token lifetimes and refresh rotation bound to the client limit
@@ -442,8 +464,8 @@ A server SHOULD record one audit event for each resolve request. The event MUST 
 reference in canonical form or a credential. A server MAY limit the number of values per principal and
 period. It answers with `429 quota_exceeded` after the limit.
 
-**Open (OQ-18).** The minimum content of the audit event, the rate limits and the recovery rules are not
-decided.
+**Open (OQ-18).** The minimum content of the audit event and the rate limits are not decided. Recovery
+beyond section 11.1 is not decided.
 
 ## 16. Not in this profile
 

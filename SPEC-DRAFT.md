@@ -39,7 +39,10 @@ A paragraph that starts with **Note** is not normative.
 
 A rule marked **(not testable on the wire)** concerns the internal state of one party. A test that sees
 only the messages between the parties cannot check it. Only a test with access to that state, or a review,
-can check it.
+can check it. Concept 0.6 puts the mark only on the issuer rules of sections 5.1, 5.3 and 5.4 and on the
+durable-store rules of HOST-INTEGRATION.md, section 3. Other rules about the local state of one party, for
+example a token cache, a temporary file or file permissions in a profile, are also not testable on the
+wire. They do not carry the mark.
 
 ## 2. Terms
 
@@ -66,7 +69,7 @@ can check it.
 - **Resolution.** The release of a sensitive value by the issuer to a resolver.
 - **Issuer-side use.** The use of a sensitive value by the issuer, for a reference in the arguments of a
   tool call, in a call that the issuer sends to a system outside itself. Issuer-side use is not
-  resolution in the sense above. Section 6.3 sets the rules for it.
+  resolution in the sense above. Section 6.4 sets the rules for it.
 - **Sink.** A destination that receives sensitive values outside model-visible content, for example a
   local file.
 - **Resolver profile.** A document that defines how a resolver discovers, authenticates and calls the
@@ -140,11 +143,10 @@ the record). After the issuer discards that record, the reason MAY be `unknown`.
 
 ### 5.4 Integrity of the issuer registry
 
-An issuer MUST protect each stored reference binding with a message authentication code or an
-authenticated-encryption tag. The issuer MUST compute it over the record and its principal, with a key
-that it does not store with the records (not testable on the wire). An issuer MUST verify the record
-before each resolution and before each issuer-side use. If the
-verification fails, the issuer MUST treat the reference as unknown, MUST NOT resolve it, and MUST NOT
+All rules of this section are not testable on the wire. An issuer MUST protect each stored reference
+binding with a message authentication code or an authenticated-encryption tag. The issuer MUST compute it
+over the record and its principal, with a key that it does not store with the records. An issuer MUST
+verify the record before each resolution and before each issuer-side use. If the verification fails, the issuer MUST treat the reference as unknown, MUST NOT resolve it, and MUST NOT
 return any part of the record. A record copied from another principal therefore does not resolve.
 
 A revocation MUST survive a replay of an older record of the same principal.
@@ -161,7 +163,8 @@ as revoked. The failure MUST NOT return plaintext. The failure MUST NOT return p
 
 A negotiated server MUST NOT emit text in a tool result that contains the marker `⟦sref:` at any
 position, except inside a reference that the server issued. A server MUST describe references in words in
-its own notices, examples and instructions.
+its own notices. That is: a notice names a reference without the marker `⟦sref:` and without
+reference-shaped text.
 
 ### 5.7 A refused reference inside a tool call
 

@@ -25,8 +25,10 @@ normative text. Each line names its source: an SC entry of
 - A server emits no reference in a session in which the client did not declare the extension with a
   version that the server supports. (SC-16)
 - The negotiated version is the highest common version. (new; the prototype does the same)
-- "Provisional" and "Open" paragraphs are normative. Rules that only a test with internal access can check
-  carry the mark "(not testable on the wire)". (new, editorial)
+- "Provisional" and "Open" paragraphs are normative. The mark "(not testable on the wire)" is on the
+  issuer rules of SPEC-DRAFT.md, sections 5.1, 5.3 and 5.4, and on the durable-store rules of
+  HOST-INTEGRATION.md, section 3. Other local-state rules, for example in the profiles, are also not
+  testable on the wire but carry no mark. (new, editorial)
 - New terms: "authenticated MCP result" (a `tools/call` result after TLS server authentication),
   "owner of a reference" and "issuer-side use". (new, editorial)
 - An issuer creates reference identifiers at random and never from the plaintext; equal values give no
@@ -36,7 +38,9 @@ normative text. Each line names its source: an SC entry of
   and can be `unknown` after. (SC-13, OQ-11)
 - An issuer protects each stored binding with a MAC or an AEAD tag bound to its principal. A revocation
   survives a replay. (SC-14)
-- A server emits the marker `⟦sref:` only inside a reference that it issued. (SC-17)
+- A server emits the marker `⟦sref:` only inside a reference that it issued, and describes references in
+  words in its own notices, as published in SC-17. Concept 0.6 defines "in words" as a notice without the
+  marker and without reference-shaped text, so that two testers give the same verdict. (SC-17)
 - A refused reference in a tool call gives `isError: true` and a fixed `structuredContent` shape. (SC-12)
 - One definition of protected data, with exact representations and encodings. It applies to resolve
   answers, refusal results, sink reports, and host error texts and logs; not to ordinary issuer results or
@@ -85,6 +89,12 @@ normative text. Each line names its source: an SC entry of
   token cache, one renewal after 401. (SC-07)
 - PKCE S256 required in the authorization server metadata, `state`, RFC 9207 `iss`, RFC 8414 issuer, no
   automatic choice of an authorization server. (SC-08)
+- Exactly one listed authorization server is used. With none or several, only an operator-configured one
+  that the list contains (if the list is not empty); else no resolution. (SC-08, new detail; the reference
+  host stops with zero or several unless an operator configures one)
+- New section 11.1 with the minimum recovery: refused refresh, lost cache, cache that others can read,
+  cache that the host cannot parse, ended approval, lost rotated refresh token. OQ-18 keeps only recovery
+  beyond this minimum. (SC-07, package profile rules T11 and T12, THREAT-MODEL.md TM-8)
 - Loopback redirect URIs: exact match except the port, `127.0.0.1` always accepted, `form-action` permits
   the loopback origin. (SC-20, OQ-4)
 - A server can refuse `[::1]` before the consent page. (SC-20, OQ-15, provisional)

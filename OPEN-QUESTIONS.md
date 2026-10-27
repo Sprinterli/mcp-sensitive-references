@@ -2,7 +2,8 @@
 
 **Status: Concept 0.6 draft.** This file is not normative. It lists what still needs a decision.
 
-A **provisional v1 design decision** is the working design of the implementations for version 1. The
+A **provisional v1 design decision** is the working normative design for version 1. Implementations can
+differ from it; [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) records each known difference. The
 normative text marks it with **Provisional (OQ-n)**. No community review confirmed it. The options stay
 open. OQ-1 to OQ-11 come from [protocol-package/OPEN-QUESTIONS.md](protocol-package/OPEN-QUESTIONS.md).
 OQ-12 to OQ-18 are new in Concept 0.6.
@@ -28,7 +29,7 @@ OQ-12 to OQ-18 are new in Concept 0.6.
 | OQ-15 | Refusal of the IPv6 loopback literal | A server can refuse `[::1]` | RESOLVER-PROFILE.md, section 9.2 |
 | OQ-16 | Who authors the content of a local-file write | Both sources permitted | LOCAL-FILE-PROFILE.md, section 1 |
 | OQ-17 | Non-string sensitive values | none | none |
-| OQ-18 | Audit, rate-limit and recovery minimum | none | RESOLVER-PROFILE.md, section 15 |
+| OQ-18 | Audit and rate-limit minimum; recovery beyond section 11.1 | none | RESOLVER-PROFILE.md, sections 11.1 and 15 |
 
 ## OQ-1. Two independent issuers
 
@@ -217,8 +218,9 @@ No provisional decision.
 
 ## OQ-18. Audit, rate limits and recovery
 
-The minimum content of the audit event, the rate limits and the recovery after a lost refresh token are
-not decided.
+The minimum content of the audit event and the rate limits are not decided. RESOLVER-PROFILE.md, section
+11.1, defines the minimum recovery of `oauth-resolver-1`. Recovery beyond it is not decided, for example a
+grace period for a rotated refresh token that the host lost before it wrote its cache.
 
 No provisional decision.
 
@@ -233,6 +235,6 @@ No provisional decision.
 | 5. Stable subject claim | OQ-10 |
 | 6. Authorization servers for validation | Open. See IMPLEMENTATION-EVIDENCE.md. |
 | 7. Sender constraint | OQ-5 |
-| 8. Audit, rate limit, consent, recovery and revocation | Consent: RESOLVER-PROFILE.md, section 10. The rest: OQ-18. |
+| 8. Audit, rate limit, consent, recovery and revocation | Consent: RESOLVER-PROFILE.md, section 10. Minimum recovery: section 11.1. The rest: OQ-18. |
 | 9. Non-string sensitive values | OQ-17 |
 | 10. Cross-server redemption | OQ-1 |
