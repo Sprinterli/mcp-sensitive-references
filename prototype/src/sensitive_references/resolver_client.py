@@ -65,50 +65,57 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
-class _PinnedHTTPConnection(http.client.HTTPConnection):
-    # Connects to the address that the fetch policy checked, not to a new DNS answer (DNS rebinding).
-    def __init__(self, *args, address: str, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self._address = address
+def _connect_checked(addresses: Sequence[str], port: int, timeout, source_address) -> socket.socket:
+    """A TCP connection to the first checked address that answers, never to a new DNS answer."""
+    error: OSError | None = None
+    for address in addresses:
+        try:
+            return socket.create_connection((address, port), timeout, source_address)
+        except OSError as caught:
+            error = caught
+    raise error or OSError("no checked address")
 
-    def connect(self) -> None:
-        self.sock = socket.create_connection((self._address, self.port), self.timeout)
+
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    # The base class keeps its audit event and TCP_NODELAY; only the address lookup is replaced.
+    def __init__(self, *args, addresses: Sequence[str], **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._create_connection = lambda target, timeout, source: _connect_checked(
+            addresses, target[1], timeout, source)
 
 
 class _PinnedHTTPSConnection(http.client.HTTPSConnection):
-    # TLS still verifies the certificate for the host name of the URL.
-    def __init__(self, *args, address: str, **kwargs) -> None:
+    # TLS verifies the certificate for the host of the URL (``HTTPSConnection.connect``).
+    def __init__(self, *args, addresses: Sequence[str], **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._address = address
-
-    def connect(self) -> None:
-        sock = socket.create_connection((self._address, self.port), self.timeout)
-        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+        self._create_connection = lambda target, timeout, source: _connect_checked(
+            addresses, target[1], timeout, source)
 
 
-def _pinned_address(req: Request) -> str:
-    address = getattr(req, "pinned_address", None)
-    if not address:
+def _pinned_addresses(req: Request) -> list[str]:
+    addresses = getattr(req, "pinned_addresses", None)
+    if not addresses:
         raise URLError("no checked address for the request")
-    return address
+    return list(addresses)
 
 
 class _PinnedHTTP(HTTPHandler):
     def http_open(self, req):
-        return self.do_open(partial(_PinnedHTTPConnection, address=_pinned_address(req)), req)
+        return self.do_open(partial(_PinnedHTTPConnection, addresses=_pinned_addresses(req)), req)
 
 
 class _PinnedHTTPS(HTTPSHandler):
     def https_open(self, req):
-        return self.do_open(partial(_PinnedHTTPSConnection, address=_pinned_address(req)), req,
+        return self.do_open(partial(_PinnedHTTPSConnection, addresses=_pinned_addresses(req)), req,
                             context=self._context)
 
 
-def _new_opener():
+def _new_opener(context=None):
     # No redirect (SC-01, SC-04) and no proxy from the environment: the fetch policy checks the
     # address that the request goes to, and a proxy would choose another one. The connection goes
-    # to the checked address (``Request.pinned_address``); without one the request fails.
-    return build_opener(ProxyHandler({}), _NoRedirect, _PinnedHTTP, _PinnedHTTPS)
+    # to a checked address (``Request.pinned_addresses``); without one the request fails.
+    # ``context`` is for tests with a test CA; the default context verifies against the system CAs.
+    return build_opener(ProxyHandler({}), _NoRedirect, _PinnedHTTP, _PinnedHTTPS(context=context))
 
 
 _OPENER = _new_opener()
@@ -160,16 +167,32 @@ def _embedded_ipv4(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> ipaddre
     return None
 
 
+#: Entries of the IANA registries (2026-10-27) that the ``ipaddress`` tables of Python 3.14 do not follow.
+#: An entry without a "Globally Reachable" value (the deprecated 6to4 relay anycast block) counts as False.
+_NOT_GLOBAL_ADDED = tuple(ipaddress.ip_network(n) for n in ("5f00::/16", "192.88.99.0/24"))
+_GLOBAL_ADDED = (ipaddress.ip_network("2001:1::3/128"),)
+
+
+def _globally_reachable(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    if any(ip in n for n in _GLOBAL_ADDED if n.version == ip.version):
+        return True
+    if any(ip in n for n in _NOT_GLOBAL_ADDED if n.version == ip.version):
+        return False
+    return ip.is_global
+
+
 def non_public_address(address: str) -> bool:
     """True when ``address`` (an IP literal) is not globally reachable.
 
     Not globally reachable: ``is_global`` is false (the IANA IPv4 and IPv6 Special-Purpose Address
-    Registries, as Python 3.13 or later implements them), a multicast address, an IPv6 site-local address
+    Registries, as Python 3.13 or later implements them, corrected by ``_NOT_GLOBAL_ADDED`` and
+    ``_GLOBAL_ADDED``), a multicast address, an IPv6 site-local address
     (fec0::/10, RFC 3879), or an address whose embedded IPv4 address (IPv4-mapped, IPv4-compatible,
     NAT64 64:ff9b::/96, 6to4) is not globally reachable.
     """
     ip = _ip(address)
-    if not ip.is_global or ip.is_multicast or (isinstance(ip, ipaddress.IPv6Address) and ip.is_site_local):
+    if not _globally_reachable(ip) or ip.is_multicast or (
+            isinstance(ip, ipaddress.IPv6Address) and ip.is_site_local):
         return True
     embedded = _embedded_ipv4(ip)
     return embedded is not None and non_public_address(str(embedded))
@@ -262,7 +285,7 @@ def _exchange(method: str, url: str, *, policy: FetchPolicy, body: bytes | None 
     """
     addresses = policy.targets(url, "request")
     request = Request(url, data=body, method=method, headers=headers or {})
-    request.pinned_address = addresses[0]
+    request.pinned_addresses = addresses
     try:
         with _OPENER.open(request, timeout=timeout) as response:  # nosec B310: URLs pass require_secure
             return response.status, response.headers, (response.read() if read else b"")

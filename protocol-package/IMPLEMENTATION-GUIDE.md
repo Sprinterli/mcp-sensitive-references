@@ -143,8 +143,7 @@ Other browsers were not tested.
   page a `form-action` directive, and list in it no other loopback origin. Then a page that an attacker
   changes cannot post the consent decision to another origin.
 - Normative part: if the consent page has a `form-action` directive, SC-20 requires that it permits the
-  exact origin of the validated loopback redirect URI. If the server cannot build that directive, it
-  refuses the request before the consent page. A test can check this in the response headers. Whether a browser then delivers the redirect stays guidance, because
+  exact origin of the validated loopback redirect URI. A test can check this in the response headers. Whether a browser then delivers the redirect stays guidance, because
   only one browser was tested. The way to build the policy text also stays guidance.
 
 ### L-b. A browser can ignore an IPv6 literal as a policy source

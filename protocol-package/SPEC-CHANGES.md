@@ -131,11 +131,12 @@ endpoint, the same string for both discovery mechanisms.
 > such an operator statement.
 >
 > Fetch policy (RFC 9728 section 7.7). In this entry, an address is *non-public* if it is not globally
-> reachable. If more than one entry of a registry contains the address, the most specific entry (the
-> longest prefix) decides. That is: the IANA IPv4 Special-Purpose Address Registry or the IANA IPv6 Special-Purpose
-> Address Registry gives the address "Globally Reachable: False" or "N/A" (for example 6to4 2002::/16 and
-> Teredo 2001::/32), or the address is a multicast address,
-> or an IPv6 site-local address (fec0::/10, RFC 3879). For an IPv4-mapped (::ffff:0:0/96),
+> reachable. That is: the IANA IPv4 Special-Purpose Address Registry or the IANA IPv6 Special-Purpose
+> Address Registry gives the address "Globally Reachable: False", "N/A" (for example 6to4 2002::/16 and
+> Teredo 2001::/32) or no value (for example the deprecated block 192.88.99.0/24), or the address is a
+> multicast address, or an IPv6 site-local address (fec0::/10, RFC 3879). If more than one entry of a
+> registry contains the address, the most specific entry (the longest prefix) decides. A host uses the
+> current version of the registries; a conformance test names the version that it uses. For an IPv4-mapped (::ffff:0:0/96),
 > IPv4-compatible (::/96 without `::` and `::1`), NAT64 (64:ff9b::/96) or 6to4 (2002::/16) address, the
 > host MUST also judge the embedded IPv4 address. If that IPv4 address is non-public, the IPv6 address is
 > non-public.
@@ -146,7 +147,8 @@ endpoint, the same string for both discovery mechanisms.
 > of the authorization server, the `authorization_endpoint`, `token_endpoint` and `registration_endpoint`
 > of the authorization server metadata, and the resolve endpoint. The host MUST also refuse an
 > authorization endpoint on a non-public address, although only the browser opens it. The browser
-> resolves that name again, so the next rule does not apply to it. If a host uses
+> resolves that name again, so the rule on the checked address (below) does not apply to the
+> authorization endpoint. If a host uses
 > another endpoint of the metadata, for example `jwks_uri`, the same rule applies to it.
 >
 > Local mode. A host MUST NOT make an exception to the fetch policy by itself. A host MAY allow a
@@ -169,11 +171,13 @@ endpoint, the same string for both discovery mechanisms.
 > host treats a 3xx answer as a failed request. A host MUST NOT send these requests through a proxy that
 > does not apply this fetch policy, for example a proxy that an environment variable selects.
 >
-> For each request that the host sends with its own HTTP client, the host MUST connect to an address that
-> it checked. It MUST NOT resolve the host name again for the
-> connection, so that DNS rebinding cannot change the target between the check and the request. For TLS,
-> the host verifies the certificate for the host name of the URL. If the HTTP client of a host cannot
-> connect to a given address, the host MUST NOT send the request.
+> For each request of this fetch policy that the host sends with its own HTTP client, the host MUST
+> connect to an address that it checked. It MUST NOT resolve the host name again for the connection, so
+> that DNS rebinding cannot change the target between the check and the request. If the check gave more
+> than one address, the host MAY try them in turn. For TLS, the host MUST verify the certificate for the
+> host of the URL (RFC 9110 section 4.3.4, RFC 9525), not for the checked address. If the HTTP client of
+> a host cannot connect to a given address, the host MUST NOT send the request. The fetch policy does not
+> cover the MCP URL, which the operator gives.
 >
 > A server SHOULD NOT put a credential into the query of its MCP URL. The query is part of the issuer
 > identity, so the host sends it to the authorization server as the RFC 8707 `resource` value and keeps
@@ -193,15 +197,23 @@ same answer for the same address. The test host uses the tables of the Python `i
 test host has no automatic exception for a local MCP URL: the option `--allow-local-targets` enables local
 mode, and `--local-origin` adds an exact origin.
 
-The test host connects to the first checked address and sends the host name of the URL in the `Host`
-header and as the TLS server name. Its HTTP client refuses a request without a checked address. Tests:
+The test host tries the checked addresses in turn and sends the host of the URL in the `Host` header and
+as the TLS server name. Its HTTP client refuses a request without a checked address. The definition of a
+non-public address follows the IANA registries of 2026-10-27; three entries differ from the Python tables
+(5f00::/16 and 192.88.99.0/24 are non-public, 2001:1::3/128 is public), and the test host corrects them.
+Tests: `test_three_registry_entries_that_the_python_tables_do_not_follow`,
+`test_the_host_tries_each_checked_address` (a server on `::1` only),
+`test_each_connection_attempt_gets_the_timeout_of_the_request`,
 `test_the_request_connects_to_the_checked_address` (the system resolver does not know the name, so only
 the checked address can answer), `test_a_request_without_a_checked_address_is_refused`,
 `test_the_tls_server_name_is_the_host_name_of_the_url` and
 `test_the_real_opener_verifies_certificates_and_host_names` (the settings of the TLS context), and
-`PinnedTlsTests` (a real TLS server on the checked address with a test CA: the certificate for the host
-name of the URL is accepted; a certificate for another name and one from an untrusted CA are refused). The test host gives the authorization URL to the system browser, which
-resolves the name again (THREAT-MODEL.md, TM-11). The test host follows no redirect,
+`PinnedTlsTests` (a real TLS server on the checked address with a test CA, through `_new_opener` with the
+test CA as its trust store: the certificate for the host name of the URL is accepted; a certificate for
+another name and one from an untrusted CA are refused). No test sends a request through the default
+opener with the system trust store to a TLS server. The test host gives the authorization URL to the
+system browser, which resolves the name again (THREAT-MODEL.md, TM-11). The MCP session of the test host
+uses the HTTP client of the MCP SDK; it resolves the name of the MCP URL by itself. The test host follows no redirect,
 and it ignores proxy environment variables for these requests.
 
 **Conflict with the MCP authorization specification.** The MCP specification (version 2025-11-25,
@@ -705,7 +717,7 @@ checks them:
 | `{"error": "unresolvable", "v": "YWxpY2VAZXhhbXBsZS5jb20"}` | Refused (item 1, base64url without padding) |
 | `{"error": "unresolvable", "alice%40example.com": 1}` | Refused (item 1, percent-encoded, in a member name) |
 | `{"error": "invalid_request", "destination": "report.txt"}` | Refused (item 5) |
-| `{"error": "unresolvable", "ref_hmac": "9f2c..."}` | Not refused by a validator; the server breaks the SHOULD NOT on derived values |
+| `{"error": "unresolvable", "ref_hmac": "9f2c..."}` | Not refused by a validator (derived values are security guidance, see above) |
 | `{"error": "invalid_token", "client_id": "c-123"}` | Allowed (public client) |
 | `{"error": "unresolvable"}`, where the value of the reference is the string `unresolvable` | Allowed (the `error` member) |
 
@@ -814,7 +826,8 @@ after the last use (plan section 4, G13).
 **Compatibility.** The reference server cannot always tell `expired` from `unknown` after the binding is
 gone (plan section 6, M3, "Limits"). The text therefore permits `unknown` after the record is discarded.
 The prototype test checks that the resolution fails. It does not check the reason. **The reason is not
-verified by a test.**
+verified by a test.** A test on the wire cannot tell whether the server still keeps the record, so only a
+server test with access to its own store can check the `expired` MUST.
 
 ## SC-14. Integrity of the issuer registry
 
@@ -988,9 +1001,8 @@ a host and a server from completing the flow together (IMPLEMENTATION-GUIDE.md, 
 > request, before the consent page. If the consent page carries a Content Security Policy with a
 > `form-action` directive, that directive MUST permit the exact origin (scheme, host and port) of the
 > validated loopback redirect URI of this request, for example
-> `form-action 'self' http://127.0.0.1:53124`. If the server cannot build such a directive, it MUST
-> refuse the authorization request before it shows the consent page. The same rule applies to every other
-> response of the authorization server in the redirect chain after the consent post.
+> `form-action 'self' http://127.0.0.1:53124`. The same rule applies to every other response of the
+> authorization server in the redirect chain after the consent post.
 
 **A restriction of RFC 8252.** RFC 8252 section 7.3 counts `[::1]` as a loopback IP redirect URI and
 recommends that a native client tries both the IPv4 and the IPv6 loopback interface. The permission to

@@ -98,9 +98,7 @@ Fifth review round (DNS rebinding, ``NoRedirectNoProxyTests``):
 * ``_PinnedHTTPConnection`` and ``_PinnedHTTPSConnection``: a connection to the host name in place of the
   checked address [test_the_request_connects_to_the_checked_address,
   test_the_tls_server_name_is_the_host_name_of_the_url];
-* ``_PinnedHTTPSConnection``: the TLS server name is the address, not the host name
-  [test_the_tls_server_name_is_the_host_name_of_the_url];
-* ``_pinned_address`` and ``_new_opener``: a request without a checked address is sent, the real opener
+* ``_pinned_addresses`` and ``_new_opener``: a request without a checked address is sent, the real opener
   does not pin [test_a_request_without_a_checked_address_is_refused].
 
 Sixth review round (``NoRedirectNoProxyTests``):
@@ -111,6 +109,13 @@ Seventh review round (``PinnedTlsTests``, a real TLS server with a test CA):
 
 * ``_PinnedHTTPSConnection``: no certificate check [test_a_certificate_for_another_host_name_is_refused,
   test_a_certificate_from_an_untrusted_ca_is_refused].
+
+Eighth review round (Opus):
+
+* ``_connect_checked``: only the first checked address tried [test_the_host_tries_each_checked_address],
+  the timeout dropped [test_each_connection_attempt_gets_the_timeout_of_the_request];
+* ``_globally_reachable``: the IANA corrections dropped
+  [test_three_registry_entries_that_the_python_tables_do_not_follow].
 """
 
 from __future__ import annotations
@@ -1325,6 +1330,15 @@ class FetchPolicyTests(unittest.TestCase):
             with self.subTest(address=address):
                 self.assertEqual(self.rc.non_public_address(address), non_public)
 
+    def test_three_registry_entries_that_the_python_tables_do_not_follow(self):
+        # IANA 2026-10-27: 5f00::/16 (SRv6 SIDs) False, 192.88.99.2/32 (6a44 relay anycast) False in the
+        # deprecated 192.88.99.0/24 block without a value, 2001:1::3/128 (DNS-SD SRP anycast) True.
+        cases = {"5f00::1": True, "192.88.99.2": True, "192.88.99.1": True, "2001:1::3": False,
+                 "2001:1::4": True, "5eff::1": False}
+        for address, non_public in cases.items():
+            with self.subTest(address=address):
+                self.assertEqual(self.rc.non_public_address(address), non_public)
+
     def test_the_embedded_ipv4_address(self):
         # The registry marks 6to4 and Teredo "N/A", which the fetch policy counts as non-public;
         # the unwrap still judges the embedded IPv4 address.
@@ -1621,18 +1635,78 @@ class NoRedirectNoProxyTests(unittest.TestCase):
                 return sock
 
         port = int(self.target.rsplit(":", 1)[1])
-        connection = rc._PinnedHTTPSConnection("as.example.com", port, timeout=5, context=Context(),
-                                               address="127.0.0.1")
+        connection = rc._PinnedHTTPSConnection("as.example.invalid", port, timeout=5, context=Context(),
+                                               addresses=["127.0.0.1"])
         self.addCleanup(connection.close)
         connection.connect()
-        self.assertEqual(seen, {"peer": "127.0.0.1", "name": "as.example.com"})
+        self.assertEqual(seen, {"peer": "127.0.0.1", "name": "as.example.invalid"})
+
+    def _lookup_returns(self, answer):
+        saved_lookup = self.rc._lookup
+        self.addCleanup(setattr, self.rc, "_lookup", saved_lookup)
+        self.rc._lookup = lambda host: list(answer)
+
+    def test_the_host_tries_each_checked_address(self):
+        """A server that listens only on ::1: the first checked address 127.0.0.1 refuses, ::1 answers."""
+        import socket as socket_module
+
+        self._use_real_opener()
+        hits = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                hits.append(self.path)
+                self.send_response(200)
+                self.send_header("Content-Length", "2")
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+            def log_message(self, *args):
+                pass
+
+        class Server6(ThreadingHTTPServer):
+            address_family = socket_module.AF_INET6
+
+        try:
+            server = Server6(("::1", 0), Handler)
+        except OSError:
+            self.skipTest("no IPv6 loopback interface")
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        port = server.server_address[1]
+        self._lookup_returns(["127.0.0.1", "::1"])
+        policy = self.rc.FetchPolicy(f"http://dual.invalid:{port}/mcp", allow_local=True)
+        status, _ = self.rc.http_json("GET", f"http://dual.invalid:{port}/both", policy=policy, timeout=5)
+        self.assertEqual(status, 200)
+        self.assertEqual(hits, ["/both"])
+
+    def test_each_connection_attempt_gets_the_timeout_of_the_request(self):
+        self._use_real_opener()
+        attempts = []
+
+        def create_connection(target, timeout=None, source_address=None):
+            attempts.append((target[0], timeout))
+            raise OSError("refused")
+
+        saved = self.rc.socket.create_connection
+        self.addCleanup(setattr, self.rc.socket, "create_connection", saved)
+        self.rc.socket.create_connection = create_connection
+        self._lookup_returns(["127.0.0.1", "::1"])
+        policy = self.rc.FetchPolicy("http://dual.invalid:9/mcp", allow_local=True)
+        with self.assertRaises(ResolverClientError) as caught:
+            self.rc.http_json("GET", "http://dual.invalid:9/x", policy=policy, timeout=3)
+        self.assertEqual(caught.exception.code, "unreachable")
+        self.assertEqual(attempts, [("127.0.0.1", 3), ("::1", 3)])
 
 
 
 class PinnedTlsTests(unittest.TestCase):
     """SC-01: a TLS request on the checked address still verifies the certificate for the host name of the URL.
 
-    A real TLS server on 127.0.0.1 with a certificate for ``as.example.com`` from a test CA. The certificates
+    A real TLS server on 127.0.0.1 with a certificate for ``as.example.invalid`` from a test CA. The request
+    goes through ``_new_opener`` with the test CA as its trust store; the system resolver does not know
+    the names. The certificates
     come from the ``openssl`` command line tool; without it the tests are skipped.
     """
 
@@ -1653,11 +1727,11 @@ class PinnedTlsTests(unittest.TestCase):
             run("req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", f"{ca}.key", "-out", f"{ca}.pem",
                 "-days", "2", "-subj", f"/CN={ca}", "-addext", "basicConstraints=critical,CA:TRUE",
                 "-addext", "keyUsage=critical,keyCertSign")
-        (cls.dir / "leaf.ext").write_text("subjectAltName=DNS:as.example.com\nbasicConstraints=CA:FALSE\n"
+        (cls.dir / "leaf.ext").write_text("subjectAltName=DNS:as.example.invalid\nbasicConstraints=CA:FALSE\n"
                                          "extendedKeyUsage=serverAuth\nauthorityKeyIdentifier=keyid,issuer\n"
                                          "subjectKeyIdentifier=hash\n")
         run("req", "-newkey", "rsa:2048", "-nodes", "-keyout", "leaf.key", "-out", "leaf.csr",
-            "-subj", "/CN=as.example.com")
+            "-subj", "/CN=as.example.invalid")
         run("x509", "-req", "-in", "leaf.csr", "-CA", "ca.pem", "-CAkey", "ca.key", "-CAcreateserial",
             "-out", "leaf.pem", "-days", "2", "-extfile", "leaf.ext")
 
@@ -1689,14 +1763,14 @@ class PinnedTlsTests(unittest.TestCase):
 
     def _get(self, host, ca):
         import ssl
-        from urllib.request import ProxyHandler, Request, build_opener
+        from urllib.request import Request
 
         from sensitive_references import resolver_client as rc
 
         context = ssl.create_default_context(cafile=str(self.dir / ca))
-        opener = build_opener(ProxyHandler({}), rc._NoRedirect, rc._PinnedHTTPS(context=context))
+        opener = rc._new_opener(context=context)
         request = Request(f"https://{host}:{self.port}/x")
-        request.pinned_address = "127.0.0.1"
+        request.pinned_addresses = ["127.0.0.1"]
         with opener.open(request, timeout=5) as response:
             return response.status
 
@@ -1709,13 +1783,13 @@ class PinnedTlsTests(unittest.TestCase):
         self.assertIsInstance(caught.exception.reason, ssl.SSLCertVerificationError)
 
     def test_a_certificate_for_the_host_name_of_the_url_is_accepted_on_the_checked_address(self):
-        self.assertEqual(self._get("as.example.com", "ca.pem"), 200)
+        self.assertEqual(self._get("as.example.invalid", "ca.pem"), 200)
 
     def test_a_certificate_for_another_host_name_is_refused(self):
-        self._refused("other.example.com", "ca.pem")
+        self._refused("other.example.invalid", "ca.pem")
 
     def test_a_certificate_from_an_untrusted_ca_is_refused(self):
-        self._refused("as.example.com", "other-ca.pem")
+        self._refused("as.example.invalid", "other-ca.pem")
 
 
 class HostOptionTests(unittest.TestCase):

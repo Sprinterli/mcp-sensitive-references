@@ -12,7 +12,8 @@ This package collects the protocol results of two implementations of concept 0.5
 - **The test host.** The independent MCP host in this repository, `prototype/demo/mcp_host.py`. It negotiates
   the extension, records issuer provenance, gets its own resolver token and writes a local file.
 
-The package does not change concept 0.5. The files in the repository root stay as they are. Each proposal in this folder is a **proposed change**. A reader must not treat a proposal as concept text.
+The package does not change concept 0.5. The concept files in the repository root stay as they are. The root `.gitignore` gets one line
+(`.DS_Store`). Each proposal in this folder is a **proposed change**. A reader must not treat a proposal as concept text.
 
 ## Files
 

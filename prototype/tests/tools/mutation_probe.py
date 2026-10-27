@@ -7,7 +7,7 @@ test failed) or SURVIVED. The script never writes into the repository.
 
     python prototype/tests/tools/mutation_probe.py [--work DIR] [--only TEXT]
 
-Rounds 2 to 7 of the review (see the docstring of ``test_mcp_host_resolve.py``
+Rounds 2 to 8 of the review (see the docstring of ``test_mcp_host_resolve.py``
 and ``protocol-package/CONFORMANCE-RESULTS.md``). The mutations of earlier rounds
 are applied to the current text.
 """
@@ -103,29 +103,35 @@ MUTATIONS = [
      "                and not any(never_a_target(a) for a in addresses)):", "                ):"),
     ("r4 never-a-target ignores an embedded IPv4 address", RC,
      "               for i in (ip, embedded) if i is not None)", "               for i in (ip,))"),
-    ("r4 is_global replaced by is_private", RC, "    if not ip.is_global or ip.is_multicast", "    if ip.is_private or ip.is_multicast"),
+    ("r4 is_global replaced by is_private", RC, "    return ip.is_global\n", "    return not ip.is_private\n"),
     # -- round 5 (Codex H2: the request connects to the checked address)
     ("r5 http connects to the host name again", RC,
-     "        self.sock = socket.create_connection((self._address, self.port), self.timeout)\n",
-     "        self.sock = socket.create_connection((self.host, self.port), self.timeout)\n"),
+     "    # The base class keeps its audit event and TCP_NODELAY; only the address lookup is replaced.\n    def __init__(self, *args, addresses: Sequence[str], **kwargs) -> None:\n        super().__init__(*args, **kwargs)\n        self._create_connection", "    # The base class keeps its audit event and TCP_NODELAY; only the address lookup is replaced.\n    def __init__(self, *args, addresses: Sequence[str], **kwargs) -> None:\n        super().__init__(*args, **kwargs)\n        self._unused"),
     ("r5 https connects to the host name again", RC,
-     "        sock = socket.create_connection((self._address, self.port), self.timeout)\n",
-     "        sock = socket.create_connection((self.host, self.port), self.timeout)\n"),
-    ("r5 https verifies the address instead of the host name", RC,
-     "server_hostname=self.host)", "server_hostname=self._address)"),
+     "    # TLS verifies the certificate for the host of the URL (``HTTPSConnection.connect``).\n    def __init__(self, *args, addresses: Sequence[str], **kwargs) -> None:\n        super().__init__(*args, **kwargs)\n        self._create_connection", "    # TLS verifies the certificate for the host of the URL (``HTTPSConnection.connect``).\n    def __init__(self, *args, addresses: Sequence[str], **kwargs) -> None:\n        super().__init__(*args, **kwargs)\n        self._unused"),
     ("r5 a request without a checked address is sent", RC,
-     '        raise URLError("no checked address for the request")', "        return req.host.split(':')[0]"),
+     '        raise URLError("no checked address for the request")', "        return [req.host.rsplit(':', 1)[0]]"),
     ("r5 the real opener does not pin", RC,
-     "_NoRedirect, _PinnedHTTP, _PinnedHTTPS)", "_NoRedirect)"),
+     "_NoRedirect, _PinnedHTTP, _PinnedHTTPS(context=context))", "_NoRedirect)"),
     ("r6 the real opener does not verify certificates", RC,
-     "_NoRedirect, _PinnedHTTP, _PinnedHTTPS)",
-     "_NoRedirect, _PinnedHTTP, _PinnedHTTPS(context=__import__('ssl')._create_unverified_context()))"),
+     "_PinnedHTTPS(context=context))",
+     "_PinnedHTTPS(context=context or __import__('ssl')._create_unverified_context()))"),
     ("r7 the pinned TLS connection does not verify", RC,
-     "        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)",
-     "        self.sock = __import__('ssl')._create_unverified_context().wrap_socket(sock, server_hostname=self.host)"),
-    ("r4 multicast counted as public", RC, "    if not ip.is_global or ip.is_multicast or", "    if not ip.is_global or"),
+     "    # TLS verifies the certificate for the host of the URL (``HTTPSConnection.connect``).\n    def __init__(self, *args, addresses: Sequence[str], **kwargs) -> None:\n        super().__init__(*args, **kwargs)\n",
+     "    # TLS verifies the certificate for the host of the URL (``HTTPSConnection.connect``).\n    def __init__(self, *args, addresses: Sequence[str], **kwargs) -> None:\n        super().__init__(*args, **kwargs)\n        self._context = __import__('ssl')._create_unverified_context()\n"),
+    # -- round 8 (Opus: each checked address, the timeout, three IANA entries)
+    ("r8 only the first checked address is tried", RC, "    for address in addresses:\n        try:",
+     "    for address in addresses[:1]:\n        try:"),
+    ("r8 the connection timeout is dropped", RC,
+     "socket.create_connection((address, port), timeout, source_address)",
+     "socket.create_connection((address, port), None, source_address)"),
+    ("r8 the public IANA correction is dropped", RC, "    if any(ip in n for n in _GLOBAL_ADDED",
+     "    if False and any(ip in n for n in _GLOBAL_ADDED"),
+    ("r8 the non-public IANA corrections are dropped", RC, "    if any(ip in n for n in _NOT_GLOBAL_ADDED",
+     "    if False and any(ip in n for n in _NOT_GLOBAL_ADDED"),
+    ("r4 multicast counted as public", RC, "    if not _globally_reachable(ip) or ip.is_multicast or (", "    if not _globally_reachable(ip) or ("),
     ("r4 site-local counted as public", RC,
-     " or (isinstance(ip, ipaddress.IPv6Address) and ip.is_site_local):", ":"),
+     "            isinstance(ip, ipaddress.IPv6Address) and ip.is_site_local):", "            False):"),
     ("r4 NAT64 and IPv4-compatible not unwrapped", RC,
      "    if ip in _NAT64 or (ip in _COMPATIBLE and int(ip) > 1):", "    if False:"),
     ("r4 6to4 not unwrapped", RC, "    if ip.sixtofour is not None:", "    if False:"),
