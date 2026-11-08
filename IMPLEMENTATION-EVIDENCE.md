@@ -14,35 +14,84 @@ reproduced). Concept 0.7 does not claim that any implementation conforms to the 
 ## Reference server: MCPGate
 
 MCPGate is the reference server implementation. It issues Sensitive References, implements
-`oauth-resolver-1` and accepts `local-file-1`, `display-1` and the process profile. Its source is not
-public. Revision R3 (versions 2.0.3824 and 2.0.3826 of 2026-11-08) is the revision of Concept 0.7.
+`oauth-resolver-1` and accepts `local-file-1`, `display-1` and `process-1`. Its source is not
+public. Revision R3 (versions 2.0.3824 and 2.0.3826 of 2026-11-08) is the revision of Concept 0.7. Revision R4
+(version 2.0.3830 of 2026-11-08) adds two changes to R3: the identifier `process-1`, and the binding of the
+stored approval to resource and scope set.
 
-What R3 does, as its tests and its source show (read at the release tag of 2.0.3826, not run by this
-repository):
+What R3 and R4 do, as their tests and their source show (read at the release tags of 2.0.3826 and
+2.0.3830, not run by this repository):
 
-- **Discovery.** The live discovery object at R3:
+- **Discovery.** The live metadata document of the base URL at R4, fetched on 2026-11-08 from version
+  2.0.3831. Between the release tags of 2.0.3830 and 2.0.3831 no server source file changed. The object
+  is formatted, and the host is replaced with `mcp.example.com`. Nothing else is left out:
 
   ```json
-  "sensitive_references": {
-    "resolve_endpoint": "https://mcp.example.com/sensitive-references/resolve",
-    "resolve_scope": "sensitive-references.resolve",
-    "process_scope": "sensitive-references.resolve.process",
-    "display_scope": "sensitive-references.resolve.display",
-    "resolver_profiles": ["oauth-resolver-1"],
-    "sink_profiles": ["display-1", "local-file-1", "mcpgate-process-1"],
-    "sinks": {
-      "display-1": {"sink_type": "display",
-                    "scopes": ["sensitive-references.resolve", "sensitive-references.resolve.display"]},
-      "local-file-1": {"sink_type": "local_file", "scopes": ["sensitive-references.resolve"]},
-      "mcpgate-process-1": {"sink_type": "process",
-                            "scopes": ["sensitive-references.resolve", "sensitive-references.resolve.process"]}
+  {
+    "resource": "https://mcp.example.com",
+    "authorization_servers": [
+      "https://mcp.example.com"
+    ],
+    "scopes_supported": [
+      "mcp",
+      "openid",
+      "email"
+    ],
+    "bearer_methods_supported": [
+      "header"
+    ],
+    "mcp": {
+      "endpoint": "https://mcp.example.com/mcp",
+      "protocol": "mcp",
+      "version": "2024-11-05"
+    },
+    "sensitive_references": {
+      "resolve_endpoint": "https://mcp.example.com/sensitive-references/resolve",
+      "resolve_scope": "sensitive-references.resolve",
+      "process_scope": "sensitive-references.resolve.process",
+      "display_scope": "sensitive-references.resolve.display",
+      "resolver_profiles": [
+        "oauth-resolver-1"
+      ],
+      "sink_profiles": [
+        "display-1",
+        "local-file-1",
+        "process-1"
+      ],
+      "sinks": {
+        "display-1": {
+          "sink_type": "display",
+          "scopes": [
+            "sensitive-references.resolve",
+            "sensitive-references.resolve.display"
+          ]
+        },
+        "local-file-1": {
+          "sink_type": "local_file",
+          "scopes": [
+            "sensitive-references.resolve"
+          ]
+        },
+        "process-1": {
+          "sink_type": "process",
+          "scopes": [
+            "sensitive-references.resolve",
+            "sensitive-references.resolve.process"
+          ]
+        }
+      }
     }
   }
   ```
 
-  (The endpoint host is replaced with `example.com`. Other members of the live object are not listed here.)
-  At R3 the process profile has the identifier `mcpgate-process-1`. Concept 0.7 names it `process-1`
-  (OQ-21, decided). A server change to `process-1` is not yet recorded in this file.
+  Since R4 the process profile has the identifier `process-1` (OQ-21). The vendor-prefixed identifier
+  of R3 is gone, with no alias. A resolve request names the `sink_type` `process`, not the profile, so
+  the request does not change. The audit row names `process-1`. Reference server tests (R4)
+  `test_discovery_names_the_process_sink_process_1_and_not_the_former_name`,
+  `test_a_process_resolve_is_audited_as_process_1` and
+  `test_a_profile_identifier_sent_as_the_sink_type_is_refused`. The second host at release 0.9.1 looks for
+  the identifier of R3 in `sink_profiles`, so it refuses the process sink of R4 before any request
+  ([protocol-package/PROFILE-process-1.md](protocol-package/PROFILE-process-1.md)).
   The code of the server still calls the field name provisional; Concept 0.7 fixes it.
 - **Sink scopes.** A token without the scope of the sink gets `403 insufficient_scope` before any lookup,
   with no value and no audit row. For the display sink, the header is

@@ -34,18 +34,18 @@ The information is from 2026-11-08.
 **Reference server: MCPGate.**
 
 - Description: an MCP gateway that issues Sensitive References and serves the resolve endpoint. It
-  implements `oauth-resolver-1` and accepts `local-file-1`, `display-1` and the process profile
-  ([PROFILE-process-1.md](PROFILE-process-1.md) says under which identifier).
+  implements `oauth-resolver-1` and accepts `local-file-1`, `display-1` and `process-1`
+  (since R4; [PROFILE-process-1.md](PROFILE-process-1.md) names the identifier of R3).
 - Revisions: R1 and R2 (earlier revisions, see "Sources and versions"), and R3, the versions 2.0.3824 and
-  2.0.3826 of 2026-11-08, the revision of Concept 0.7.
+  2.0.3826 of 2026-11-08, the revision of Concept 0.7, and R4, the version 2.0.3830 of 2026-11-08.
 - Maturity: deployed in production. The runs E4 to E6 and E8 to E13 ran against a production deployment,
   with synthetic data.
 - Coverage: [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md),
   [PROFILE-process-1.md](PROFILE-process-1.md) and [PROFILE-display-1.md](PROFILE-display-1.md) map each
   rule to its tests and name each deviation. It implements an issuer-side sink, which Concept 0.7 does not
   define (OQ-3).
-- Licensing: the source is not public. This package read its tests and its source at R3 and did not run
-  them.
+- Licensing: the source is not public. This package read its tests and its source at R3 and R4 and did
+  not run them.
 
 **Second independent host: maisecrets.**
 
@@ -132,16 +132,19 @@ with `local-file-1`. This package is milestone M6.
 | Concept 0.5 (the root files) | this repository. Unchanged on this branch. |
 | The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `6cdd658` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`); for Concept 0.7, branch `concept-0.7`, commit `65f17e5` |
 | The reference server plan, sections 4 to 8 | reference server revision R1 (not public) |
-| The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2, rows marked "(R3)" tests of revision R3. |
+| The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2, rows marked "(R3)" tests of revision R3, rows marked "(R4)" tests of revision R4. |
 | The second host | release 0.9.1 of maisecrets (section "Implementations"), commit `4f9fd34` of its main branch |
 
-**Evidence labels R1, R2 and R3.** The source of the reference server is not public, so its commit
+**Evidence labels R1 to R4.** The source of the reference server is not public, so its commit
 identifiers do not help a reader. This package uses short labels instead. **R1** is the revision of the plan and the
 tests that this package read first. **R2** is the later revision after the second server review. At R2
 the implementer ran end-to-end round E7 and reported 58 passing test cases in the consent module. The
 profile rows A8, C7, C9, C10, R9, R12, R13 and R14 cite tests of R2. **R3** is the revision of Concept 0.7:
 the server versions 2.0.3824 and 2.0.3826 of 2026-11-08. This package read its tests at the release tag
-of 2.0.3826 and did not run them.
+of 2.0.3826 and did not run them. **R4** is the server version 2.0.3830 of 2026-11-08. It adds two changes
+to R3: the process profile has the identifier `process-1`, with no alias for the identifier of R3, and the
+stored approval binds the resource and the scope set (the consent page names the resource). This package
+read the tests and the source of R4 at the release tag of 2.0.3830 and did not run them.
 
 This package did not run the reference server tests. It read their names and assertions at the revision
 above. A row that cites a reference server test is "read, not re-run".

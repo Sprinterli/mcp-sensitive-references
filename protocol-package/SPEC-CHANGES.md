@@ -15,12 +15,13 @@ Each entry has four parts:
 **Concept 0.7.** SC-01 to SC-20 were the proposals for Concept 0.6 (SC-18 stays open as OQ-3). SC-21 to SC-26 are the changes of
 Concept 0.7. Concept 0.7 also amends SC-03 and SC-06; each of these entries ends with a paragraph
 "Concept 0.7". All of SC-21 to SC-26 and both amendments are in the normative text of Concept 0.7
-(RESOLVER-PROFILE.md, PROCESS-PROFILE.md and DISPLAY-PROFILE.md). Their evidence is at revision R3 of the
+(RESOLVER-PROFILE.md, PROCESS-PROFILE.md and DISPLAY-PROFILE.md). Their evidence is at revisions R3 and R4 of the
 reference server and at release 0.9.1 of the second host ([README.md](README.md#sources-and-versions)).
 
 Notation. "Reference server test `x`" means a test of the reference server at revision R1, or at revision
-R2 or R3 where the text says so. R1, R2 and R3 are labels for three revisions of the reference server; R3 is
-the revision of Concept 0.7 ([README.md](README.md#sources-and-versions)).
+R2, R3 or R4 where the text says so. R1 to R4 are labels for four revisions of the reference server; R3 is
+the revision of Concept 0.7, and R4 adds the identifier `process-1` and the binding of the approval to
+resource and scope set ([README.md](README.md#sources-and-versions)).
 This package read that test and did not run it. "Host test `x`" means a test in `prototype/tests/` at the
 tested commit (see [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#test-run)).
 
@@ -51,7 +52,7 @@ Several findings of the two lists describe the same gap. This table shows which 
 | SC-19 | Hosts that cannot verify negotiation | P11, P6 |
 | SC-20 | Loopback redirect URIs of the resolver client | F5, production lessons L-a to L-c (2026-10-26) |
 | SC-21 | Sink scopes, and the fixed name of the discovery object | R3, second host 0.9.0 and 0.9.1 |
-| SC-22 | The sink profile `process-1` | R3, second host 0.9.0 |
+| SC-22 | The sink profile `process-1` | R3, R4 (the identifier), second host 0.9.0 |
 | SC-23 | The sink profile `display-1` | R3, second host 0.9.1 |
 | SC-24 | References per principal (account), and the account hint | R3, run E13 |
 | SC-25 | No value without its audit event | R3 |
@@ -1127,7 +1128,9 @@ process of the person that holds a token with the process scope gets the full va
 person that finds the channel can open it first, and the destination is advisory.
 
 **Compatibility.** New profile. The identifier is `process-1` (OQ-21, decided). At R3 the reference server
-publishes the profile under a vendor-prefixed identifier (PROFILE-process-1.md).
+published the profile under a vendor-prefixed identifier. Since R4 it publishes `process-1`, with no alias
+for the identifier of R3 (PROFILE-process-1.md). A host that selects the sink by `sink_type` is not
+affected. A host that looks for the identifier of R3 in `sink_profiles` does not find the process sink.
 
 ## SC-23. The sink profile `display-1`
 

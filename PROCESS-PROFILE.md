@@ -116,8 +116,8 @@ for `cd dir && prog`, `env prog`, `sudo prog` or `bash -c '...'` the destination
 
 ## 9. Evidence
 
-**Note.** [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) records the identifier under which the
-reference server accepts this profile. The second host implements
+**Note.** The reference server accepts this profile under the identifier `process-1`
+([IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md)). The second host implements
 it for the commands of a coding agent. The reference host implements it at demo level, on POSIX, tested
 offline against the prototype issuer (`prototype/README.md`, section "Concept 0.7"). See
 [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).

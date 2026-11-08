@@ -239,7 +239,8 @@ E10 only says "observed": it is not a verification.
 
 **Server tests of revision R3.** This package read the names and the assertions of the reference server
 tests below at revision R3 ([README.md](README.md#sources-and-versions)). It did not run them. The pipeline
-of the release tag of R3 does not run the unit tests, so this package has no run record of them.
+of the release tag of R3 does not run the unit tests, so this package has no run record of them. A cell
+marked "(R4)" cites a test of revision R4, read at the release tag of 2.0.3830 and not run.
 
 **Second host.** The second host is the coding-agent plugin that IMPLEMENTATION-EVIDENCE.md names, at
 release 0.9.1. This package read its source and its test names. It did not run its tests.
@@ -250,7 +251,7 @@ release 0.9.1. This package read its source and its test names. It did not run i
 | Resolve scope plus sink scopes in one request; a sink scope alone or with agent scopes is `invalid_scope` (SC-21) | `test_the_process_scope_alone_or_with_agent_scopes_is_refused`, `test_the_display_scope_alone_or_with_agent_scopes_is_refused`, `test_a_request_that_mixes_the_resolve_scope_with_agent_scopes_gets_neither` | `test_the_process_scope_is_asked_for_on_top_where_command_output_is_masked` | — | `ScopeTests`; host: `test_one_authorization_serves_a_file_a_command_and_the_screen` |
 | A missing sink scope: `403 insufficient_scope` before any lookup, no value, no audit row; header and body name the scope set and an `error_description` (SC-21) | `test_a_token_without_the_display_scope_gets_insufficient_scope_before_any_lookup`, `test_a_file_only_token_gets_insufficient_scope_for_a_process_without_a_value_or_a_row` | `test_a_login_without_the_display_scope_names_the_reason`, `test_a_login_without_commands_names_the_reason_and_runs_nothing` | — | `test_a_file_only_token_gets_insufficient_scope_before_any_lookup_without_a_value_or_an_audit_event` |
 | A refresh keeps the granted set (SC-21) | `test_the_process_scope_survives_a_refresh_and_a_file_grant_stays_file_only`, `test_the_display_scope_survives_a_refresh` | — | — | `test_a_refresh_keeps_the_granted_set`, `test_a_refresh_adds_no_scope` |
-| `process-1` (SC-22) | PROFILE-process-1.md, PR2 to PR20 | PROFILE-process-1.md | Not recorded | Demo level, POSIX: `ProcessSinkTests` |
+| `process-1` (SC-22) | PROFILE-process-1.md, PR2 to PR20; the identifier: (R4) `test_discovery_names_the_process_sink_process_1_and_not_the_former_name`, `test_a_process_resolve_is_audited_as_process_1` | PROFILE-process-1.md. Release 0.9.1 asks for the identifier of R3 | Not recorded | Demo level, POSIX: `ProcessSinkTests` |
 | `display-1` (SC-23) | PROFILE-display-1.md, DS2 to DS21 | PROFILE-display-1.md | Observed: E13 | Demo level, terminal: `DisplaySinkTests` |
 | The consent page names the account, offers a switch, names the client and the loopback host and port, and each sink scope (SC-06) | `test_the_consent_page_names_the_signed_in_account_and_no_other`, `test_the_consent_page_offers_to_use_another_account_through_a_same_origin_form`, `test_use_another_account_signs_out_and_returns_to_the_same_authorize_request`, `test_the_switch_keeps_the_scopes_the_page_asked_for`, `test_the_other_account_gets_its_own_consent_page_for_the_same_request`, `test_a_second_authorization_with_a_live_consent_returns_the_page_and_no_code` | Not applicable | — | `ConsentTests` |
 | References per principal (account); another account gets `unknown` (SC-24) | `test_a_reference_of_another_account_writes_a_refusal_line_with_counts_and_hashes_only` | Not applicable | Observed: E13 | `test_a_reference_of_another_person_is_unresolvable_with_the_reason_unknown` |

@@ -9,11 +9,11 @@ references per principal (account), no value without its audit event, and revoca
 issuer-side sink) is still not integrated and stays open as OQ-3, with an interim floor.
 
 Three implementations exist: the reference server MCPGate (source not public; revision R3, versions
-2.0.3824 and 2.0.3826), the reference host in [prototype/](prototype/) (`local-file-1`, `process-1` and `display-1`, with a
+2.0.3824 and 2.0.3826, and revision R4, version 2.0.3830), the reference host in [prototype/](prototype/) (`local-file-1`, `process-1` and `display-1`, with a
 demo-level prototype issuer, tested offline only) and a second
 host, the coding-agent plugin maisecrets (releases 0.9.0 and 0.9.1; it declares no extension)
 ([protocol-package/README.md](protocol-package/README.md#implementations)). The
-evidence of Concept 0.7 is the reference server tests of R3 (read, not run by this repository), the source
+evidence of Concept 0.7 is the reference server tests of R3 and R4 (read, not run by this repository), the source
 and the tests of the second host (read, not run), and run E13 of 2026-11-08: a display click after the
 account fix, observed in one operator run and not independently reproduced. Concept 0.7 makes no claim of
 full conformance.

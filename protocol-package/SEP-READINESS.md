@@ -34,7 +34,7 @@ Legend: **Done**, **Partial**, **Missing**.
 | Item | State | Evidence or gap |
 |---|---|---|
 | Official extension identifier | Missing | A provisional reverse-DNS identifier is in use. Examples use `org.example/sensitive-references` (SC-15, P7). |
-| Profile identifiers `oauth-resolver-1`, `local-file-1`, `process-1`, `display-1` | Partial | The implementations use them, except `process-1`: at R3 the reference server publishes the process profile under a vendor-prefixed identifier. OQ-21 decides `process-1`. No registry exists. |
+| Profile identifiers `oauth-resolver-1`, `local-file-1`, `process-1`, `display-1` | Partial | The reference server uses all four since R4. The second host at release 0.9.1 still asks for the vendor-prefixed process identifier of R3. OQ-21 decides `process-1`. No registry exists. |
 | Wire values of `sink_type` | Partial | `local_file`, `process` and `display` at the reference server and the second host. |
 | Metadata field `sensitive_references` | Partial | The name is fixed in Concept 0.7 (SC-21). Not registered in the IANA "OAuth Protected Resource Metadata" registry. |
 | Scope names | Partial | `sensitive-references.resolve`, `sensitive-references.resolve.process` and `sensitive-references.resolve.display` at the reference server. The profile lets a server choose the names and publish them in the discovery object. |

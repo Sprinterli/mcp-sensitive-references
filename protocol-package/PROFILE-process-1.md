@@ -6,8 +6,9 @@ and of the second host. Where an implementation differs from a rule, the evidenc
 
 The evidence columns use these terms:
 
-- **Server:** a test of the reference server at revision R3 ([README.md](README.md#sources-and-versions)).
-  This package read the test name and its assertions at R3. It did not run the test.
+- **Server:** a test of the reference server at revision R3, or at R4 where the cell says "(R4)"
+  ([README.md](README.md#sources-and-versions)). This package read the test name and its assertions at
+  that revision. It did not run the test.
 - **Second host:** the coding-agent plugin that [IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTATION-EVIDENCE.md)
   names, at its release 0.9.1. A test name refers to its `tests/test_sref_client.py` or
   `tests/test_sref_hooks.py`. This package read the source and the test names. It did not run the tests.
@@ -17,16 +18,22 @@ The reference host in `prototype/` implements this profile at demo level (POSIX 
 issuer implements its server rules. Their tests run offline only; [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md),
 section "Concept 0.7", names them. No end-to-end run against the reference server is recorded.
 
-**Identifier.** The identifier is `process-1` (OQ-21, decided). At R3 the reference
-server publishes this profile under a vendor-prefixed identifier, with the `sink_type` `process`, and the
-second host asks for that identifier ([IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTATION-EVIDENCE.md) quotes it).
+**Identifier.** The identifier is `process-1` (OQ-21, decided). Since R4 the reference server publishes
+this profile as `process-1`, with the `sink_type` `process` and the resolve scope and the process scope
+(R4 `test_discovery_names_the_process_sink_process_1_and_not_the_former_name`,
+`test_the_process_sink_type_maps_to_process_1_with_its_scopes`;
+[IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTATION-EVIDENCE.md) quotes the live object). At R3 the server used
+a vendor-prefixed identifier. R4 keeps no alias for it. The second host at release 0.9.1 asks for the
+identifier of R3: it looks for it in `sink_profiles` before a request (`maisecrets/sref_client.py`,
+`SINKS` and `resolve`). So against R4 it refuses the process sink before any request. This package read
+that in the source and did not run it.
 
 ## 1. Preconditions
 
 | ID | Rule | Server | Second host |
 |---|---|---|---|
 | PR1 | The host resolves only if the negotiated intersection holds `process-1` and a resolver profile. | Not applicable | **Deviation.** The second host declares no extension to the server (its threat model, C31). It applies its own rule in place of negotiated provenance: a reference resolves only if an MCP result of a server in the user scope showed it in the same session in the last 24 hours. |
-| PR2 | The discovery object lists the profile in `sink_profiles` and in `sinks`, with its `sink_type` and its whole scope set. | `test_discovery_and_server_settings_list_both_sinks_with_their_scopes`, `test_discovery_and_server_settings_name_exactly_the_three_sinks` | **Partial.** The host reads `sink_profiles` and `process_scope`, not `sinks` (`maisecrets/sref_client.py`, `discover`). It refuses a sink that the server does not offer before a request: `test_a_sink_the_gateway_does_not_offer_is_refused_before_a_request`. |
+| PR2 | The discovery object lists the profile in `sink_profiles` and in `sinks`, with its `sink_type` and its whole scope set. | `test_discovery_and_server_settings_list_both_sinks_with_their_scopes`, `test_discovery_and_server_settings_name_exactly_the_three_sinks`; the identifier `process-1`: (R4) `test_discovery_names_the_process_sink_process_1_and_not_the_former_name` | **Partial.** The host reads `sink_profiles` and `process_scope`, not `sinks` (`maisecrets/sref_client.py`, `discover`). It refuses a sink that the server does not offer before a request: `test_a_sink_the_gateway_does_not_offer_is_refused_before_a_request`. |
 | PR3 | A token without the process scope gets `403 insufficient_scope` before any lookup, with no value and no audit event. | `test_a_file_only_token_gets_insufficient_scope_for_a_process_without_a_value_or_a_row` | `test_a_login_without_commands_names_the_reason_and_runs_nothing`. The command prints a fixed reason and stops with exit status 97. |
 | PR4 | The host asks for the process scope only where it masks command output. | Not applicable | `test_the_process_scope_is_asked_for_on_top_where_command_output_is_masked`. The host asks for it on macOS and Linux, not on Windows (`login_scope`). |
 | PR5 | The process scope alone, or with an agent scope, is `invalid_scope`. | `test_the_process_scope_alone_or_with_agent_scopes_is_refused` | Not applicable |

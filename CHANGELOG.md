@@ -4,7 +4,7 @@
 
 Concept 0.7 describes what runs in the implementations and has proven itself there. Each line names its
 source: an SC entry of [protocol-package/SPEC-CHANGES.md](protocol-package/SPEC-CHANGES.md), an OQ item of
-[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), or a profile file of the package. The evidence is revision R3 of
+[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), or a profile file of the package. The evidence is revisions R3 and R4 of
 the reference server, releases 0.9.0 and 0.9.1 of the second host, and run E13.
 
 ### Structure
@@ -82,6 +82,9 @@ the reference server, releases 0.9.0 and 0.9.1 of the second host, and run E13.
 
 - README.md: "Changes in this revision", the document map, three implementations, known gaps.
 - IMPLEMENTATION-EVIDENCE.md: what R3 does, the second host and its limits, run E13.
+- Revision R4 of the reference server (version 2.0.3830): the process profile has the identifier
+  `process-1`, and the stored approval binds resource and scope set. The live discovery object, the
+  profile rows and the threat model cite its tests.
 - OPEN-QUESTIONS.md: OQ-8 decided; OQ-16 names the second host; new OQ-19 (safe metadata of a reference),
   OQ-20 (a "tokenize" profile) and OQ-21 (the identifier of the process profile, decided: `process-1`).
 - protocol-package/: SC-21 to SC-26, amendments of SC-03 and SC-06, the R3 evidence rows, TM-14 and TM-15,
