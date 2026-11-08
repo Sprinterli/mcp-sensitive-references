@@ -32,6 +32,32 @@ This matrix records prototype evidence only. It is not a standards conformance c
 | Real external-AS/JWKS/HTTP resolver path works | `demo/keycloak_oidc_probe.py` against local Keycloak |
 | Authorization Code + PKCE token supports subject-bound resolution | `demo/keycloak_pkce_probe.py` against local Keycloak |
 
+## Concept 0.7
+
+The prototype implements the rules of Concept 0.7 below. The issuer is `src/sensitive_references/issuer_server.py`
+(demo level: in memory, fixture accounts, no identity provider). The host is `demo/mcp_host.py` with
+`resolver_client.py`, `process_sink.py` and `display_sink.py`. The tests are `tests/test_issuer_server.py` (issuer)
+and `tests/test_concept_07_host.py` (host); round 10 of `tests/tools/mutation_probe.py` disables each guard once.
+
+| Rule (Concept 0.7) | Evidence |
+|---|---|
+| Discovery names `sinks` with the scope set of each sink profile, `process_scope` and `display_scope`; the prototype publishes `process-1` only (RESOLVER-PROFILE.md, section 4) | `test_discovery_names_each_sink_with_its_scope_set_and_the_two_sink_scopes`, `test_a_server_without_a_sink_names_no_scope_for_it` |
+| The host refuses an object without valid `sinks`, with a sink scope that `sinks` does not name, or with a bad `max_references` | `test_an_object_without_sinks_or_with_a_bad_member_is_refused`, `test_a_sink_scope_member_must_be_the_scope_that_sinks_names`, `test_max_references_must_be_an_integer_of_100_or_more`, `test_a_negotiated_sink_without_a_valid_sinks_member_stops_the_host` |
+| The host takes the scope set from `sinks` and asks for the scopes of every sink of the run in one authorization | `test_the_host_takes_the_scope_set_from_sinks`, `test_one_authorization_serves_a_file_a_command_and_the_screen`, `test_a_file_only_run_asks_for_the_resolve_scope_only_and_cannot_reach_a_command`, `test_the_host_fills_a_file_runs_a_command_and_reveals_on_a_click_with_one_consent` (real MCP SDK 2.x server) |
+| Scope combinations: the resolve scope plus offered sink scopes plus `openid`, else `invalid_scope` and no code (section 5.2) | `ScopeTests` in `test_issuer_server.py` |
+| A missing sink scope: `403 insufficient_scope` before any lookup, no value, no audit event; header and body name the scope set and an `error_description` (section 5.4) | `test_a_file_only_token_gets_insufficient_scope_before_any_lookup_without_a_value_or_an_audit_event`, `test_a_display_token_does_not_resolve_into_a_command_but_into_a_file`; host side: `test_a_token_without_the_sink_scope_is_not_sent` |
+| A refresh keeps the granted set and adds no scope (section 5.3) | `test_a_refresh_keeps_the_granted_set`, `test_a_refresh_adds_no_scope`, `test_a_refresh_token_rotates_and_is_bound_to_its_client` |
+| Consent at every authorization request; the page names the account with "Use another account", the client, the loopback host and port, the time, the resource and one line per sink scope (section 10) | `ConsentTests` in `test_issuer_server.py`; `test_each_authorization_shows_the_consent_page_again`, `test_use_another_account_on_the_page_signs_in_the_other_account` |
+| References per person; another account gets `409 unresolvable` with the reason `unknown` (section 12.2) | `test_a_reference_of_another_person_is_unresolvable_with_the_reason_unknown`, `test_a_reference_of_another_account_is_unknown_and_nothing_is_written` |
+| `account_hint` in token and refresh answers (section 11.2) | `test_the_account_hint_keeps_at_most_three_and_at_most_half_of_the_local_part_and_the_whole_domain`, `test_token_and_refresh_answers_carry_the_hint_and_not_the_address` |
+| No value without its audit event; `503 audit_unavailable` (section 15) | `test_no_value_leaves_without_its_audit_event`, `test_the_audit_store_down_releases_no_value` |
+| Revocation per device by the person or an administrator; an epoch per principal and client (section 10.4) | `DeviceTests` in `test_issuer_server.py` |
+| `process-1`: destination is the program name; resolve only when the command reads; a failed resolve stops the command; output masked before the model, also on failure paths (PROCESS-PROFILE.md) | `ProcessSinkTests` in `test_concept_07_host.py` (POSIX) |
+| `display-1`: one reference per request to `screen`, only on an explicit action, never into the transcript; copy only after a second action (DISPLAY-PROFILE.md) | `DisplaySinkTests` in `test_concept_07_host.py`; `test_a_display_request_needs_the_screen_and_exactly_one_reference` |
+
+Demo level: `process-1` masks clear text, percent-encoding and base64 only, and runs on POSIX only; there is no
+sandbox. `display-1` draws on the terminal. The issuer has no persistence and no identity provider.
+
 ## Remaining before a standards proposal
 
 - Agree the official extension identifier and precise extension-capability schema.
