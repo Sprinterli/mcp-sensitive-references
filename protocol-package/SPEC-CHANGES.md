@@ -1102,7 +1102,7 @@ header and the body name the whole scope set and carry an `error_description`. A
 set. A new sink needs a new authorization. The field name `sensitive_references` is fixed.
 
 **Compatibility.** A host that uses only `local-file-1` keeps its scope request. A host must read `sinks`.
-The reference host does not read it yet. A token from before a sink scope existed stays without it; the
+The reference host reads it since Concept 0.7 (`prototype/README.md`). A token from before a sink scope existed stays without it; the
 person signs in again.
 
 ## SC-22. The sink profile `process-1`

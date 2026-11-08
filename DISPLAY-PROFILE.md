@@ -86,5 +86,6 @@ copied value is in the clipboard of the system, where other programs can read it
 ## 9. Evidence
 
 **Note.** The reference server accepts this profile. The second host implements it in the drawing of a
-coding-agent client. The reference host does not implement it. See
+coding-agent client. The reference host implements it at demo level on a terminal, tested offline against
+the prototype issuer (`prototype/README.md`, section "Concept 0.7"). See
 [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).

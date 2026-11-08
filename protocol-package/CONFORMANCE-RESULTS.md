@@ -7,6 +7,24 @@ requirement to the evidence that exists for it on 2026-10-27, and adds the evide
 
 ## Test run
 
+**Concept 0.7 test run (2026-11-08).** Python 3.14.8 on macOS, MCP Python SDK (`mcp`) 2.3.0,
+`PYTHONPATH=src`, repository commit `65f17e5` (branch `concept-0.7`). At this commit the prototype
+implements Concept 0.7 (`prototype/README.md`, section "Concept 0.7"):
+
+```bash
+cd prototype && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python -m pytest -q -p no:cacheprovider
+# 212 passed, 393 subtests passed
+cd prototype && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python -m unittest discover -s tests
+# Ran 212 tests, OK
+```
+
+The 79 new tests are `test_issuer_server.py` (38, the prototype issuer) and `test_concept_07_host.py` (41,
+the host: discovery with `sinks`, the scope choice, `process-1`, `display-1`, and end-to-end runs against
+the prototype issuer, one of them through `mcp_host.main` and a real MCP SDK 2.x server). The other 133
+tests are the tests of the run below; `FakeServer` of `test_mcp_host_resolve.py` now publishes `sinks`.
+The commits after `65f17e5` change only documentation and, in commit `85f99b3`, two mutation texts of the
+probe (no code and no test).
+
 **Supported, tested configuration (2026-10-27).** Python 3.14.8, MCP Python SDK (`mcp`) 2.3.0,
 `PYTHONPATH=src`, repository commit `6cdd658` (branch `m7-consolidation`). This is "the tested
 commit" of the whole package. The commits after it change only documentation
@@ -55,6 +73,17 @@ each connection attempt; three IANA entries that the Python tables do not follow
 subtests passed, at commit `ee7da0a`. The tested commit above adds 1 host test after the ninth round
 (every entry of a dated copy of the IANA registries, with the Dummy IPv6 Prefix 100:0:0:1::/64):
 133 passed, 310 subtests passed.
+
+**Mutation check of Concept 0.7 (2026-11-08).** Round 10 of `prototype/tests/tools/mutation_probe.py`
+(`MUTATIONS_07`) disables each guard of the Concept 0.7 rules once and runs the test module of that
+guard: 30 guards of the prototype issuer (`test_issuer_server.py`) and 30 guards of the host
+(`test_concept_07_host.py`). 60 of 60 failed at least one test. A first run left 5 mutants alive (a
+nonce that is not single-use, two `sinks` checks, the `sinks` member of a negotiated profile, one session
+for a run). Four tests were made stronger. The fifth mutant changed nothing that a test can observe (the run
+still used its first session), so it was replaced by a mutant that gives each sink a new session. The
+second run killed all 60. The whole probe ran on 2026-11-08: 114 mutants (54 of rounds 2 to 9 and 60 of round 10). The first run
+killed 112 and reported 2 round-3 mutants as stale, because the text of `materialize` changed; commit
+`85f99b3` moved them to the current text, and both were then killed. Result: 114 of 114.
 
 **Mutation check.** `prototype/tests/tools/mutation_probe.py` copies `prototype/` into a directory
 outside the repository, disables one guard per run, and runs `test_mcp_host_resolve.py` there. It does not
@@ -214,23 +243,24 @@ of the release tag of R3 does not run the unit tests, so this package has no run
 **Second host.** The second host is the coding-agent plugin that IMPLEMENTATION-EVIDENCE.md names, at
 release 0.9.1. This package read its source and its test names. It did not run its tests.
 
-| Requirement | S (R3) | Second host | E |
-|---|---|---|---|
-| A sink scope per sink profile; `sinks` in discovery (SC-21) | `test_discovery_and_server_settings_name_exactly_the_three_sinks`, `test_discovery_and_server_settings_list_both_sinks_with_their_scopes`, `test_discovery_and_server_settings_list_the_display_sink_with_its_scopes` | Reads `process_scope` and `display_scope`, not `sinks` | — |
-| Resolve scope plus sink scopes in one request; a sink scope alone or with agent scopes is `invalid_scope` (SC-21) | `test_the_process_scope_alone_or_with_agent_scopes_is_refused`, `test_the_display_scope_alone_or_with_agent_scopes_is_refused`, `test_a_request_that_mixes_the_resolve_scope_with_agent_scopes_gets_neither` | `test_the_process_scope_is_asked_for_on_top_where_command_output_is_masked` | — |
-| A missing sink scope: `403 insufficient_scope` before any lookup, no value, no audit row; header and body name the scope set and an `error_description` (SC-21) | `test_a_token_without_the_display_scope_gets_insufficient_scope_before_any_lookup`, `test_a_file_only_token_gets_insufficient_scope_for_a_process_without_a_value_or_a_row` | `test_a_login_without_the_display_scope_names_the_reason`, `test_a_login_without_commands_names_the_reason_and_runs_nothing` | — |
-| A refresh keeps the granted set (SC-21) | `test_the_process_scope_survives_a_refresh_and_a_file_grant_stays_file_only`, `test_the_display_scope_survives_a_refresh` | — | — |
-| `process-1` (SC-22) | PROFILE-process-1.md, PR2 to PR19 | PROFILE-process-1.md | Not recorded |
-| `display-1` (SC-23) | PROFILE-display-1.md, DS2 to DS19 | PROFILE-display-1.md | Observed: E13 |
-| The consent page names the account, offers a switch, names the client and the loopback host and port, and each sink scope (SC-06) | `test_the_consent_page_names_the_signed_in_account_and_no_other`, `test_the_consent_page_offers_to_use_another_account_through_a_same_origin_form`, `test_use_another_account_signs_out_and_returns_to_the_same_authorize_request`, `test_the_switch_keeps_the_scopes_the_page_asked_for`, `test_the_other_account_gets_its_own_consent_page_for_the_same_request`, `test_a_second_authorization_with_a_live_consent_returns_the_page_and_no_code` | Not applicable | — |
-| References per person; another account gets `unknown` (SC-24) | `test_a_reference_of_another_account_writes_a_refusal_line_with_counts_and_hashes_only` | Not applicable | Observed: E13 |
-| `account_hint` in token and refresh answers (SC-24) | `test_the_account_hint_keeps_a_few_first_characters_and_the_whole_domain`, `test_the_token_answer_carries_the_masked_account_and_not_the_address`, `test_the_refresh_answer_carries_the_masked_account_too` | Not implemented | — |
-| No value without its audit row; `503 audit_unavailable` (SC-25) | `test_no_value_leaves_when_its_audit_row_cannot_be_written` | — | — |
-| Revocation per device, by the person and by an administrator; epoch per principal and client (SC-26) | PROFILE-oauth-resolver-1.md, V1 to V7 | — | — |
-| Every person with an account may use the resolver; a block list; no service account (A7) | `test_a_member_and_a_guest_without_a_block_sign_in_and_resolve`, `test_a_blocked_person_gets_access_denied_without_a_consent_page`, `test_a_service_account_gets_access_denied_without_a_consent_page` | — | — |
-| `form-action` names the loopback origin of the request; `[::1]` is no resolver redirect (SC-20) | `test_the_consent_page_lets_its_form_redirect_to_this_loopback_client_and_nowhere_else`, `test_a_redirect_uri_the_consent_policy_cannot_name_is_no_resolver_redirect`, `test_the_consent_policy_names_the_origin_rebuilt_from_host_and_port` | — | — |
+| Requirement | S (R3) | Second host | E | Prototype (offline, 2026-11-08) |
+|---|---|---|---|---|
+| A sink scope per sink profile; `sinks` in discovery (SC-21) | `test_discovery_and_server_settings_name_exactly_the_three_sinks`, `test_discovery_and_server_settings_list_both_sinks_with_their_scopes`, `test_discovery_and_server_settings_list_the_display_sink_with_its_scopes` | Reads `process_scope` and `display_scope`, not `sinks` | — | Issuer: `test_discovery_names_each_sink_with_its_scope_set_and_the_two_sink_scopes`. Host: `test_an_object_without_sinks_or_with_a_bad_member_is_refused`, `test_the_host_takes_the_scope_set_from_sinks` |
+| Resolve scope plus sink scopes in one request; a sink scope alone or with agent scopes is `invalid_scope` (SC-21) | `test_the_process_scope_alone_or_with_agent_scopes_is_refused`, `test_the_display_scope_alone_or_with_agent_scopes_is_refused`, `test_a_request_that_mixes_the_resolve_scope_with_agent_scopes_gets_neither` | `test_the_process_scope_is_asked_for_on_top_where_command_output_is_masked` | — | `ScopeTests`; host: `test_one_authorization_serves_a_file_a_command_and_the_screen` |
+| A missing sink scope: `403 insufficient_scope` before any lookup, no value, no audit row; header and body name the scope set and an `error_description` (SC-21) | `test_a_token_without_the_display_scope_gets_insufficient_scope_before_any_lookup`, `test_a_file_only_token_gets_insufficient_scope_for_a_process_without_a_value_or_a_row` | `test_a_login_without_the_display_scope_names_the_reason`, `test_a_login_without_commands_names_the_reason_and_runs_nothing` | — | `test_a_file_only_token_gets_insufficient_scope_before_any_lookup_without_a_value_or_an_audit_event` |
+| A refresh keeps the granted set (SC-21) | `test_the_process_scope_survives_a_refresh_and_a_file_grant_stays_file_only`, `test_the_display_scope_survives_a_refresh` | — | — | `test_a_refresh_keeps_the_granted_set`, `test_a_refresh_adds_no_scope` |
+| `process-1` (SC-22) | PROFILE-process-1.md, PR2 to PR19 | PROFILE-process-1.md | Not recorded | Demo level, POSIX: `ProcessSinkTests` |
+| `display-1` (SC-23) | PROFILE-display-1.md, DS2 to DS19 | PROFILE-display-1.md | Observed: E13 | Demo level, terminal: `DisplaySinkTests` |
+| The consent page names the account, offers a switch, names the client and the loopback host and port, and each sink scope (SC-06) | `test_the_consent_page_names_the_signed_in_account_and_no_other`, `test_the_consent_page_offers_to_use_another_account_through_a_same_origin_form`, `test_use_another_account_signs_out_and_returns_to_the_same_authorize_request`, `test_the_switch_keeps_the_scopes_the_page_asked_for`, `test_the_other_account_gets_its_own_consent_page_for_the_same_request`, `test_a_second_authorization_with_a_live_consent_returns_the_page_and_no_code` | Not applicable | — | `ConsentTests` |
+| References per person; another account gets `unknown` (SC-24) | `test_a_reference_of_another_account_writes_a_refusal_line_with_counts_and_hashes_only` | Not applicable | Observed: E13 | `test_a_reference_of_another_person_is_unresolvable_with_the_reason_unknown` |
+| `account_hint` in token and refresh answers (SC-24) | `test_the_account_hint_keeps_a_few_first_characters_and_the_whole_domain`, `test_the_token_answer_carries_the_masked_account_and_not_the_address`, `test_the_refresh_answer_carries_the_masked_account_too` | Not implemented | — | `test_token_and_refresh_answers_carry_the_hint_and_not_the_address` |
+| No value without its audit row; `503 audit_unavailable` (SC-25) | `test_no_value_leaves_when_its_audit_row_cannot_be_written` | — | — | `test_no_value_leaves_without_its_audit_event` |
+| Revocation per device, by the person and by an administrator; epoch per principal and client (SC-26) | PROFILE-oauth-resolver-1.md, V1 to V7 | — | — | `DeviceTests` |
+| Every person with an account may use the resolver; a block list; no service account (A7) | `test_a_member_and_a_guest_without_a_block_sign_in_and_resolve`, `test_a_blocked_person_gets_access_denied_without_a_consent_page`, `test_a_service_account_gets_access_denied_without_a_consent_page` | — | — | Not implemented (fixture accounts and a block list only) |
+| `form-action` names the loopback origin of the request; `[::1]` is no resolver redirect (SC-20) | `test_the_consent_page_lets_its_form_redirect_to_this_loopback_client_and_nowhere_else`, `test_a_redirect_uri_the_consent_policy_cannot_name_is_no_resolver_redirect`, `test_the_consent_policy_names_the_origin_rebuilt_from_host_and_port` | — | — | `test_the_consent_page_forbids_framing_and_lets_its_form_reach_only_this_loopback_origin`, `test_registration_takes_only_ipv4_loopback_redirect_uris`, `test_a_loopback_redirect_uri_takes_any_port_and_nothing_else_changes` |
 
-The SC-20 rule "any loopback port" is not covered by a test that this package read.
+The SC-20 rule "any loopback port" is not covered by a reference server test that this package read. The
+prototype issuer covers it (`test_a_loopback_redirect_uri_takes_any_port_and_nothing_else_changes`).
 
 ### Runs of Concept 0.7
 
@@ -238,8 +268,9 @@ The SC-20 rule "any loopback port" is not covered by a test that this package re
 |---|---|---|
 | E13 | production, 2026-11-08, observed in one operator run, not independently reproduced, synthetic data | The second host at release 0.9.1 against the reference server at R3. First, a resolve got `409 unresolvable` with the reason `unknown`: the person had signed in to the resolver with one account and had an MCP session with another account. After the person signed in to the resolver with the same account, a click on a reference showed its value on the screen (`display-1`). |
 
-No end-to-end run of `process-1` is recorded in this package. The reference host in `prototype/` did not
-run against R3.
+No end-to-end run of `process-1` against the reference server is recorded in this package. The reference
+host in `prototype/` did not run against R3. It ran `process-1` and `display-1` offline against the
+prototype issuer (`test_concept_07_host.py`); that is evidence of the prototype only, not of interoperability.
 
 ## Known deviation of the reference server (SC-01, P16)
 

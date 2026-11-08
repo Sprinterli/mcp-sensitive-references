@@ -6,7 +6,9 @@ and of the second host. The evidence columns use the terms of
 [PROFILE-process-1.md](PROFILE-process-1.md). A cell marked "source" names code of the second host that no
 test of it shows.
 
-The reference host in `prototype/` does not implement this profile.
+The reference host in `prototype/` implements this profile at demo level (the screen is the terminal), and
+the prototype issuer implements its server rules. Their tests run offline only;
+[CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md), section "Concept 0.7", names them.
 
 ## 1. Preconditions
 

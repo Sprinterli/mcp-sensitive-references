@@ -12,6 +12,9 @@ the reference server, releases 0.9.0 and 0.9.1 of the second host, and run E13.
 - Two new normative sink profiles: PROCESS-PROFILE.md (`process-1`) and DISPLAY-PROFILE.md (`display-1`).
   The package gets an evidence file for each. (SC-22, SC-23)
 - A third implementation, the second host, is in IMPLEMENTATION-EVIDENCE.md. (new)
+- The prototype implements Concept 0.7: the reference host reads `sinks` and implements `process-1` and
+  `display-1` at demo level, and a new prototype issuer implements the server rules. Tested offline only.
+  (prototype/README.md, section "Concept 0.7")
 
 ### Core
 

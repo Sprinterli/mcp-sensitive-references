@@ -102,7 +102,9 @@ lists every change with its source.
 
 **Known gaps.** The reference server tests of R3 were read, not run by this repository. The display run
 E13 (2026-11-08) is one operator run, not independently reproduced. No end-to-end run of the process
-profile is recorded. The reference host does not read the `sinks` member of the discovery object. Run E12
+profile is recorded against the reference server. The reference host implements Concept 0.7. The prototype
+issuer in `prototype/` implements the server rules of Concept 0.7. Both are demo level, and no run against
+R3 is recorded. Run E12
 (2026-10-27) is one operator run of each step. Browser-side DNS rebinding remains a residual risk (TM-11).
 MCP SDK 1.x was not tested. See [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).
 

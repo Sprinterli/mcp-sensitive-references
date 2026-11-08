@@ -114,8 +114,40 @@ Limits:
 
 The reference host is an independent MCP host in this repository. It connects to an MCP server by URL with
 the MCP Python SDK client. It negotiates the extension, records issuer provenance, gets its own resolver
-token and writes a local file through `local-file-1`. The resolver client is
+token and writes a local file through `local-file-1`. Since Concept 0.7 it also runs a command through
+`process-1` (POSIX) and shows a value on the terminal through `display-1`. The prototype also holds a
+demo-level issuer, `prototype/src/sensitive_references/issuer_server.py`, which implements the server
+rules of Concept 0.7. The resolver client is
 `prototype/src/sensitive_references/resolver_client.py`.
+
+Tested configuration of Concept 0.7 (2026-11-08): Python 3.14.8 on macOS, MCP Python SDK 2.3.0, commit
+`65f17e5` of the branch `concept-0.7`. Results: 212 tests passed (pytest: 212 passed, 393 subtests passed;
+unittest: 212 OK). Of these, `test_issuer_server.py` has 38 tests and `test_concept_07_host.py` has 41.
+Round 10 of the mutation check disabled each guard of the Concept 0.7 rules once: 60 of 60 mutants failed
+at least one test. The whole probe (54 mutants of rounds 2 to 9 and 60 of round 10) killed 114 of 114 (two round-3 mutants
+moved to the new text of `materialize` first).
+
+What the prototype implements of Concept 0.7, tested offline only:
+
+- Discovery: the host refuses an object without valid `sinks` and takes the scope set from `sinks`. It asks
+  for the scopes of every sink of the run in one authorization.
+- The issuer: `sinks`, `process_scope` and `display_scope` (it publishes `process-1` only); the scope
+  combinations and `invalid_scope`; `403 insufficient_scope` before any lookup, with no value and no audit
+  event; a refresh that keeps the granted set; consent at every authorization with the account, a switch
+  action, the client, the loopback host and port, the time, the resource and one line per sink scope;
+  references per person; `account_hint`; `503 audit_unavailable`; revocation per device with an epoch.
+- `process-1`: the program name as destination, a resolve only when the command reads the value, a stop
+  after a failed resolve, and the masked output before the model, also after a failure, a signal or a
+  timeout.
+- `display-1`: one reference per request to `screen`, only after an explicit action of the person on the
+  terminal, never in the report or the transcript.
+
+Demo level, and not covered: the issuer has fixture accounts, no identity provider and no persistence. The
+`process-1` mask knows clear text, percent-encoding and base64 only, and there is no sandbox; a program that
+changes the value in another way, writes it to a file or sends it to the network passes the mask.
+`process-1` runs on POSIX only. Where a reference stands in an argument, the program gets the value in its
+argument list. `display-1` draws on the terminal, which a screen share or a terminal log can see. No run of
+the prototype against the reference server at R3 is recorded.
 
 Tested configuration (2026-10-27): Python 3.14.8, MCP Python SDK 2.3.0, commit `6cdd658` of the branch
 `m7-consolidation`. Results: 133 tests passed (pytest: 133 passed, 310 subtests passed; unittest: 133 OK).
@@ -131,7 +163,8 @@ Limits:
 - The host takes the file content from its configuration, not from the model (OQ-16).
 - The host does not check the refusal schema of WIRE-REPRESENTATION.md, section 5. A configurable pattern
   detects a refusal inside a successful result.
-- The host does not read `max_references`. It sends at most 100 references per request.
+- Until Concept 0.7 the host did not read `max_references`. Since commit `65f17e5` it uses the published
+  limit, else 100.
 - The host checks the mode of its token cache only, not access control lists. So it meets recovery item 3
   of RESOLVER-PROFILE.md, section 11.1, only for a cache that its mode bits make readable to others; a
   cache that an access control list opens to another user is not detected.
@@ -209,7 +242,8 @@ All runs used synthetic data. This repository did not repeat them.
 | E13 | production, 2026-11-08, observed in one operator run, not independently reproduced | The second host at release 0.9.1 against the reference server at R3. First, a resolve got `409 unresolvable` with the reason `unknown`: the person had signed in to the resolver with one account and had an MCP session with another account. After the person signed in to the resolver with the same account, a click showed the value on the screen (`display-1`). |
 
 E8 to E10 show the profile flow under the known deviation P16. They are no evidence of conformance. E12
-shows the same flow without a deviation. No end-to-end run of the process sink is recorded.
+shows the same flow without a deviation. No end-to-end run of the process sink against the reference server
+is recorded.
 
 ## Lessons with limited evidence
 
@@ -223,11 +257,13 @@ The consent-page lessons L-a and L-b come from one operator run in one browser (
 - **E12 and E13 are one run of each step.** Nobody else reproduced them. The automated tests of this
   repository do not run against the reference server.
 - **The R3 tests were read, not run.**
-- **No end-to-end run of `process-1`.**
-- **The reference host implements Concept 0.6 discovery.** It does not read `sinks` and does not refuse an
-  object without it. It implements neither `process-1` nor `display-1`.
+- **No end-to-end run of `process-1` against the reference server.** The prototype runs it offline only.
+- **The reference host implements Concept 0.7 at demo level, tested offline only** against the prototype
+  issuer, not against the reference server. Before commit `65f17e5` it did not read `sinks` and implemented
+  neither `process-1` nor `display-1`.
 - **The second host is not a supporting host** (no extension, its own session rule).
-- **SC-20 "any loopback port" has no test** that this repository read.
+- **SC-20 "any loopback port" has no reference server test** that this repository read. The prototype
+  issuer has one.
 - **TM-11.** Browser-side DNS rebinding of the authorization endpoint is a residual risk.
 - **MCP SDK 1.x untested.**
 - **Single-browser observation** for the consent lessons L-a and L-b.

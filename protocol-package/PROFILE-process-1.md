@@ -13,7 +13,9 @@ The evidence columns use these terms:
   `tests/test_sref_hooks.py`. This package read the source and the test names. It did not run the tests.
 - **Not verified:** this package found no evidence for the rule.
 
-The reference host in `prototype/` does not implement this profile.
+The reference host in `prototype/` implements this profile at demo level (POSIX only), and the prototype
+issuer implements its server rules. Their tests run offline only; [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md),
+section "Concept 0.7", names them. No end-to-end run against the reference server is recorded.
 
 **Identifier.** The normative text uses `process-1` (provisional, OQ-21). At R3 the reference server
 publishes this profile as `mcpgate-process-1`, with the `sink_type` `process`, and the second host asks for

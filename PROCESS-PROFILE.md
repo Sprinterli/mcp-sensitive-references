@@ -106,5 +106,6 @@ person can leave out on the consent page.
 ## 9. Evidence
 
 **Note.** The reference server accepts this profile under its other identifier. The second host implements
-it for the commands of a coding agent. The reference host does not implement it. See
+it for the commands of a coding agent. The reference host implements it at demo level, on POSIX, tested
+offline against the prototype issuer (`prototype/README.md`, section "Concept 0.7"). See
 [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).
