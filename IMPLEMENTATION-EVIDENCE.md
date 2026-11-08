@@ -211,10 +211,12 @@ What the source and the tests show:
   reference per click) (`maisecrets/sref_client.py`, `maisecrets/sref_hooks.py`,
   `claude-mod/show-values.mjs`, `maisecrets/show_values.py`; its threat model, C27, C31 and C32).
 - Its login asks for the resolve scope, the process scope on macOS and Linux (where it masks command
-  output), and the display scope.
+  output), and the display scope where the server names one.
 - A command gets its value through a FIFO. A child process resolves only after the command opened it, so a
   refused command costs no resolve. A failed resolve stops the command (exit status 97).
-- A display resolves only on a click, at most 20 per session. The value stays in the memory of the drawing
+- A display resolves only on a click, at most 20 per session id of the client process. The client
+  counts them in the memory of the drawing module; a `/clear`, a resume and a new process start the count
+  again. The value stays in the memory of the drawing
   module. A copy needs a second click on the shown value, and each copy link carries a random part that
   only the drawing holds.
 
@@ -230,6 +232,8 @@ Limits:
   command with its own EXIT trap, `exec`, a killed command and a command past the timeout of the client.
   On these paths it does not meet PROCESS-PROFILE.md, section 5, rule 2.
 - It does not read `account_hint`.
+- Its login asks for the display scope also in a client where it draws no value. It does not meet
+  DISPLAY-PROFILE.md, section 1, rule 4 (PROFILE-display-1.md, DS4).
 
 ## End-to-end runs
 
@@ -243,7 +247,6 @@ All runs used synthetic data. This repository did not repeat them.
 | E8 to E10 | production, 2026-10-26, observed in one operator run, not independently reproduced | Interactive consent, cache, and refresh after expiry. The host materialized the file. Zero sentinel values in model-visible content. **All three runs used the non-conformant option `--resource`.** |
 | E11 | production, 2026-10-26, observed in one operator run | The host at commit `8394a02`, without `--resource`, read the metadata that the challenge names, found the base URL as `resource`, stopped with `wrong_issuer` and resolved nothing. |
 | E12 | production, 2026-10-27, observed in one operator run of each step, not independently reproduced | The host at commit `9b95733` (host code equal to the tested commit `6cdd658`), with no deviation option, discovered the MCP URL as `resource` and used it. The authorization request named the MCP URL as `resource`. Three runs: interactive consent; a run from the cache that opened no page; a run after the real expiry of the access token that got a new one with the refresh token. Each run negotiated version 1, observed one reference with provenance, sent one resolve request and materialized the file with the synthetic value. Zero sentinel values in model-visible content, in the host report and in the token cache. |
-
 | E13 | production, 2026-11-08, observed in one operator run, not independently reproduced | The second host at release 0.9.1 against the reference server at R3. First, a resolve got `409 unresolvable` with the reason `unknown`: the person had signed in to the resolver with one account and had an MCP session with another account. After the person signed in to the resolver with the same account, a click showed the value on the screen (`display-1`). |
 
 E8 to E10 show the profile flow under the known deviation P16. They are no evidence of conformance. E12

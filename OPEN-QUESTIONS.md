@@ -105,6 +105,10 @@ loopback port gives a new redirect URI.
 client. No automated test covers it. One operator run observed that exact port matching breaks a host that
 reuses a client with a new port.
 
+Since Concept 0.7 the consent page comes at every authorization request (RESOLVER-PROFILE.md, section 10),
+so a new client no longer adds a consent page. Option A still lets a host keep one client, and so one
+device in the revocation list.
+
 ## OQ-5. Sender-constrained resolver tokens
 
 Neither implementation uses DPoP (RFC 9449) or mTLS. A stolen resolver token works until it expires.

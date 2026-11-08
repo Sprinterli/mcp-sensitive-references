@@ -640,7 +640,7 @@ cannot write the event, it MUST answer `503 audit_unavailable` and MUST NOT send
 The event MUST NOT contain a value, a reference in canonical form, a destination in another form than the
 sink profile permits, or a credential. The event SHOULD name the subject, the client, the sink profile and
 the number of values. A sink profile can say what the event keeps of `destination` (for example
-PROCESS-PROFILE.md, section 5).
+PROCESS-PROFILE.md, section 6).
 
 A server MAY limit the number of values per principal and period. It answers with `429 quota_exceeded`
 after the limit. Every released value counts toward the limit, in every sink profile.

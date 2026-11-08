@@ -72,6 +72,10 @@ it as proposed text. No test in this repository covers it. A production run on 2
 exact port matching breaks a host that reuses a client with a new port (IMPLEMENTATION-GUIDE.md, lesson
 L-c; observed, one operator run, not independently reproduced).
 
+**Concept 0.7.** Concept 0.7 removes the premise of this question. The consent page now comes at every
+authorization request (RESOLVER-PROFILE.md, section 10), so a new client no longer adds a consent page.
+Option A still lets a host keep one client, and so one device in the revocation list (SC-26).
+
 ## OQ-5. Sender-constrained resolver tokens (F6)
 
 Neither implementation uses DPoP (RFC 9449) or mTLS. A stolen resolver token works until it expires.

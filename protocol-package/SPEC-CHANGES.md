@@ -1,8 +1,9 @@
-# Proposed changes to concept 0.5
+# Specification changes: the history of the proposals
 
-**Status: proposed change, experimental. Not concept text.** Each entry below proposes a change to concept 0.5. The
-concept files in the repository root do not change. If the community accepts an entry, a
-later concept version can take its text.
+**Status: history of the proposals, experimental. Not concept text.** Each entry below proposed a change to
+the concept text. SC-01 to SC-20 proposed changes to concept 0.5. SC-21 to SC-26 record the changes of
+Concept 0.7. The normative text is in the repository root. If an entry and the normative text differ, the
+normative text is correct.
 
 Each entry has four parts:
 
@@ -11,14 +12,15 @@ Each entry has four parts:
 - **Proposed text:** normative text with MUST, SHOULD and MAY in the sense of RFC 2119 and RFC 8174.
 - **Compatibility:** the effect on an implementation that follows concept 0.5 today.
 
-**Concept 0.7.** SC-01 to SC-20 were the proposals for Concept 0.6. SC-21 to SC-26 are the changes of
+**Concept 0.7.** SC-01 to SC-20 were the proposals for Concept 0.6 (SC-18 stays open as OQ-3). SC-21 to SC-26 are the changes of
 Concept 0.7. Concept 0.7 also amends SC-03 and SC-06; each of these entries ends with a paragraph
 "Concept 0.7". All of SC-21 to SC-26 and both amendments are in the normative text of Concept 0.7
 (RESOLVER-PROFILE.md, PROCESS-PROFILE.md and DISPLAY-PROFILE.md). Their evidence is at revision R3 of the
 reference server and at release 0.9.1 of the second host ([README.md](README.md#sources-and-versions)).
 
 Notation. "Reference server test `x`" means a test of the reference server at revision R1, or at revision
-R2 where the text says so. R1 and R2 are labels for two non-public revisions ([README.md](README.md#sources-and-versions)).
+R2 or R3 where the text says so. R1, R2 and R3 are labels for three revisions of the reference server; R3 is
+the revision of Concept 0.7 ([README.md](README.md#sources-and-versions)).
 This package read that test and did not run it. "Host test `x`" means a test in `prototype/tests/` at the
 tested commit (see [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#test-run)).
 
@@ -530,7 +532,9 @@ not say which account signed in. A person with two accounts could approve the wr
 `test_the_consent_page_offers_to_use_another_account_through_a_same_origin_form`,
 `test_use_another_account_signs_out_and_returns_to_the_same_authorize_request`,
 `test_the_other_account_gets_its_own_consent_page_for_the_same_request` and
-`test_the_switch_spends_the_nonce_so_the_old_page_grants_nothing`.
+`test_the_switch_spends_the_nonce_so_the_old_page_grants_nothing`. These tests replace the evidence of
+`test_consent_is_asked_once_per_client_then_codes_follow_without_interaction` above: at R3 a second
+authorization with a live approval gets the page again and no code.
 
 *Compatibility.* A host that relied on a code without a page now shows the page at each authorization. A
 host with a token cache and refresh does not see a page more often (E9, E10).

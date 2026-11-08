@@ -17,7 +17,7 @@ the prototype issuer implements its server rules. Their tests run offline only;
 | DS1 | The host resolves only if the negotiated intersection holds `display-1` and a resolver profile. | Not applicable | **Deviation**, as PROFILE-process-1.md, PR1: no extension, its own session rule. |
 | DS2 | The discovery object lists the profile in `sink_profiles` and in `sinks`, with its whole scope set. | `test_discovery_and_server_settings_list_the_display_sink_with_its_scopes` | **Partial.** The host reads `sink_profiles` and `display_scope`, not `sinks` (`maisecrets/sref_client.py`, `discover`). |
 | DS3 | A token without the display scope gets `403 insufficient_scope` before any lookup. Header and body name the whole scope set and carry an `error_description`. No value and no audit event. | `test_a_token_without_the_display_scope_gets_insufficient_scope_before_any_lookup` (asserts the header, `scope`, `error_description`, no lookup and no audit row), `test_a_token_without_the_display_scope_gets_403_whatever_the_rest_of_the_body_holds` | `test_a_login_without_the_display_scope_names_the_reason` |
-| DS4 | The host asks for the display scope. | Not applicable | `login_scope` adds the display scope when the server names one. The host draws values only on a surface that says it draws locally (its threat model, C32). |
+| DS4 | The host asks for the display scope only where it meets sections 4 and 5 of DISPLAY-PROFILE.md. | Not applicable | **Deviation.** `login_scope` (`maisecrets/sref_client.py`, lines 85 to 87) adds the display scope to every login where the server names one, also in a client where the host draws no value. The host draws values only on a surface that says it draws locally (its threat model, C32). |
 | DS5 | The display scope alone, or with an agent scope, is `invalid_scope`. | `test_the_display_scope_alone_or_with_agent_scopes_is_refused` | Not applicable |
 | DS6 | A refresh keeps the display scope. | `test_the_display_scope_survives_a_refresh` | Not applicable |
 | DS7 | A token with the display scope resolves into a file, and not into a command without the process scope. | `test_a_display_token_still_resolves_into_a_file_and_not_into_a_command` | Not applicable |
@@ -35,7 +35,7 @@ the prototype issuer implements its server rules. Their tests run offline only;
 |---|---|---|---|
 | DS10 | Only after an action of the person on that reference. Never while the host draws. | Not applicable | `test_a_click_on_the_screen_shows_a_noted_reference_once_through_the_display_sink`. Source: `claude-mod/show-values.mjs` calls `reveal` from the handler of a link press only. |
 | DS11 | Only a reference that the session got from a server result. | Not applicable | `test_a_reference_this_session_did_not_get_or_show_values_off_resolves_nothing` |
-| DS12 | A limit of resolves per session. | Not applicable | Source: at most 20 per session (`REVEAL_MAX` in `show-values.mjs`). |
+| DS12 | A limit of resolves per session. | Not applicable | Source: at most 20 per session id of the client process, counted on the client only (`REVEAL_MAX` in `show-values.mjs`, in the memory of the module). A `/clear`, a resume and a new process start the count again. |
 
 ## 4. Output boundary
 

@@ -74,7 +74,7 @@ The information is from 2026-11-08.
 
 | File | Content |
 |---|---|
-| [SPEC-CHANGES.md](SPEC-CHANGES.md) | Each proposed change to concept 0.5, with the problem, the evidence, proposed normative text and the compatibility impact. |
+| [SPEC-CHANGES.md](SPEC-CHANGES.md) | The history of the proposals: each change (SC-01 to SC-26), with the problem, the evidence, the normative text and the compatibility impact. |
 | [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md) | The proposed OAuth resolver profile with implementation evidence. Each rule names its test or says "not yet tested", "not verified" or "not conformant". |
 | [PROFILE-local-file-1.md](PROFILE-local-file-1.md) | The local-file sink profile with the evidence of the test host, the reference server and the second host. |
 | [PROFILE-process-1.md](PROFILE-process-1.md) | The process sink profile with the evidence of the reference server and the second host. |
