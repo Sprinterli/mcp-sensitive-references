@@ -1,6 +1,6 @@
 # Sink profile `local-file-1`
 
-**Status: Concept 0.6 draft, normative profile.** The conventions and terms of
+**Status: Concept 0.7 draft, normative profile.** The conventions and terms of
 [SPEC-DRAFT.md](SPEC-DRAFT.md#1-conventions) apply. This profile builds on the core documents. It does not
 need any other document.
 
@@ -38,7 +38,9 @@ send it to a resolver.
 
 ## 3. Wire values
 
-The sink MUST send `sink_type` with the value `local_file` to the resolve endpoint. The sink MUST send a
+The sink MUST send `sink_type` with the value `local_file` to the resolve endpoint. `local-file-1` requires
+no sink scope: a resolver token with the resolve scope is enough
+([RESOLVER-PROFILE.md](RESOLVER-PROFILE.md#5-resolve-scope-and-sink-scopes)). The sink MUST send a
 non-empty `destination` of 1 to 4096 characters without control characters.
 
 **Provisional (OQ-6).** The sink SHOULD send a label as `destination`, for example the file name, not an
@@ -69,7 +71,7 @@ absolute path.
 
 ## 6. Not in this profile
 
-- Command interpolation and document sinks.
+- Command interpolation ([PROCESS-PROFILE.md](PROCESS-PROFILE.md)) and document sinks.
 - A general filesystem policy.
 - Protection after the file exists. A process with the same operating-system privileges can read the file
   (SECURITY-MODEL.md, section 6).
@@ -78,5 +80,6 @@ absolute path.
 ## 7. Evidence
 
 **Note.** The reference host implements this profile with one difference: it sends the absolute path as
-`destination`, not a label. It takes the content from its own configuration, not from the model. See
+`destination`, not a label. It takes the content from its own configuration, not from the model. The
+second host sends the path of the file too, and takes the content from the model. See
 [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).

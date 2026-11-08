@@ -1,6 +1,6 @@
 # Resolver profile `oauth-resolver-1`
 
-**Status: Concept 0.6 draft, normative profile.** The conventions and terms of
+**Status: Concept 0.7 draft, normative profile.** The conventions and terms of
 [SPEC-DRAFT.md](SPEC-DRAFT.md#1-conventions) apply. This profile builds on the core documents. It does not
 need any other document.
 
@@ -17,7 +17,7 @@ response `iss` parameter (RFC 9207). It applies to an MCP server over HTTP.
 
 The profile assumes that the authorization server and the protected resource share state. The resource
 must see the approval of section 10 (to stop live tokens when it ends, and to check an active approval on
-each request), and the consent page must name the sink profiles of the resource. The authorization server
+each request), and the consent page must name the sink scopes of the request. The authorization server
 can be the same service as the resource, or share a store with it. A deployment with an independent
 authorization server needs a mechanism for this shared state, for example token introspection. This
 profile does not define one (section 16).
@@ -82,8 +82,19 @@ requests.
 | `resolve_scope` | non-empty string | required |
 | `resolver_profiles` | array of strings | required |
 | `sink_profiles` | array of strings | required |
+| `sinks` | object | required |
+| `process_scope` | non-empty string | required if `sink_profiles` lists `process-1` |
+| `display_scope` | non-empty string | required if `sink_profiles` lists `display-1` |
 | `max_references` | integer of 100 or more | optional (section 12.3) |
 | `status` | string | optional |
+
+`sinks` has one member for each entry of `sink_profiles`, with the profile identifier as its name. Each
+member is an object with two members:
+
+| Member | Type | Content |
+|---|---|---|
+| `sink_type` | non-empty string | The wire value of `sink_type` for this profile (section 12.1). |
+| `scopes` | array of non-empty strings | The whole scope set that a resolver token needs for this profile. It holds the resolve scope, and the sink scope of the profile if the profile has one (section 5). |
 
 ```json
 {
@@ -93,8 +104,17 @@ requests.
   "sensitive_references": {
     "resolve_endpoint": "https://mcp.example.com/sensitive-references/resolve",
     "resolve_scope": "sensitive-references.resolve",
+    "process_scope": "sensitive-references.resolve.process",
+    "display_scope": "sensitive-references.resolve.display",
     "resolver_profiles": ["oauth-resolver-1"],
-    "sink_profiles": ["local-file-1"],
+    "sink_profiles": ["display-1", "local-file-1", "process-1"],
+    "sinks": {
+      "display-1": {"sink_type": "display",
+                    "scopes": ["sensitive-references.resolve", "sensitive-references.resolve.display"]},
+      "local-file-1": {"sink_type": "local_file", "scopes": ["sensitive-references.resolve"]},
+      "process-1": {"sink_type": "process",
+                    "scopes": ["sensitive-references.resolve", "sensitive-references.resolve.process"]}
+    },
     "status": "experimental"
   }
 }
@@ -105,7 +125,16 @@ A host MUST refuse the object, and MUST NOT resolve, in each of these cases:
 - a required member is absent or has another type;
 - the object does not list the resolver profile and the sink profile that the host and the server
   negotiated;
+- `sinks` has no member for a negotiated sink profile, or that member has no valid `sink_type` or
+  `scopes`, or its `scopes` does not hold the resolve scope;
+- `process_scope` or `display_scope` is present and is not the sink scope that `sinks` names for
+  `process-1` or `display-1`;
 - `max_references` is present and is not an integer of 100 or more.
+
+A host MUST take the scope set of a sink profile from `sinks`. The members `process_scope` and
+`display_scope` repeat the sink scopes of the two profiles for hosts that show them to a person.
+
+The field name of the discovery object is `sensitive_references`. This version fixes the name.
 
 A host MUST NOT put a default value in place of a missing or malformed member. A host MAY use an
 operator-configured endpoint or scope in place of a discovered value of a valid object. An
@@ -114,21 +143,84 @@ operator-configured value MUST NOT make a refused object acceptable.
 If the host and the server negotiated both profiles and the metadata holds no `sensitive_references`
 object, the host MUST NOT resolve.
 
-**Provisional (OQ-8).** The discovery object lives in the RFC 9728 metadata. The field name
-`sensitive_references` is not registered in the IANA "OAuth Protected Resource Metadata" registry.
+**Note.** The discovery object lives in the RFC 9728 metadata (OQ-8, decided in Concept 0.7). The field
+name `sensitive_references` is not registered in the IANA "OAuth Protected Resource Metadata" registry. A
+SEP must register it.
 
-## 5. Resolve scope
+## 5. Resolve scope and sink scopes
 
-A server MUST name the resolve scope in `sensitive_references.resolve_scope`. A server SHOULD NOT list the
-resolve scope in `scopes_supported` of its RFC 9728 or RFC 8414 metadata.
+### 5.1 The scopes
 
-An authorization server MUST refuse an authorization request that names the resolve scope together with
-any scope other than `openid`. It MUST answer with `invalid_scope`.
+The *resolve scope* authorizes resolution. A *sink scope* is a second scope that a sink profile can
+require in addition to the resolve scope. A sink profile states whether it requires a sink scope. In this
+version, `local-file-1` requires none, and `process-1` and `display-1` each require their own sink scope
+([PROCESS-PROFILE.md](PROCESS-PROFILE.md), [DISPLAY-PROFILE.md](DISPLAY-PROFILE.md)).
 
-A host MUST request no scope other than the resolve scope and, optionally, `openid`. If a token response
-names a scope set without the resolve scope, the host MUST NOT use the token. If a token response has no
-`scope` parameter, the granted scope is the requested scope (RFC 6749 section 5.1), and the host MAY use the
-token.
+A server MUST name the resolve scope in `sensitive_references.resolve_scope` and the scope set of each
+sink profile in `sensitive_references.sinks` (section 4). Two sink profiles MUST NOT share a sink scope. A
+sink scope MUST NOT be the resolve scope. A server SHOULD NOT list the resolve scope or a sink scope in
+`scopes_supported` of its RFC 9728 or RFC 8414 metadata.
+
+**Note.** Each sink scope is separate so that a person can leave out a sink that gives the value to a
+process or a screen (section 10). The sink is a label that the client sends. The server cannot check it.
+
+### 5.2 Authorization request
+
+A host MUST ask for the resolve scope and the sink scopes of the sink profiles that it can honour, in one
+authorization request. A host MUST NOT ask for a sink scope of a profile whose rules it does not meet. A
+host MAY add `openid`.
+
+An authorization server MUST accept only a request whose scope set is the resolve scope, plus zero or more
+sink scopes that its discovery object names, plus optionally `openid`. It MUST answer every other request
+that names the resolve scope or a sink scope with `invalid_scope`. In particular, these requests get
+`invalid_scope`:
+
+- the resolve scope together with any scope that is not a sink scope and not `openid`, for example an
+  agent scope;
+- a sink scope without the resolve scope.
+
+The authorization server MUST issue no token for such a request.
+
+### 5.3 Token response
+
+If a token response names a scope set without the resolve scope, the host MUST NOT use the token. If a
+token response has no `scope` parameter, the granted scope is the requested scope (RFC 6749 section 5.1),
+and the host MAY use the token. A host MUST use a token for a sink profile only if the granted scope set
+holds every scope of that profile in `sinks`.
+
+A refresh MUST keep the granted scope set. An authorization server MUST NOT add a scope at a refresh. A
+host that needs a sink scope that its token does not hold MUST start a new authorization (section 10).
+
+### 5.4 Missing sink scope
+
+If a resolver token holds the resolve scope but not the sink scope that the requested `sink_type` needs,
+the resolve endpoint MUST answer `403 insufficient_scope`. It MUST answer before it looks up any
+reference. It MUST return no value, and it MUST NOT write a resolve audit event (section 15). The
+answer MUST carry:
+
+- a `WWW-Authenticate` header with the `Bearer` scheme, `error="insufficient_scope"`, a `scope`
+  attribute with the whole scope set that the sink profile needs, and an `error_description` attribute
+  (RFC 6750 section 3);
+- a JSON body with `error`, `scope` (the same scope set) and `error_description` (the same text);
+- `Cache-Control: no-store`.
+
+The `error_description` MUST be a fixed text of the server that tells the person to sign in again and
+allow the sink on the consent page. It MUST NOT contain protected data (SPEC-DRAFT.md, section 8).
+
+```http
+HTTP/1.1 403 Forbidden
+WWW-Authenticate: Bearer error="insufficient_scope",
+  scope="sensitive-references.resolve sensitive-references.resolve.display",
+  error_description="This sign-in does not allow real values on your screen. Sign in again and allow the screen on the consent page."
+Cache-Control: no-store
+Content-Type: application/json
+
+{"error": "insufficient_scope",
+ "error_description": "This sign-in does not allow real values on your screen. Sign in again and allow the screen on the consent page.",
+ "scope": "sensitive-references.resolve sensitive-references.resolve.display"}
+```
+
+(The header is folded here for the page width. It is one line on the wire.)
 
 ## 6. Resolve endpoint
 
@@ -259,8 +351,9 @@ resolve.
 
 ### 9.2 Loopback redirect URIs
 
-If `local-file-1` is the only sink profile that a server offers, the authorization server MUST issue a
-resolver authorization code only to a loopback IP redirect URI (RFC 8252 section 7.3).
+If every sink profile that a server offers puts the value on the computer of the host (`local-file-1`,
+`process-1` and `display-1` do), the authorization server MUST issue a resolver authorization code only to a
+loopback IP redirect URI (RFC 8252 section 7.3).
 
 An authorization server MUST compare a redirect URI of a resolver client with the registered redirect
 URIs of that client by exact simple string comparison (RFC 3986 section 6.2.1). There is one exception. If
@@ -286,16 +379,41 @@ authorization. The port rule above makes this possible.
 
 ## 10. Consent
 
-An authorization server MUST get an explicit approval from the user before it issues the first
-authorization code with the resolve scope for a tuple of subject, client, resource, resolve scope and
-sink-profile set. The consent page MUST name the client, the protected resource (its `resource` value) and
-the sink profiles that the approval covers.
+### 10.1 A decision at every authorization request
 
-The authorization server MUST store the approval bound to the tuple of subject, client, resource, resolve
-scope and the set of sink profiles that the consent page showed. The approval covers resolution of every
-reference of that subject at that resource into those sink profiles only. For a sink profile that the
-server offers later, another resource or a broader scope, the authorization server MUST get a new decision
-from the user.
+An authorization server MUST get an explicit decision of the user on a consent page for every
+authorization request with the resolve scope. A stored approval MUST NOT replace this decision. A second
+authorization request of the same client, with a live approval, also gets the consent page and no code
+until the user decides.
+
+**Note.** A refresh (RFC 6749 section 6) is not an authorization request. It needs no consent page
+(section 11).
+
+### 10.2 What the consent page names
+
+The consent page MUST name:
+
+1. the account of the user that the code will be issued for, with an action to use another account;
+2. the client, by the name from its registration;
+3. the host and the port of the loopback redirect URI of this request;
+4. the time of the request;
+5. the protected resource (its `resource` value);
+6. one line for each sink scope that the request asks for. Each line says in plain words what the sink
+   does with a value. A request without a sink scope shows no such line.
+
+The action to use another account MUST end the browser session of the current account and return to the
+same authorization request, with the same scope set. The other account MUST then get its own consent page.
+The action MUST carry the same single-use nonce and `Origin` check as the consent post.
+
+The client name comes from the client. The page SHOULD say that the user approves only a sign-in that the
+user started in this program.
+
+### 10.3 The stored approval
+
+The authorization server MUST store the approval bound to the tuple of subject, client, resource and
+granted scope set. A token carries only the scopes of the approval of its authorization. For a sink scope
+that the token does not hold, another resource or a broader scope, the host MUST start a new authorization
+and the user MUST decide again (section 5.3).
 
 An authorization server MUST NOT issue a resolver code on the basis of a browser session alone. It MUST send
 the consent page with a policy that forbids every framing origin, for example
@@ -309,6 +427,27 @@ A withdrawn or expired approval MUST stop the refresh of resolver tokens. It MUS
 resolver access token that the approval covered. An authorization server SHOULD NOT ask for consent per
 reference or per tool call.
 
+### 10.4 Revocation per device
+
+A *device* is the pair of a principal and a resolver client. An authorization server MUST let the user
+list the devices of the user and revoke one of them. It MUST let an administrator of the deployment do the
+same for the devices of another user. It MUST NOT let a user who is not an administrator list or revoke a
+device of another user.
+
+A revocation of a device MUST stop every access token, every refresh token and every unused authorization
+code that the device holds, and MUST withdraw the approval of the device. A revocation MUST NOT stop a
+token of another principal, also when that principal uses the same client.
+
+A credential that the authorization server issued before the revocation MUST NOT work after it, also
+after a new approval of the same device. An authorization server can meet this rule with a counter per
+device (an *epoch*): every code, token and device record carries the epoch of its issue and works only
+while that epoch is current. The revocation raises the epoch before it stops the tokens. The write of a
+new credential checks the epoch in the same atomic step. If the authorization server cannot read the epoch,
+it MUST refuse the credential.
+
+After a revocation, the device can authorize again. The new authorization needs a new decision of the user
+(section 10.1).
+
 ## 11. Token lifetime, cache and renewal
 
 A server MUST enforce the expiry of a resolver access token. A server SHOULD issue resolver access tokens
@@ -321,6 +460,8 @@ access control list entry that grants access to another user. On another system,
 equivalent store that is bound to the user, for example the credential store of the operating system.
 
 A host MUST key a cached token by the triple of resource, authorization server and scope.
+
+A refresh MUST keep the scope set of the refreshed token (section 5.3). A refresh needs no consent page.
 
 After a 401 answer from the resolve endpoint, a host MAY get one new token and try once again. After a
 second 401 answer, the host MUST stop and MUST NOT write the sink.
@@ -348,6 +489,20 @@ In every case of this section, a host MUST NOT write the sink with values from a
 host MAY use DPoP (RFC 9449). Short access-token lifetimes and refresh rotation bound to the client limit
 the risk of a stolen token.
 
+### 11.2 Account hint
+
+A token response and a refresh response MAY carry `account_hint`: a string that lets a host show the
+person which account its token belongs to. The hint MUST NOT contain the whole account name. If the account
+is an email address, the hint SHOULD hold at most the first three characters of the local part, and never
+more than half of it, then an ellipsis (U+2026), then the whole domain, for example `ali…@example.com`. A
+server that sends the hint in the token response MUST also send it in the refresh response.
+
+A host MUST NOT use the hint for a decision of this profile. A host MUST NOT give it to the model.
+
+**Note.** References are per person (section 12.2). If a person signs in to the resolver with one account
+and to the MCP server with another, every reference is `unknown`. The hint lets the host tell the person
+which account the resolver token belongs to.
+
 ## 12. Resolve request and response
 
 ### 12.1 Request
@@ -365,8 +520,12 @@ Content-Type: application/json
 
 - `references` MUST be an array of references in canonical form.
 - A resolve request MUST NOT carry a principal. The server MUST take the principal from the resolver token.
-- A resolve request MUST carry `sink_type`. The value for `local-file-1` is `local_file`. A server MUST
-  refuse a `sink_type` that it does not offer.
+- A resolve request MUST carry `sink_type`: the value that `sinks` names for the sink profile. The values
+  of this version are `local_file` (`local-file-1`), `process` (`process-1`) and `display` (`display-1`).
+  A server MUST refuse a `sink_type` that is not exactly one that it offers, with `403 ineligible_sink`.
+- A sink profile can restrict `destination` and the number of references further (for example
+  DISPLAY-PROFILE.md, section 3). A server MUST answer a request that breaks such a restriction with
+  `400 invalid_request`.
 - A resolve request MUST carry `destination`: a JSON string of 1 to 4096 characters without control
   characters (U+0000 to U+001F and U+007F). A server MUST answer a request without a valid `destination`
   with `400 invalid_request`.
@@ -380,16 +539,23 @@ keyed one-way hash of the path, as lower-case hexadecimal.
 For each request, the server MUST check all of these conditions:
 
 1. The audience or resource of the resolver token is the protected resource.
-2. The resolver token has the resolve scope and an active approval (section 10).
-3. The issuer authorizes the subject of the resolver token for every reference in the request.
+2. The resolver token has the resolve scope, every sink scope that the `sink_type` needs (section 5.4),
+   and an active approval (section 10). The server checks the scopes before it looks up a reference.
+3. The subject of the resolver token is the owner of every reference in the request (SPEC-DRAFT.md,
+   section 2).
 4. Every reference was issued by this server, did not expire, and was not revoked.
 5. The request is within the limits of the server.
 
-If one condition fails for one reference, the server MUST return no value for the whole request. If condition 3 fails, the
-reason for that reference is `unknown` (SPEC-DRAFT.md, section 5.5).
+If one condition fails for one reference, the server MUST return no value for the whole request. If
+condition 3 fails, the reason for that reference is `unknown` (SPEC-DRAFT.md, section 5.5), also when the
+reference is revoked or expired.
 
-**Note.** The authorization policy of condition 3 belongs to the issuer. It can authorize only the owner
-of a reference (SPEC-DRAFT.md, section 2), or also other principals, for example for a shared record.
+References are per person. A reference that the issuer issued to person A MUST NOT resolve for person B,
+also when B holds a valid resolver token and the reference is current. A server SHOULD look up a reference
+only in the records of the subject of the resolver token, so that a record of another person is never
+read.
+
+**Note.** A record that several people may see needs a reference for each person.
 
 ### 12.3 Batch limits and duplicates
 
@@ -417,22 +583,28 @@ request, and each value is a string. Else the host MUST discard the answer and M
 ## 13. Error format
 
 A resolve endpoint MUST answer a failure with one JSON object `{"error": "<code>"}` and an optional
-`reasons` object that maps a reason to a count. The answer MUST NOT contain protected data (SPEC-DRAFT.md,
-section 8). The endpoint MUST use these codes:
+`reasons` object that maps a reason to a count. A `403 insufficient_scope` answer also carries `scope` and
+`error_description` (section 5.4). The answer MUST NOT contain protected data (SPEC-DRAFT.md, section 8).
+The endpoint MUST use these codes:
 
 | Status | `error` | Meaning |
 |---|---|---|
-| 400 | `invalid_request` | The body is malformed or empty, or has no valid destination. |
-| 401 | `invalid_token` | The token is absent, unknown or expired, is for another resource, or its approval ended. |
-| 403 | `insufficient_scope` | The token has no resolve scope. |
+| 400 | `invalid_request` | The body is malformed or empty, has no valid destination, or breaks a restriction of the sink profile. |
+| 401 | `invalid_token` | The token is absent, unknown or expired, is for another resource, or its approval ended or was revoked. |
+| 403 | `insufficient_scope` | The token lacks the resolve scope or the sink scope of the `sink_type`. The answer names the whole scope set that the request needs. |
 | 403 | `ineligible_sink` | The server does not offer the `sink_type`. |
 | 403 | `not_enabled` | The server does not allow resolution for this principal. |
 | 409 | `unresolvable` | At least one reference does not resolve. `reasons` counts `malformed`, `unknown`, `revoked` and `expired`. |
 | 413 | `too_many_references` | The request exceeds the effective limit. |
 | 429 | `quota_exceeded` | The principal exceeded a rate or a quota. |
+| 503 | `audit_unavailable` | The server could not write the audit event of the release (section 15). No value left the server. |
 
 A 401 answer MUST carry a `WWW-Authenticate` header with the `Bearer` scheme (RFC 6750 section 3). A 403
-`insufficient_scope` answer SHOULD carry it with `error="insufficient_scope"`.
+`insufficient_scope` answer MUST carry it as section 5.4 says. Every other failure answer SHOULD carry
+`Cache-Control: no-store`.
+
+After a `503 audit_unavailable` answer, the host MUST NOT write the sink. It MAY send the request again
+later.
 
 A host MUST treat only 401 as a reason to get a new token. A host MUST fail closed for every non-200
 answer, also for a code that it does not know. A host MUST NOT show a server message to the model.
@@ -461,12 +633,20 @@ it SHOULD use the `sub` claim or declare an equivalent stable claim.
 
 ## 15. Audit and limits
 
-A server SHOULD record one audit event for each resolve request. The event MUST NOT contain a value, a
-reference in canonical form or a credential. A server MAY limit the number of values per principal and
-period. It answers with `429 quota_exceeded` after the limit.
+A server MUST record one audit event for each resolve request that releases values. No value leaves the
+server without its audit event: the server MUST write the event before it sends the values. If the server
+cannot write the event, it MUST answer `503 audit_unavailable` and MUST NOT send a value.
 
-**Open (OQ-18).** The minimum content of the audit event and the rate limits are not decided. Recovery
-beyond section 11.1 is not decided.
+The event MUST NOT contain a value, a reference in canonical form, a destination in another form than the
+sink profile permits, or a credential. The event SHOULD name the subject, the client, the sink profile and
+the number of values. A sink profile can say what the event keeps of `destination` (for example
+PROCESS-PROFILE.md, section 5).
+
+A server MAY limit the number of values per principal and period. It answers with `429 quota_exceeded`
+after the limit. Every released value counts toward the limit, in every sink profile.
+
+**Open (OQ-18).** The minimum content of the audit event beyond this section and the rate limits are not
+decided. Recovery beyond section 11.1 is not decided.
 
 ## 16. Not in this profile
 
@@ -478,10 +658,8 @@ beyond section 11.1 is not decided.
 
 ## 17. Evidence
 
-**Note.** Two implementations implement parts of this profile: the reference server and the reference host
-in `prototype/` ([IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) names them). Neither implements the whole profile.
+**Note.** Three implementations implement parts of this profile: the reference server, the reference host
+in `prototype/` and a second host, a coding-agent plugin ([IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md)
+names them). None implements the whole profile.
 [protocol-package/PROFILE-oauth-resolver-1.md](protocol-package/PROFILE-oauth-resolver-1.md) maps each rule
-to its evidence. The reference server authorizes only the owner of a reference, and reports a reference of another
-principal as `unknown`. Until 2026-10-27, the challenge of the reference server
-named the metadata of its base URL (section 3). One run without a deviation option succeeded after the fix. See
-[IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).
+to its evidence. See [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).

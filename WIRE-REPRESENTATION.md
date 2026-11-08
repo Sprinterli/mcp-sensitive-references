@@ -1,6 +1,6 @@
 # Wire representation
 
-**Status: Concept 0.6 draft, normative core.** The conventions and terms of
+**Status: Concept 0.7 draft, normative core.** The conventions and terms of
 [SPEC-DRAFT.md](SPEC-DRAFT.md#1-conventions) apply.
 
 ## 1. Canonical form of a reference

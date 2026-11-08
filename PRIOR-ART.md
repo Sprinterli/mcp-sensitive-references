@@ -1,6 +1,6 @@
 # Prior art and adjacent mechanisms
 
-**Status: Concept 0.6 draft.** This file is not normative.
+**Status: Concept 0.7 draft.** This file is not normative.
 
 ## Client secret references
 

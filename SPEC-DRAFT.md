@@ -1,6 +1,6 @@
-# Sensitive References: Concept 0.6 draft
+# Sensitive References: Concept 0.7 draft
 
-**Status: Concept 0.6 draft. Not an MCP standard and not an accepted SEP.**
+**Status: Concept 0.7 draft. Not an MCP standard and not an accepted SEP.**
 
 This file defines the core semantics of an optional MCP extension. Four documents form the normative core:
 
@@ -11,10 +11,12 @@ This file defines the core semantics of an optional MCP extension. Four document
 | [HOST-INTEGRATION.md](HOST-INTEGRATION.md) | The issuer identity, the provenance store, the observation point and the sink input point |
 | [SECURITY-MODEL.md](SECURITY-MODEL.md) | Trust boundaries, required controls, threats and limits |
 
-Two profiles build on the core. Each profile is complete in its own file:
+Four profiles build on the core. Each profile is complete in its own file:
 
 - [RESOLVER-PROFILE.md](RESOLVER-PROFILE.md): the resolver profile `oauth-resolver-1`.
 - [LOCAL-FILE-PROFILE.md](LOCAL-FILE-PROFILE.md): the sink profile `local-file-1`.
+- [PROCESS-PROFILE.md](PROCESS-PROFILE.md): the sink profile `process-1`.
+- [DISPLAY-PROFILE.md](DISPLAY-PROFILE.md): the sink profile `display-1`.
 
 Evidence, history and rationale are not part of the normative text. They are in
 [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) and in [protocol-package/](protocol-package/).
@@ -26,7 +28,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all capitals, as shown here.
 
 A paragraph that starts with **Provisional (OQ-n)** states a provisional v1 design decision. It is
-normative for Concept 0.6: its key words bind like every other rule. It is the working design for version 1,
+normative for Concept 0.7: its key words bind like every other rule. It is the working design for version 1,
 and a later version can change it. The community did not confirm it. An implementation that differs from it
 does not conform to it; [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) lists the known differences.
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) lists the options for each such decision.
@@ -39,7 +41,7 @@ A paragraph that starts with **Note** is not normative.
 
 A rule marked **(not testable on the wire)** concerns the internal state of one party. A test that sees
 only the messages between the parties cannot check it. Only a test with access to that state, or a review,
-can check it. Concept 0.6 puts the mark only on the issuer rules of sections 5.1, 5.3 and 5.4 and on the
+can check it. Concept 0.7 puts the mark only on the issuer rules of sections 5.1, 5.3 and 5.4 and on the
 durable-store rules of HOST-INTEGRATION.md, section 3. Other rules about the local state of one party, for
 example a token cache, a temporary file or file permissions in a profile, are also not testable on the
 wire. They do not carry the mark.
@@ -76,6 +78,8 @@ wire. They do not carry the mark.
 - **Resolver profile.** A document that defines how a resolver discovers, authenticates and calls the
   issuer.
 - **Sink profile.** A document that defines one class of sink and its output boundary.
+- **Sink scope.** An OAuth scope that a sink profile can require in addition to the resolve scope of a
+  resolver profile ([RESOLVER-PROFILE.md](RESOLVER-PROFILE.md#5-resolve-scope-and-sink-scopes)).
 - **Agent token.** The credential that the MCP client uses for MCP requests.
 - **Resolver token.** The credential that a resolver uses for resolution, as a resolver profile defines it.
 - **Model-visible content.** Any content that the host can give to a model: tool results, error texts,
@@ -217,6 +221,9 @@ principal. The resolver and the issuer MUST NOT infer that principal from displa
 The issuer MUST authorize each resolution request. The decision MUST NOT depend on possession of the
 reference. The issuer MUST refuse the whole request if one reference fails.
 
+References are per person. An issuer MUST resolve a reference only for its owner. A reference of another
+principal MUST fail with the reason `unknown` (section 5.5).
+
 Resolved plaintext MUST NOT return through an ordinary model-visible MCP result. A sink profile defines the
 eligible destination and its output boundary.
 
@@ -251,17 +258,20 @@ destination. If one reference fails, the sink MUST NOT write partial output.
 ## 7. Profiles
 
 A profile identifier is a string of 1 to 64 characters from `[a-z0-9-]` that starts with a letter or a
-digit. Version 1 defines two profiles:
+digit. Version 1 defines four profiles:
 
 | Identifier | Kind | Document |
 |---|---|---|
 | `oauth-resolver-1` | resolver profile | [RESOLVER-PROFILE.md](RESOLVER-PROFILE.md) |
 | `local-file-1` | sink profile | [LOCAL-FILE-PROFILE.md](LOCAL-FILE-PROFILE.md) |
+| `process-1` | sink profile | [PROCESS-PROFILE.md](PROCESS-PROFILE.md) |
+| `display-1` | sink profile | [DISPLAY-PROFILE.md](DISPLAY-PROFILE.md) |
 
 A host MUST NOT resolve unless the negotiated intersection holds a resolver profile and a sink profile
 that the host supports. A resolver profile MUST define discovery, authentication, authorization, subject
 binding, endpoint behaviour, lifecycle errors, audit, limits and recovery. A sink profile MUST define the
-destination, the content, the batch rule and the output boundary.
+destination, the content, the batch rule, the output boundary, its sink scope if it requires one, and its
+limit: what the sink cannot protect.
 
 No registry exists for profile identifiers.
 

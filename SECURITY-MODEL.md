@@ -1,6 +1,6 @@
 # Security model
 
-**Status: Concept 0.6 draft, normative core.** The conventions and terms of
+**Status: Concept 0.7 draft, normative core.** The conventions and terms of
 [SPEC-DRAFT.md](SPEC-DRAFT.md#1-conventions) apply. The full threat analysis with its evidence is in
 [protocol-package/THREAT-MODEL.md](protocol-package/THREAT-MODEL.md). That file is supporting rationale.
 
@@ -42,20 +42,23 @@ These controls are the core of the design. They bind every profile. A profile ca
 ## 4. Assets added by the profiles
 
 - The resolver access token and the resolver refresh token.
-- The consent record: one approval for one subject, one resolver client, one resource, the resolve scope
-  and one set of sink profiles.
+- The consent record: one approval for one subject, one resolver client, one resource and one granted
+  scope set (the resolve scope and the sink scopes that the user allowed).
+- The sink scopes. A token with a sink scope releases values into a command or onto a screen.
 - The resolve endpoint, which returns plaintext to a program outside the model.
 - The token cache of the host.
-- The destination, the local file that receives plaintext, and its path.
+- The destination: the local file that receives plaintext and its path, the command that reads a value,
+  or the screen that shows it.
+- The audit events of the resolve endpoint.
 
 ## 5. Threats and controls
 
 | Id | Threat | Control | Residual risk |
 |---|---|---|---|
-| TM-1 | A local program that can open the browser of the user gets a resolver token silently. | Consent page, no code from a browser session alone, no framing, single-use nonce, same-origin `Origin` (RESOLVER-PROFILE.md, section 10). | A user can approve a malicious client with a plausible name. The page does not show the destination. |
+| TM-1 | A local program that can open the browser of the user gets a resolver token silently, or reuses a stored approval. | A consent page at every authorization request; no stored approval and no browser session alone issues a code. The page names the account (with an action to use another account), the client, the loopback host and port, the time of the request and each requested sink scope. No framing, single-use nonce, same-origin `Origin` (RESOLVER-PROFILE.md, section 10). Revocation per device (section 10.4). | A user can approve a malicious client with a plausible name, also when the page names the time and the port. The page does not show the destination. |
 | TM-2 | A resolver token works as an agent token, or the reverse. | Separate token classes (RESOLVER-PROFILE.md, section 8). | A new agent-token reader in a server must keep the refusal. |
 | TM-3 | An agent-token reader accepts a bearer by its suffix. | The classes differ by more than the scope (RESOLVER-PROFILE.md, section 8). | A server without such a separation needs another control. |
-| TM-4 | One request mixes the resolve scope with agent scopes. | The authorization server refuses mixed scopes. The resolve scope is not in `scopes_supported` (RESOLVER-PROFILE.md, section 5). | A host learns the scope from the discovery object (TM-5). |
+| TM-4 | One request mixes the resolve scope with agent scopes, or gets a sink scope without the resolve scope. | The authorization server accepts only the resolve scope with sink scopes of its discovery object (and `openid`); every other set is `invalid_scope`. The scopes are not in `scopes_supported` (RESOLVER-PROFILE.md, section 5). | A host learns the scopes from the discovery object (TM-5). |
 | TM-5 | The host records the wrong issuer, or resolves at the wrong endpoint (mix-up, redirect, cross-origin endpoint). | Exact issuer identity, RFC 9728 `resource` identical to the MCP URL, endpoint on the resource origin, no redirects, RFC 8414 and RFC 9207 checks (RESOLVER-PROFILE.md, sections 3 to 9). | The issuer identity is a URL, not a cryptographic identity. |
 | TM-6 | The sink writes partial output, or the server releases values that the host then discards. | All-or-nothing write (LOCAL-FILE-PROFILE.md, section 4). | With split batches, the server releases the values of each successful request. A crash between the temporary write and the replace can leave a temporary file with plaintext. |
 | TM-7 | The destination path tells the server the layout of the local file system. | The host sends a label. The server uses the destination for audit only (RESOLVER-PROFILE.md, section 12). | A host that sends an absolute path discloses it. |
@@ -65,6 +68,8 @@ These controls are the core of the design. They bind every profile. A profile ca
 | TM-11 | A server names a URL that makes the host send a request into a private network (SSRF). | Fetch policy with a connection to the checked address (RESOLVER-PROFILE.md, section 7). | The browser opens the authorization endpoint and resolves its name again. A DNS server can then give the browser a non-public address (DNS rebinding of the browser). The fetch policy need not cover the MCP URL, which the operator gives, and an MCP client library can resolve that name again for the session. |
 | TM-12 | A credential in the query of the MCP URL reaches the authorization server and the token cache. | A server SHOULD NOT put a credential into the query (HOST-INTEGRATION.md, section 2). | A host cannot tell a credential from a tenant name. |
 | TM-13 | A model or a local process plants an observation in a durable provenance store, so that a forged reference gets an issuer. | The host checks each stored observation for integrity and origin. The model cannot read or use the integrity key (HOST-INTEGRATION.md, section 3). | No integrity mechanism is defined (OQ-7). A process with the privileges of the host can plant provenance. |
+| TM-14 | A command that receives a value prints it, and the model reads the output. | `process-1`: the destination is the program name; the host masks the command output before the model sees it, also on the failure path; the host resolves only when the command reads the value; a separate sink scope that a person can leave out (PROCESS-PROFILE.md). | Any local process of the person that holds a token with the process scope gets the full value. The server trusts the program name that the host sends, not what the program does. A masking that fails on a path of the host shows the value. |
+| TM-15 | A value on the screen of the person reaches the model, a transcript, an export or a person who sees the screen. | `display-1`: destination `screen`, one reference per request, only on a click of the person, never while the host draws; the value never goes to the model, a transcript or an export; a paste of it is masked back; copy only on a second click; one audit event per reveal, counted in the quota; a separate sink scope (DISPLAY-PROFILE.md). | Any local process of the person that holds a token with the display scope gets the full value. Anyone who sees the screen sees the value. A copied value is in the clipboard of the system. |
 
 ## 6. Limits
 

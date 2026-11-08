@@ -1,6 +1,6 @@
 # Design decisions
 
-**Status: Concept 0.6 draft.** This file is not normative. It records the decisions that the normative
+**Status: Concept 0.7 draft.** This file is not normative. It records the decisions that the normative
 text applies. The decisions that remain open are in
 [OPEN-QUESTIONS.md, "Remaining design decisions"](OPEN-QUESTIONS.md#remaining-design-decisions).
 
