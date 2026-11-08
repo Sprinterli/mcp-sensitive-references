@@ -205,7 +205,7 @@ endpoint for one protected resource, in memory. `IssuerHttp` serves it on a loop
 server rules of `RESOLVER-PROFILE.md`:
 
 - The discovery object names `sinks` with the scope set of each sink profile, and `process_scope` and
-  `display_scope` (section 4). The prototype publishes `process-1` only, not the second identifier of OQ-21.
+  `display_scope` (section 4). The prototype publishes `process-1` (OQ-21).
   The resolve scope and the sink scopes are not in `scopes_supported`.
 - The authorization server accepts the resolve scope, plus sink scopes that it offers, plus `openid`. Every other
   combination gets `invalid_scope` and no code (section 5.2). A refresh keeps the granted set and adds no scope

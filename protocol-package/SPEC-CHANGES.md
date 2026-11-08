@@ -1120,9 +1120,8 @@ and resolves only when the command reads the value, so that a refused command co
 sink scope. Limit: any local process of the person that holds a token with the process scope gets the
 full value.
 
-**Compatibility.** New profile. The reference server publishes it as `mcpgate-process-1` at R3. The
-identifier `process-1` is provisional (OQ-21): the recommendation, which the maintainer still confirms, is
-that the reference server publishes both identifiers during a transition.
+**Compatibility.** New profile. The identifier is `process-1` (OQ-21, decided). At R3 the reference server
+publishes the profile under a vendor-prefixed identifier (PROFILE-process-1.md).
 
 ## SC-23. The sink profile `display-1`
 

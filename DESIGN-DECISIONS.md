@@ -59,7 +59,7 @@ Each decision names its source in [protocol-package/SPEC-CHANGES.md](protocol-pa
   each sink profile; a missing sink scope gives `403 insufficient_scope` before any lookup (SC-21).
 - **Discovery name.** The field name `sensitive_references` is fixed (SC-21, OQ-8).
 - **Process sink.** `process-1` gives a value to a command; the destination is the program name; the host
-  masks the output (SC-22). The identifier is provisional (OQ-21).
+  masks the output (SC-22). The identifier is `process-1` (OQ-21, decided).
 - **Display sink.** `display-1` shows one value on the screen after a click of the person (SC-23).
 - **Consent.** A consent page at every authorization request, which names the account, the client, the
   loopback host and port, the time and each sink scope (SC-06).

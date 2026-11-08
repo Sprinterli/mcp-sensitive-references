@@ -25,7 +25,7 @@ The largest open risks are:
 - the conflict of the discovery rules with the root fallback of the MCP authorization specification
   (OQ-13);
 - provisional decisions that no community review confirmed (OQ-1, OQ-2, OQ-4 to OQ-7, OQ-9 to OQ-11, OQ-13
-  to OQ-16, OQ-21);
+  to OQ-16);
 - the issuer-side sink, which Concept 0.7 does not define (OQ-3).
 
 A SEP is not ready. [protocol-package/SEP-READINESS.md](protocol-package/SEP-READINESS.md) lists the

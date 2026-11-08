@@ -9,9 +9,6 @@ command reads each value at run time. The model-facing result keeps the referenc
 a value, also not in the output of the command. The evidence for each rule is in
 [protocol-package/PROFILE-process-1.md](protocol-package/PROFILE-process-1.md).
 
-**Provisional (OQ-21).** The identifier of this profile is `process-1`. One implementation publishes the
-profile under another identifier today. [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) names it.
-
 ## 1. Preconditions
 
 1. The host MUST resolve only if the negotiated intersection holds `process-1` and a resolver profile that
@@ -105,7 +102,8 @@ person can leave out on the consent page.
 
 ## 9. Evidence
 
-**Note.** The reference server accepts this profile under its other identifier. The second host implements
+**Note.** [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) records the identifier under which the
+reference server accepts this profile. The second host implements
 it for the commands of a coding agent. The reference host implements it at demo level, on POSIX, tested
 offline against the prototype issuer (`prototype/README.md`, section "Concept 0.7"). See
 [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).

@@ -41,10 +41,9 @@ repository):
   ```
 
   (The endpoint host is replaced with `example.com`. Other members of the live object are not listed here.)
-  The process profile has the identifier `mcpgate-process-1`. Concept 0.7 names it `process-1`
-  (provisional, OQ-21). The recommendation, which the maintainer still confirms: the server publishes both
-  identifiers during a transition. At R3 it publishes only `mcpgate-process-1`. The code of the server
-  still calls the field name provisional; Concept 0.7 fixes it.
+  At R3 the process profile has the identifier `mcpgate-process-1`. Concept 0.7 names it `process-1`
+  (OQ-21, decided). A server change to `process-1` is not yet recorded in this file.
+  The code of the server still calls the field name provisional; Concept 0.7 fixes it.
 - **Sink scopes.** A token without the scope of the sink gets `403 insufficient_scope` before any lookup,
   with no value and no audit row. For the display sink, the header is
   `Bearer error="insufficient_scope", scope="sensitive-references.resolve sensitive-references.resolve.display", error_description="This sign-in does not allow real values on your screen. Sign in again and allow the screen on the consent page."`,

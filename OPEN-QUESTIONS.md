@@ -6,7 +6,8 @@ A **provisional v1 design decision** is the working normative design for version
 differ from it; [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) records each known difference. The
 normative text marks it with **Provisional (OQ-n)**. No community review confirmed it. The options stay
 open. OQ-1 to OQ-11 come from [protocol-package/OPEN-QUESTIONS.md](protocol-package/OPEN-QUESTIONS.md).
-OQ-12 to OQ-18 are new in Concept 0.6. OQ-19 to OQ-21 are new in Concept 0.7. Concept 0.7 decides OQ-8.
+OQ-12 to OQ-18 are new in Concept 0.6. OQ-19 to OQ-21 are new in Concept 0.7. Concept 0.7 decides OQ-8
+and OQ-21.
 
 ## Remaining design decisions
 
@@ -32,7 +33,7 @@ OQ-12 to OQ-18 are new in Concept 0.6. OQ-19 to OQ-21 are new in Concept 0.7. Co
 | OQ-18 | Audit and rate-limit minimum; recovery beyond section 11.1 | none | RESOLVER-PROFILE.md, sections 11.1 and 15 |
 | OQ-19 | Safe metadata of a reference | none | none |
 | OQ-20 | A "tokenize" profile | none | none |
-| OQ-21 | The identifier of the process profile | `process-1` (the maintainer still confirms it) | PROCESS-PROFILE.md |
+| OQ-21 | The identifier of the process profile | Decided in Concept 0.7: `process-1` | PROCESS-PROFILE.md |
 
 ## OQ-1. Two independent issuers
 
@@ -261,15 +262,10 @@ OQ-19.
 
 ## OQ-21. The identifier of the process profile
 
-The reference server publishes the process profile as `mcpgate-process-1`. A product name does not belong
-in a profile identifier.
+A product name does not belong in a profile identifier.
 
-- Option A: `process-1` in the specification. The reference server publishes both identifiers during a
-  transition, and then `process-1` only.
-- Option B: keep the published identifier.
-
-**Provisional v1 design decision:** A. This is a recommendation that the maintainer still confirms. At R3
-the reference server publishes only `mcpgate-process-1`, and the second host asks for that identifier.
+**Decided in Concept 0.7.** The identifier is `process-1`. There is no transition and no second
+identifier: a server publishes `process-1`, and a host asks for `process-1`.
 
 ## Questions of Concept 0.5
 

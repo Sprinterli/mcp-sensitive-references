@@ -62,7 +62,7 @@ the reference server, releases 0.9.0 and 0.9.1 of the second host, and run E13.
 - `sink_type` `process`; destination the program name, never the command line; the server audit keeps
   the last path part without white space, else `other`; the host masks the command output also on the
   failure path and resolves only when the command reads the value; a process scope. The identifier is
-  provisional. (SC-22, OQ-21)
+  `process-1`. (SC-22, OQ-21)
 
 ### `display-1` (new)
 
@@ -75,7 +75,7 @@ the reference server, releases 0.9.0 and 0.9.1 of the second host, and run E13.
 - README.md: "Changes in this revision", the document map, three implementations, known gaps.
 - IMPLEMENTATION-EVIDENCE.md: what R3 does, the second host and its limits, run E13.
 - OPEN-QUESTIONS.md: OQ-8 decided; OQ-16 names the second host; new OQ-19 (safe metadata of a reference),
-  OQ-20 (a "tokenize" profile) and OQ-21 (the identifier of the process profile).
+  OQ-20 (a "tokenize" profile) and OQ-21 (the identifier of the process profile, decided: `process-1`).
 - protocol-package/: SC-21 to SC-26, amendments of SC-03 and SC-06, the R3 evidence rows, TM-14 and TM-15,
   run E13, new guide items.
 - STATUS.md, DESIGN-DECISIONS.md, COMMUNITY-DISCUSSION.md and OUTREACH-POST.md follow Concept 0.7.

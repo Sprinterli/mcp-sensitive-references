@@ -17,10 +17,9 @@ The reference host in `prototype/` implements this profile at demo level (POSIX 
 issuer implements its server rules. Their tests run offline only; [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md),
 section "Concept 0.7", names them. No end-to-end run against the reference server is recorded.
 
-**Identifier.** The normative text uses `process-1` (provisional, OQ-21). At R3 the reference server
-publishes this profile as `mcpgate-process-1`, with the `sink_type` `process`, and the second host asks for
-that identifier. The recommendation, which the maintainer still confirms: the reference server publishes
-both identifiers during a transition, and then `process-1` only.
+**Identifier.** The identifier is `process-1` (OQ-21, decided). At R3 the reference
+server publishes this profile under a vendor-prefixed identifier, with the `sink_type` `process`, and the
+second host asks for that identifier ([IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTATION-EVIDENCE.md) quotes it).
 
 ## 1. Preconditions
 

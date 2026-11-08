@@ -8,7 +8,8 @@ for version 1. It is not a community decision, and the options stay open for rev
 continues.
 
 **Concept 0.7.** The current list of open questions is [../OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md). It
-decides OQ-8 (the name of the discovery object is fixed) and adds OQ-19 to OQ-21. This file keeps the
+decides OQ-8 (the name of the discovery object is fixed) and OQ-21 (the identifier `process-1`), and adds
+OQ-19 to OQ-21. This file keeps the
 questions as the package first stated them.
 
 ## OQ-1. Two independent issuers (P2)
