@@ -1,15 +1,18 @@
 """Mutation probe for the guards of the test host and the resolver client.
 
 For each mutation the script copies ``prototype/`` into a temporary directory
-outside the repository, disables one guard in the copy, runs
-``tests/test_mcp_host_resolve.py`` there, and reports KILLED (at least one
-test failed) or SURVIVED. The script never writes into the repository.
+outside the repository, disables one guard in the copy, runs the test module of
+that mutation there (``tests/test_mcp_host_resolve.py`` for rounds 2 to 9), and
+reports KILLED (at least one test failed) or SURVIVED. The script never writes
+into the repository.
 
     python prototype/tests/tools/mutation_probe.py [--work DIR] [--only TEXT]
 
 Rounds 2 to 9 of the review (see the docstring of ``test_mcp_host_resolve.py``
 and ``protocol-package/CONFORMANCE-RESULTS.md``). The mutations of earlier rounds
-are applied to the current text.
+are applied to the current text. Round 10 holds the rules of Concept 0.7: the
+prototype issuer (``tests/test_issuer_server.py``) and the host sinks, discovery
+and scope choice (``tests/test_concept_07_host.py``).
 """
 
 from __future__ import annotations
@@ -25,6 +28,13 @@ import tempfile
 PROTOTYPE = Path(__file__).resolve().parents[2]
 RC = "src/sensitive_references/resolver_client.py"
 HOST = "demo/mcp_host.py"
+IS = "src/sensitive_references/issuer_server.py"
+PS = "src/sensitive_references/process_sink.py"
+DS = "src/sensitive_references/display_sink.py"
+OG = "src/sensitive_references/output_guard.py"
+T_HOST = "tests/test_mcp_host_resolve.py"
+T_IS = "tests/test_issuer_server.py"
+T_07 = "tests/test_concept_07_host.py"
 
 #: (name, file, original text, replacement). The original text must occur exactly once.
 MUTATIONS = [
@@ -149,10 +159,164 @@ MUTATIONS = [
      "local_origins=tuple(args.local_origin or ()),", "local_origins=(),"),
 ]
 
+#: Round 10 (Concept 0.7): (name, file, original text, replacement, test module).
+MUTATIONS_07 = [
+    # -- the issuer: discovery and scopes (RESOLVER-PROFILE.md, sections 4 and 5)
+    ("r10 discovery: sinks name the resolve scope only", IS,
+     '"scopes": list(scope_set(p))} for p in self.sinks}', '"scopes": [RESOLVE_SCOPE]} for p in self.sinks}', T_IS),
+    ("r10 scope: a sink scope without the resolve scope accepted", IS,
+     "        if RESOLVE_SCOPE not in requested:\n            return None",
+     "        if False:\n            return None", T_IS),
+    ("r10 scope: an agent scope next to the resolve scope accepted", IS,
+     'if requested - {RESOLVE_SCOPE, "openid"} - set(self.sink_scopes()):', "if False:", T_IS),
+    ("r10 scope: a sink scope that the server does not offer accepted", IS,
+     '- {RESOLVE_SCOPE, "openid"} - set(self.sink_scopes()):', '- {RESOLVE_SCOPE, "openid"} - {PROCESS_SCOPE, DISPLAY_SCOPE}:',
+     T_IS),
+    ("r10 insufficient_scope: no sink-scope check", IS,
+     "        if not set(scope_set(profile)) <= record[\"scopes\"]:\n            return self._insufficient(profile)",
+     "        if False:\n            return self._insufficient(profile)", T_IS),
+    ("r10 insufficient_scope: the header names no scope", IS,
+     """f'Bearer error="insufficient_scope", scope="{scope}", '""", """f'Bearer error="insufficient_scope", '""", T_IS),
+    ("r10 insufficient_scope: the body has no error_description", IS,
+     '_error(403, "insufficient_scope", error_description=text, scope=scope)',
+     '_error(403, "insufficient_scope", scope=scope)', T_IS),
+    ("r10 refresh: a scope added", IS,
+     'if "scope" in form and not set(form["scope"].split()) <= record["scopes"]:', "if False:", T_IS),
+    ("r10 ineligible_sink: sink_type not compared exactly", IS,
+     'SINK_TYPES[p] == body["sink_type"]), None)', 'SINK_TYPES[p] == body["sink_type"].lower()), None)', T_IS),
+    # -- consent (section 10)
+    ("r10 consent: a stored approval replaces the page", IS,
+     "        # Section 10.1: a stored approval never replaces this page.\n",
+     "        if any(k[:2] == (subject, request['client_id']) for k in self.approvals):\n"
+     "            self.nonces['x'] = (session or '', request_id)\n"
+     "            return self.consent(session, {'nonce': 'x', 'decision': 'approve'}, self.origin)\n", T_IS),
+    ("r10 consent: the page names no account", IS, '"account": subject,', '"account": "",', T_IS),
+    ("r10 consent: the page names no loopback port", IS,
+     '"loopback": f"{loopback.hostname}:{loopback.port}",', '"loopback": f"{loopback.hostname}",', T_IS),
+    ("r10 consent: no line per sink scope", IS,
+     '"sink_lines": [CONSENT_LINES[s] for s in sorted(request["scopes"]) if s in CONSENT_LINES],',
+     '"sink_lines": [],', T_IS),
+    ("r10 consent: use another account keeps the session", IS,
+     '        self.sessions.pop(session or "", None)\n', "        pass\n", T_IS),
+    ("r10 consent: the nonce is not single-use", IS,
+     "bound = self.nonces.pop(nonce, None) if nonce else None", "bound = self.nonces.get(nonce) if nonce else None",
+     T_IS),
+    ("r10 consent: no Origin check", IS, "if bound is None or origin != self.origin:", "if bound is None:", T_IS),
+    ("r10 consent: the nonce is not bound to the session", IS,
+     "if not session or not hmac.compare_digest(bound_session, session) or request_id not in self.pending:",
+     "if not session or request_id not in self.pending:", T_IS),
+    ("r10 loopback: the path or the query may change with the port", IS,
+     "return (a.scheme, a.hostname, a.path, a.query) == (b.scheme, b.hostname, b.path, b.query)",
+     "return (a.scheme, a.hostname) == (b.scheme, b.hostname)", T_IS),
+    ("r10 registration: a redirect URI that is not loopback", IS,
+     "        if not all(_loopback_redirect(u) for u in uris):", "        if False:", T_IS),
+    # -- per person, account hint, audit (sections 11.2, 12.2, 15)
+    ("r10 per person: a lookup in the records of every person", IS,
+     "own = self.records.get(subject, {})",
+     "own = {k: v for records in self.records.values() for k, v in records.items()}", T_IS),
+    ("r10 account hint: the whole account", IS,
+     '"account_hint": account_hint(grant["subject"])', '"account_hint": grant["subject"]', T_IS),
+    ("r10 account hint: more than half of the local part", IS,
+     "keep = min(3, len(local) // 2)", "keep = min(3, len(local))", T_IS),
+    ("r10 audit: values without the audit event", IS,
+     '        except AuditUnavailable:\n            return _error(503, "audit_unavailable")',
+     "        except AuditUnavailable:\n            pass", T_IS),
+    ("r10 audit: the destination of a command kept whole", IS,
+     'return last if last and not any(c.isspace() for c in destination) else "other"', "return destination", T_IS),
+    ("r10 display: another destination or more than one reference", IS,
+     "if profile == DISPLAY and (destination != SCREEN or len(unique) != 1 or len(references) != 1):", "if False:",
+     T_IS),
+    # -- devices (section 10.4)
+    ("r10 devices: no epoch check", IS,
+     'return epoch is not None and epoch == record["epoch"] and live', "return live", T_IS),
+    ("r10 devices: no live-approval check", IS,
+     'return epoch is not None and epoch == record["epoch"] and live',
+     'return epoch is not None and epoch == record["epoch"]', T_IS),
+    ("r10 devices: a revocation does not raise the epoch", IS,
+     "            self.epochs[device] = self.epochs.get(device, 0) + 1\n", "            pass\n", T_IS),
+    ("r10 devices: a revocation stops other people on the client", IS,
+     'if (r["subject"], r["client_id"]) == device]:', 'if r["client_id"] == client_id]:', T_IS),
+    ("r10 devices: anyone manages any device", IS,
+     "        if actor != principal and actor not in self.admins:", "        if False:", T_IS),
+    # -- the host: discovery and scope choice
+    ("r10 host: sinks not required", RC,
+     '        raise ResolverClientError("malformed_discovery", "the discovery object has no valid sinks")',
+     "        sinks = {}", T_07),
+    ("r10 host: a sinks member without the resolve scope", RC,
+     ' or extra["resolve_scope"] not in scopes):', "):", T_07),
+    ("r10 host: process_scope not compared with sinks", RC,
+     "if not isinstance(extra[name], str) or not extra[name] or extra[name] not in named \\",
+     "if not isinstance(extra[name], str) or not extra[name] \\", T_07),
+    ("r10 host: max_references not checked", RC, "    if type(limit) is not int or limit < MAX_BATCH:",
+     "    if False:", T_07),
+    ("r10 host: the scope set not taken from sinks", RC,
+     "            for scope in self.sinks[profile][1]:", "            for scope in self.sinks[profile][1][:1]:", T_07),
+    ("r10 host: a token without the sink scope is sent", RC,
+     "        if not needed <= endpoint.credential.granted_scopes():", "        if False:", T_07),
+    ("r10 host: a sink that the run did not negotiate is sent", RC,
+     "        if needed is None:\n            raise", "        if False:\n            raise", T_07),
+    ("r10 host: a display request with two references or another destination", RC,
+     "if sink_context.sink_type == SINK_TYPES[DISPLAY] and (len(unique) != 1 or sink_context.destination != SCREEN):",
+     "if False:", T_07),
+    ("r10 host: process-1 declared where output is not masked", HOST,
+     "sinks = [p for p in config.profiles() if p != PROCESS or process_sink.supported()]",
+     "sinks = list(config.profiles())", T_07),
+    ("r10 host: a negotiated sink without its sinks member", HOST,
+     "if profile not in metadata.sinks or metadata.sinks[profile][0] != SINK_TYPES[profile]:", "if False:", T_07),
+    ("r10 host: one authorization per resolve (no in-memory token)", RC,
+     "                self._memory[key] = entry", "                pass", T_07),
+    ("r10 host: run() opens one session per sink", HOST,
+     "mcp_url=endpoint, policy=policy))\n            return opened[0]\n",
+     "mcp_url=endpoint, policy=policy))\n            return opened.pop()\n", T_07),
+    # -- process-1 (PROCESS-PROFILE.md)
+    ("r10 process: the command line as destination", PS,
+     "context = SinkContext(SINK_TYPES[PROCESS], program, self._principal)",
+     "context = SinkContext(SINK_TYPES[PROCESS], command, self._principal)", T_07),
+    ("r10 process: assignments not skipped", PS, "        if _ASSIGNMENT.fullmatch(word):\n            continue",
+     "        if False:\n            continue", T_07),
+    ("r10 process: the whole path as program", PS,
+     'name = word.replace("\\\\", "/").rstrip("/").rsplit("/", 1)[-1]', "name = word", T_07),
+    ("r10 process: a refused command runs", PS, "        if not approve(program, command):", "        if False:", T_07),
+    ("r10 process: resolve before the command reads", PS,
+     "        threads = [threading.Thread(target=serve, args=item, daemon=True) for item in pipes]",
+     "        with lock:\n            if trusted:\n                resolve_all()\n"
+     "        threads = [threading.Thread(target=serve, args=item, daemon=True) for item in pipes]", T_07),
+    ("r10 process: a failed resolve does not stop the command", PS,
+     "                _kill(process)\n                return\n            self._mask.release(values)",
+     "                return\n            self._mask.release(values)", T_07),
+    ("r10 process: output not masked", PS, "            result.model_output = self._mask.mask(text)",
+     "            result.model_output = text", T_07),
+    ("r10 process: base64 and percent forms not masked", OG,
+     "    for encoded in (b64encode(raw).decode(), urlsafe_b64encode(raw).decode()):", "    for encoded in ():", T_07),
+    ("r10 process: an unobserved reference sent", PS,
+     "        trusted = {t: issuer for t, issuer in trusted.items() if issuer is not None}",
+     "        trusted = {t: issuer or 'x' for t, issuer in trusted.items()}", T_07),
+    ("r10 process: no pipe platform check", PS, "        if not supported():\n", "        if False:\n", T_07),
+    # -- display-1 (DISPLAY-PROFILE.md)
+    ("r10 display: no user action needed", DS,
+     "        if not isinstance(action, UserAction) or action.kind != kind:", "        if False:", T_07),
+    ("r10 display: an action used twice", DS, "        if action.used:", "        if False:", T_07),
+    ("r10 display: another destination than the screen", DS,
+     "SinkContext(SINK_TYPES[DISPLAY], SCREEN,", 'SinkContext(SINK_TYPES[DISPLAY], "terminal",', T_07),
+    ("r10 display: a held value resolved again", DS,
+     "        held = self._mask.held(reference)\n        if held is None:\n            if self.requests",
+     "        held = None\n        if held is None:\n            if self.requests", T_07),
+    ("r10 display: a copy without a reveal", DS,
+     "if reference not in self._shown or held is None or self._clipboard is None:",
+     "if held is None or self._clipboard is None:", T_07),
+    ("r10 display: no session limit", DS, "            if self.requests >= self._limit:", "            if False:", T_07),
+    ("r10 display: an untrusted reference resolved", DS,
+     "            issuer = self._provenance.issuer_for(reference)", '            issuer = "x"', T_07),
+    ("r10 display: the value not kept for the session", DS,
+     "            self._mask.release(values)\n            held = values[reference]",
+     "            held = values[reference]", T_07),
+]
+
 
 def run(work: Path, only: str | None) -> int:
     survived = 0
-    for name, relative, original, replacement in MUTATIONS:
+    mutations = [(*m, T_HOST) for m in MUTATIONS] + MUTATIONS_07
+    for name, relative, original, replacement, tests in mutations:
         if only and only not in name:
             continue
         copy = work / "prototype"
@@ -167,8 +331,9 @@ def run(work: Path, only: str | None) -> int:
             continue
         target.write_text(text.replace(original, replacement), encoding="utf-8")
         result = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests/test_mcp_host_resolve.py"],
-            cwd=copy, env={**os.environ, "PYTHONPATH": "src"}, capture_output=True, text=True, timeout=600)
+            [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", tests],
+            cwd=copy, env={**os.environ, "PYTHONPATH": "src", "PYTHONDONTWRITEBYTECODE": "1"},
+            capture_output=True, text=True, timeout=600)
         failed = sorted({line.split(" ")[1].split("::")[-1] for line in result.stdout.splitlines()
                          if line.startswith(("FAILED", "SUBFAIL", "ERROR"))})
         if result.returncode:
@@ -176,7 +341,7 @@ def run(work: Path, only: str | None) -> int:
         else:
             survived += 1
             print(f"SURVIVED {name}")
-    print(f"{len(MUTATIONS) - survived if not only else '-'} killed, {survived} survived or stale")
+    print(f"{len(mutations) - survived if not only else '-'} killed, {survived} survived or stale")
     return 1 if survived else 0
 
 
