@@ -100,8 +100,8 @@ of every reference of that person. This is the reason why the process scope is a
 person can leave out on the consent page.
 
 A local process of the person that finds the channel of section 4, rule 3 can open it before the command
-does. It then causes the resolve and reads the value without a token of its own. The access rules of that rule keep
-out other users, not other processes of the same person.
+does. It then causes the resolve and reads the value without a token of its own. The access rules of that
+rule keep out other users, not other processes of the same person.
 
 The destination is advisory. The first word of a command is often not the program that reads the value:
 for `cd dir && prog`, `env prog`, `sudo prog` or `bash -c '...'` the destination is `cd`, `env`, `sudo` or
