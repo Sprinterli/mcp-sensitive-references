@@ -56,7 +56,8 @@ repository):
   with a "Use another account" button, the client name, the loopback host and port and the "Requested"
   time. The sink lines are: "This program may also put real values into commands it runs on this computer
   (the program says it masks the command output before the AI sees it)." and "This program may also show
-  real values on your screen; it says it never gives them to the AI."
+  real values on your screen; it says it never gives them to the AI." The button shows only where the
+  server has its own sign-in page; else the page names the account and offers no switch.
 - **People.** Every person with an account (members and guests) may use the resolver. Administrators keep
   a block list per user. Service accounts and synthetic identities are refused.
 - **References per person.** The server looks up a reference in the pseudonym map of the token principal
@@ -65,11 +66,16 @@ repository):
   local part (never more than half of it), an ellipsis and the whole domain, for example
   `ali…@example.com`. The refresh mints through the same function as the token answer.
 - **Audit.** No value leaves without its audit row; else `503 audit_unavailable`. The audit of a process
-  resolve keeps the last path part of the destination without white space, else `other`. Each reveal of
-  the display sink writes one row and counts in the daily quota.
+  resolve keeps the last path part of the destination if the destination has no white space and that part
+  is a plain name (`[A-Za-z0-9][A-Za-z0-9._+-]{0,63}`), else `other`. Each reveal of the display sink
+  writes one row and counts in the daily quota. If a reference is revoked or the approval is withdrawn
+  while the request runs, the server writes a second row with the stage `withheld`, without a value, and
+  sends no value.
 - **Revocation.** The person (on a connections page) and an administrator revoke a device. Each pair of
   principal and client has an epoch, written with an atomic compare-and-write. A token is valid only while
-  the token index of its client names it. If the index overflows, a revocation walks every token record.
+  the token index of its client names it, carries the overflow marker, or does not decode. The marker
+  replaces the entries when the index holds more than 200; in both of these cases a revocation walks every
+  token record. A token whose index cannot be read is refused.
 
 The rows of [protocol-package/PROFILE-oauth-resolver-1.md](protocol-package/PROFILE-oauth-resolver-1.md),
 [protocol-package/PROFILE-process-1.md](protocol-package/PROFILE-process-1.md) and

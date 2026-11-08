@@ -66,7 +66,7 @@ second host asks for that identifier ([IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTA
 
 | ID | Rule | Server | Second host |
 |---|---|---|---|
-| PR17 | The audit event keeps of `destination` only the last path part without white space, else `other`. | `test_a_process_token_resolves_into_a_command_and_the_row_names_sink_and_program`, `test_the_audit_row_keeps_a_plain_program_name_and_nothing_else` | Not applicable |
+| PR17 | The audit event keeps of `destination` only the last path part without white space, else `other`. | `test_a_process_token_resolves_into_a_command_and_the_row_names_sink_and_program`, `test_the_audit_row_keeps_a_plain_program_name_and_nothing_else`. The server is stricter than the rule: a last path part that does not match `[A-Za-z0-9][A-Za-z0-9._+-]{0,63}` is also `other` (read in the source). | Not applicable |
 | PR18 | The consent page names the process scope in its own line, only when the client asks for it. | `test_the_consent_page_names_commands_only_when_the_client_asks_for_them` | Not applicable |
 | PR19 | The device list says which device may put values into commands. | `test_the_device_list_says_which_device_may_write_into_commands` | Not applicable |
 
