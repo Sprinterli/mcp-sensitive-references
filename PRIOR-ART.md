@@ -4,7 +4,7 @@
 
 ## Client secret references
 
-[maisecrets](https://github.com/Mcpgate-de/maisecrets) and similar client-side secret-reference systems can
+maisecrets ([protocol-package/README.md](protocol-package/README.md#implementations)) and similar client-side secret-reference systems can
 avoid displaying a stored secret. Sensitive References focus on issuer-held values and authenticated issuer
 provenance in an MCP workflow.
 

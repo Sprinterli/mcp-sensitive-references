@@ -89,16 +89,20 @@ lists every change with its source.
 
 ## Implementations
 
-- **Reference server: MCPGate.** It issues references, implements `oauth-resolver-1` and accepts
-  `local-file-1`, `display-1` and the process profile (as `mcpgate-process-1`, see OQ-21). Revision R3
-  (versions 2.0.3824 and 2.0.3826, 2026-11-08) implements every change of Concept 0.7. Its source is not
-  public.
+[protocol-package/README.md](protocol-package/README.md#implementations) names each implementation and its
+versions.
+
+- **Reference server.** It issues references, implements `oauth-resolver-1` and accepts
+  `local-file-1`, `display-1` and the process profile. Revision R3 (2026-11-08) implements the changes of
+  Concept 0.7, with the deviations and limits that [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md)
+  lists. Its source is not public.
 - **Reference host: [prototype/demo/mcp_host.py](prototype/demo/mcp_host.py).** An independent MCP host.
   It negotiates the extension, records provenance, gets its own resolver token and writes a local file.
-  133 tests passed on 2026-10-27 in the tested configuration. It implements `local-file-1` only.
-- **Second host: [maisecrets](https://github.com/Mcpgate-de/maisecrets)** (releases 0.9.0 and 0.9.1). A
-  plugin for coding agents. It resolves into files, commands and the screen. It declares no extension, so
-  it is not a supporting host (SPEC-DRAFT.md, section 6.2).
+  Since Concept 0.7 it also implements `process-1` (POSIX) and `display-1` at demo level, with a prototype
+  issuer. 212 tests passed on 2026-11-08, offline only.
+- **Second host: maisecrets** (releases 0.9.0 and 0.9.1). A plugin for coding agents. It resolves into
+  files, commands and the screen. It declares no extension, so it is not a supporting host (SPEC-DRAFT.md,
+  section 6.2).
 
 **Known gaps.** The reference server tests of R3 were read, not run by this repository. The display run
 E13 (2026-11-08) is one operator run, not independently reproduced. No end-to-end run of the process

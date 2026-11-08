@@ -3,7 +3,8 @@
 **Status: evidence record, experimental.** This file is not a standards conformance claim. It maps each
 requirement to the evidence that exists for it on 2026-10-27, and adds the evidence of Concept 0.7 of
 2026-11-08 (section "Concept 0.7"). Run E12 of 2026-10-27 is recorded in
-[IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTATION-EVIDENCE.md).
+[IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTATION-EVIDENCE.md). The reference server is MCPGate, and the second
+host is maisecrets ([README.md](README.md#implementations)).
 
 ## Test run
 

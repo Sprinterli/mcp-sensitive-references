@@ -220,7 +220,7 @@ normative text. Each line names its source: an SC entry of
 ### Non-normative files
 
 - README.md: status line, "Versions" section, document map, implementations, known gaps.
-- IMPLEMENTATION-EVIDENCE.md: MCPGate as the reference server, `prototype/demo/mcp_host.py` as the
+- IMPLEMENTATION-EVIDENCE.md: the reference server, `prototype/demo/mcp_host.py` as the
   reference host, the evidence of CONFORMANCE-RESULTS.md and the known gaps. New run E12 (2026-10-27):
   after the server fix of P16, the host ran without a deviation option, with consent, cache, refresh and
   materialization. One operator run of each step.

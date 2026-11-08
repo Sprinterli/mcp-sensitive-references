@@ -13,15 +13,62 @@ proposals (SPEC-CHANGES.md, SC-01 to SC-26) and the evidence for each rule. The 
 This package collects the protocol results of three implementations:
 
 - **The reference server.** An MCP server that issues Sensitive References, implements the
-  `oauth-resolver-1` profile and accepts the sink profiles `local-file-1`, `process-1` (under another
-  identifier, see PROFILE-process-1.md) and `display-1`. Its source is not public.
+  `oauth-resolver-1` profile and accepts the sink profiles `local-file-1`, the process profile (see
+  PROFILE-process-1.md for its identifier) and `display-1`. Its source is not public.
 - **The test host.** The independent MCP host in this repository, `prototype/demo/mcp_host.py`. It negotiates
-  the extension, records issuer provenance, gets its own resolver token and writes a local file.
+  the extension, records issuer provenance, gets its own resolver token and writes a local file. Since
+  Concept 0.7 it also implements `process-1` and `display-1` at demo level, with a prototype issuer.
 - **The second host.** A public coding-agent plugin. It resolves references into files, commands and the
   screen of the person. It declares no extension (PROFILE-process-1.md, PR1).
 
 The proposals in SPEC-CHANGES.md are the history of the normative text. The normative text of Concept 0.7
-is in the repository root.
+is in the repository root. The section "Implementations" names the three implementations.
+
+## Implementations
+
+This section records the known implementations at the time of writing, in the manner of the section
+"Implementation Status" of RFC 7942. It is not normative. A reader can use it to judge the evidence. The
+listing is not an endorsement, and the normative text does not depend on any of these implementations.
+The information is from 2026-11-08.
+
+**Reference server: MCPGate.**
+
+- Description: an MCP gateway that issues Sensitive References and serves the resolve endpoint. It
+  implements `oauth-resolver-1` and accepts `local-file-1`, `display-1` and the process profile
+  ([PROFILE-process-1.md](PROFILE-process-1.md) says under which identifier).
+- Revisions: R1 and R2 (earlier revisions, see "Sources and versions"), and R3, the versions 2.0.3824 and
+  2.0.3826 of 2026-11-08, the revision of Concept 0.7.
+- Maturity: deployed in production. The runs E4 to E6 and E8 to E13 ran against a production deployment,
+  with synthetic data.
+- Coverage: [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md),
+  [PROFILE-process-1.md](PROFILE-process-1.md) and [PROFILE-display-1.md](PROFILE-display-1.md) map each
+  rule to its tests and name each deviation. It implements an issuer-side sink, which Concept 0.7 does not
+  define (OQ-3).
+- Licensing: the source is not public. This package read its tests and its source at R3 and did not run
+  them.
+
+**Second independent host: maisecrets.**
+
+- Description: a public plugin for coding agents
+  ([github.com/Mcpgate-de/maisecrets](https://github.com/Mcpgate-de/maisecrets)). It resolves references
+  into the content of a file tool (`local_file`), into a shell command (`process`) and onto the screen
+  (`display`).
+- Version: releases 0.9.0 and 0.9.1 (2026-11-08), read at commit `4f9fd34` of its main branch.
+- Maturity: released. It declares no extension to the server and applies its own session rule, so it is
+  not a supporting host (SPEC-DRAFT.md, section 6.2).
+- Coverage: the "Second host" columns of the profile files. Run E13 ran it against the reference server.
+- Licensing: Apache-2.0. This package read its source and its test names and did not run its tests.
+
+**Demo: the prototype in this repository.**
+
+- Description: the reference host `prototype/demo/mcp_host.py` and the prototype issuer
+  `prototype/src/sensitive_references/issuer_server.py`.
+- Version: branch `concept-0.7`, commit `65f17e5` (Concept 0.7); branch `m7-consolidation`, commit
+  `6cdd658` (the tested commit of the earlier package).
+- Maturity: demo level. The issuer has fixture accounts, no identity provider and no persistence.
+  `process-1` runs on POSIX only. The prototype ran offline only, and no run against R3 is recorded.
+- Coverage: [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md) and `prototype/CONFORMANCE.md`.
+- Licensing: Apache-2.0, as this repository.
 
 ## Files
 
@@ -46,6 +93,9 @@ and SEP-READINESS.md list what this package does not decide.
 ## Changes in this revision
 
 This revision records Concept 0.7. The normative text of each change is in the repository root.
+
+- **README.md** (this file) gets the section "Implementations". It names the reference server, the second
+  host and the prototype.
 
 - **SC-21** (new): a sink profile can require its own scope. The discovery object names the scope set of
   each sink profile in `sinks`, and the field name `sensitive_references` is fixed. A missing sink scope
@@ -83,10 +133,10 @@ with `local-file-1`. This package is milestone M6.
 | The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `6cdd658` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`); for Concept 0.7, branch `concept-0.7`, commit `65f17e5` |
 | The reference server plan, sections 4 to 8 | reference server revision R1 (not public) |
 | The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2, rows marked "(R3)" tests of revision R3. |
-| The second host | release 0.9.1 of a public coding-agent plugin ([IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTATION-EVIDENCE.md) names it), commit `4f9fd34` of its main branch |
+| The second host | release 0.9.1 of maisecrets (section "Implementations"), commit `4f9fd34` of its main branch |
 
-**Evidence labels R1 and R2.** The reference server is not public, so its revision identifiers do not
-help a reader. This package uses two neutral labels instead. **R1** is the revision of the plan and the
+**Evidence labels R1, R2 and R3.** The source of the reference server is not public, so its commit
+identifiers do not help a reader. This package uses short labels instead. **R1** is the revision of the plan and the
 tests that this package read first. **R2** is the later revision after the second server review. At R2
 the implementer ran end-to-end round E7 and reported 58 passing test cases in the consent module. The
 profile rows A8, C7, C9, C10, R9, R12, R13 and R14 cite tests of R2. **R3** is the revision of Concept 0.7:

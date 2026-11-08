@@ -26,9 +26,9 @@ sink profiles put a value into one local file (`local-file-1`), into a command t
 sink each need their own scope, which a person can leave out. The extension does not need a new
 `ContentBlock` type. It uses ordinary string fields and does not use `_meta` as a secrecy boundary.
 
-Three implementations exist: a reference server (MCPGate, source not public), an independent reference
-host in the repository (`local-file-1`), and a coding-agent plugin that resolves into files, commands and
-the screen but declares no extension. Several decisions are provisional and
+Three implementations exist: a reference server (source not public), an independent reference host in the
+repository (`local-file-1`, and `process-1` and `display-1` at demo level), and a coding-agent plugin that
+resolves into files, commands and the screen but declares no extension. Several decisions are provisional and
 need review.
 
 We did not find a first-class MCP mechanism that combines server-issued opaque references, host-trusted
