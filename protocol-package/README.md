@@ -108,6 +108,8 @@ This revision records Concept 0.7. The normative text of each change is in the r
   audit event. **SC-26** (new): revocation per device.
 - **PROFILE-oauth-resolver-1.md** gets the evidence of revision R3 (rows A3, A7, C1, C2, C5, C7, C9, T13
   to T15, R5, R10, R11, R15, R16, and section 5a, V1 to V7).
+- **Revision R4** of the reference server: the identifier `process-1` (PROFILE-process-1.md, row D1) and the
+  binding of the approval to resource and scope set (rows C5, C7 and R11, TM-1).
 - **THREAT-MODEL.md** updates TM-1 and TM-4 and adds TM-14 (process) and TM-15 (display).
 - **CONFORMANCE-RESULTS.md** gets the section "Concept 0.7" and run E13.
 - **IMPLEMENTATION-GUIDE.md** gets server items 16 to 21 and host items 13 to 16.

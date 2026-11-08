@@ -99,14 +99,23 @@ What R3 and R4 do, as their tests and their source show (read at the release tag
   and the body carries `error`, `error_description` and `scope` with the same values. For the process sink,
   the shape is the same with the process scope and the text "This sign-in does not allow real values in
   commands. Sign in again and allow commands on the consent page." The answer carries
-  `Cache-Control: no-store`. Another `sink_type` gets `403 ineligible_sink`. A display request with another
+  `Cache-Control: no-store`. Since R4, a token without the resolve scope gets the same shape with
+  `scope="sensitive-references.resolve"` and the text "This sign-in does not allow real values. Sign in
+  again and allow the program on the consent page." The server checks the resolve scope when it reads
+  the token, before it knows the sink, so this answer names only the resolve scope, also for a process
+  or a display request. Another `sink_type` gets `403 ineligible_sink`. A display request with another
   destination than `screen`, or with not exactly one reference, gets `400`.
 - **Consent.** A consent page at every authorization request. The page shows "Signed in as <account>"
-  with a "Use another account" button, the client name, the loopback host and port and the "Requested"
-  time. The sink lines are: "This program may also put real values into commands it runs on this computer
+  with a "Use another account" button, the client name, the loopback host and port, the "Resource"
+  (since R4) and the "Requested" time. The sink lines are: "This program may also put real values into commands it runs on this computer
   (the program says it masks the command output before the AI sees it)." and "This program may also show
   real values on your screen; it says it never gives them to the AI." The button shows only where the
-  server has its own sign-in page; else the page names the account and offers no switch.
+  server has its own sign-in page; else the page names the account and offers no switch. Since R4 the
+  code and the stored approval are bound to subject, client, resource and the exact scope set that the
+  page named. A token request that names another resource gets `invalid_target`, and a `scope` in the
+  token request adds nothing. A token and a refresh work only while an approval for their own resource
+  and scope set holds, for at most 180 days from the grant time of that approval. One record keeps at
+  most 8 approvals per person and client.
 - **People.** Every person with an account (members and guests) may use the resolver. Administrators keep
   a block list per user. Service accounts and synthetic identities are refused.
 - **References per principal.** The server looks up a reference in the pseudonym map of the token principal
@@ -149,9 +158,14 @@ Limits:
   the base URL. The operator keeps the raw output of that check (the 401 headers and both metadata
   documents); it is not in this repository, and nobody reproduced it independently. The host reports of
   E12 do not record the challenge.
-- The binding of the stored approval to resource and scope set is not verified by a test that this
-  repository read. The names of account, client, loopback host and port and the sink lines on the consent
-  page are covered by R3 tests; the time and the resource on the page are not.
+- The binding of the stored approval to resource and scope set, and the resource on the consent page,
+  are covered by R4 tests (protocol-package/PROFILE-oauth-resolver-1.md, C5 and C7). The names of account,
+  client, loopback host and port and the sink lines on the page are covered by R3 tests. The time on the
+  page is in the page template at R4, but no test that this repository read covers it.
+- A token without the resolve scope gets `403 insufficient_scope` with an `error_description` (R4 test,
+  for `local_file`). For `process` and `display` the answer names only the resolve scope, not the whole
+  scope set of the sink that row R11 asks for. This repository read that in the source; no test covers
+  it.
 - The `WWW-Authenticate` header on a 401 of the resolve endpoint is not verified.
 - PKCE S256 enforcement at the server and the audit event are not covered by a test.
 - The SC-20 rules for `form-action` and for `[::1]` are covered by R3 tests. The rule "any loopback port"

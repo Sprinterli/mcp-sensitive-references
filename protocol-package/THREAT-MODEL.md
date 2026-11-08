@@ -31,8 +31,9 @@ knowledge of the user. The browser session of the user signs the request.
 
 **Control.** The authorization server shows a consent page at every authorization request. A stored
 approval and a browser session alone issue no code. The page names the account with an action to use
-another account, the client, the loopback host and port, the time of the request and one line per
-requested sink scope, so that a person can leave out a sink. The page cannot be framed. A one-time nonce
+another account, the client, the loopback host and port, the time of the request, the resource and one line per
+requested sink scope, so that a person can leave out a sink. The stored approval binds subject, client,
+resource and scope set. The page cannot be framed. A one-time nonce
 binds the answer to the user and to every request parameter. The consent post must carry a same-origin
 `Origin` header (SC-06). The person and an administrator can revoke a device (SC-26).
 
@@ -44,9 +45,12 @@ binds the answer to the user and to every request parameter. The consent post mu
 `test_the_consent_page_names_the_signed_in_account_and_no_other`,
 `test_the_consent_page_names_commands_only_when_the_client_asks_for_them`,
 `test_the_consent_page_names_the_screen_only_when_the_client_asks_for_it`,
-`test_a_user_lists_and_revokes_a_device_and_every_token_of_it_stops`. The binding of the stored approval
-to resource and scope set, the time and the resource on the page are **not verified** by a test that this
-package read.
+`test_a_user_lists_and_revokes_a_device_and_every_token_of_it_stops`, and (R4)
+`test_the_stored_approval_holds_only_the_resource_and_the_scope_set_it_was_given_for`,
+`test_a_token_for_a_resource_that_was_never_approved_resolves_nothing`,
+`test_a_token_whose_scope_set_was_never_approved_resolves_nothing` and
+`test_the_consent_page_names_the_resource_the_code_is_issued_for`. The time on the page is **not
+verified** by a test that this package read.
 
 **Residual risk.** After consent, a program that can read the token cache of the host can use the token
 without interaction until the access token and the refresh token end (see TM-8). A user can still approve

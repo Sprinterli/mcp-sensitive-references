@@ -479,9 +479,10 @@ section 6, Gate A finding HIGH).
   `test_a_withdrawn_or_expired_consent_stops_refresh_and_the_live_token`.
 - End-to-end run of 2026-10-25: one consent page on the first run, zero on the second run with a cached
   token (see [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#end-to-end-runs)).
-- The reference server binds the approval to the pair of subject and client. The binding to resource,
-  resolve scope and sink-profile set, and the names of resource and profiles on the consent page, are
-  **not verified**: this package found no reference server test for them.
+- Until R4 the reference server bound the approval to the pair of subject and client. Since R4 it binds
+  the approval to subject, client, resource and scope set, and the consent page names the resource (see
+  "Concept 0.7" below). The sink lines on the page have tests at R3 (CONFORMANCE-RESULTS.md, section
+  "Concept 0.7").
 
 **Proposed text.**
 
@@ -535,7 +536,14 @@ not say which account signed in. A person with two accounts could approve the wr
 `test_the_other_account_gets_its_own_consent_page_for_the_same_request` and
 `test_the_switch_spends_the_nonce_so_the_old_page_grants_nothing`. These tests replace the evidence of
 `test_consent_is_asked_once_per_client_then_codes_follow_without_interaction` above: at R3 a second
-authorization with a live approval gets the page again and no code.
+authorization with a live approval gets the page again and no code. Reference server tests (R4)
+`test_the_stored_approval_holds_only_the_resource_and_the_scope_set_it_was_given_for`,
+`test_a_token_whose_scope_set_was_never_approved_resolves_nothing`,
+`test_a_token_for_a_resource_that_was_never_approved_resolves_nothing`,
+`test_a_token_request_that_names_another_resource_than_the_code_gets_invalid_target` and
+`test_the_consent_page_names_the_resource_the_code_is_issued_for` show the binding to resource and scope
+set and the resource on the page. No reference server test that this package read shows the time on the
+page.
 
 *Compatibility.* A host that relied on a code without a page now shows the page at each authorization. A
 host with a token cache and refresh does not see a page more often (E9, E10).
@@ -1093,6 +1101,9 @@ also had a field name that the reference server called provisional.
   `test_the_process_scope_survives_a_refresh_and_a_file_grant_stays_file_only`,
   `test_the_display_scope_survives_a_refresh`,
   `test_discovery_and_server_settings_name_exactly_the_three_sinks`.
+- Reference server test (R4) `test_a_token_without_the_resolve_scope_gets_insufficient_scope_with_a_reason`:
+  a token without the resolve scope gets `403 insufficient_scope` with `scope` and `error_description` in
+  header and body. For `process` and `display` the answer names only the resolve scope (read in the source).
 - Second host: it asks for the process scope where it masks command output, and for the display scope
   (`maisecrets/sref_client.py`, `login_scope`; test
   `test_the_process_scope_is_asked_for_on_top_where_command_output_is_masked`).
