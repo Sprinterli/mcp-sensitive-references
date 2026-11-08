@@ -295,8 +295,12 @@ tests (`test_a_configured_parent_resource_is_the_issuer`, `test_a_resource_the_m
 ## Gaps that this matrix shows
 
 - Concept 0.7: the reference server tests of R3 were read, not run. E13 is one operator run. The reference
-  host does not read `sinks` and implements neither `process-1` nor `display-1`. The second host declares
-  no extension and does not read `sinks`.
+  host and the prototype issuer implement Concept 0.7 at demo level and ran offline only, not against R3.
+  The second host declares no extension and does not read `sinks`.
+- Prototype gaps of Concept 0.7: the rule that every person with an account may use the issuer, with a
+  block list and without service accounts (A7), is not tested; the issuer has fixture accounts and a
+  block list only. The minimum audit content and the rate limits (OQ-18) are not implemented beyond a
+  daily quota. `process-1` runs on POSIX only and was not tested on Windows.
 
 - The reference server does not conform to SC-01 (P16). No server test checks that the MCP URL and the
   RFC 9728 `resource` are identical.
@@ -306,7 +310,7 @@ tests (`test_a_configured_parent_resource_is_the_issuer`, `test_a_resource_the_m
 - No test covers PKCE S256 enforcement at the server, the audit event, the 30-second expiry
   margin of the host, or the duplicate removal of the host.
 - No test covers the SC-06 binding to resource, scope and profile set, or the SC-20 exact redirect
-  matching. This repository has no authorization server implementation of its own to test them, and
-  the reference server tests that this package read do not cover them.
+  matching. The prototype issuer stores the approval with subject, client, resource and scope set, but no
+  test asserts the binding. The reference server tests that this package read do not cover it.
 - No end-to-end run used a second, independent server or a second, independent host.
 - `test_mcp_sdk_demo` was not run with SDK 1.x.
