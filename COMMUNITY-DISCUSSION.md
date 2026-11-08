@@ -18,16 +18,17 @@ through its work. Possession of the reference is not authorization. Later, a sep
 non-model resolver can put the value into an eligible protected sink, such as a local file. The ordinary
 model-facing result keeps the reference.
 
-Concept 0.6 is one normative text: a small core (semantics, wire representation, host integration,
-security model) and two profiles. The resolver profile `oauth-resolver-1` uses a separate OAuth client with
-a narrow resolve scope, RFC 9728 metadata and explicit consent. The sink profile `local-file-1` writes one
-local file, all or nothing. The extension does not need a new `ContentBlock` type. It uses ordinary string
-fields and does not use `_meta` as a secrecy boundary.
+Concept 0.7 is one normative text: a small core (semantics, wire representation, host integration,
+security model) and four profiles. The resolver profile `oauth-resolver-1` uses a separate OAuth client
+with a narrow resolve scope, RFC 9728 metadata and a consent page at every authorization request. Three
+sink profiles put a value into one local file (`local-file-1`), into a command that the host runs
+(`process-1`), or onto the screen of the person after a click (`display-1`). The process and the display
+sink each need their own scope, which a person can leave out. The extension does not need a new
+`ContentBlock` type. It uses ordinary string fields and does not use `_meta` as a secrecy boundary.
 
-Two implementations exist: a reference server (MCPGate, source not public) and an independent reference
-host in the repository. Until 2026-10-27, the server challenge named the metadata of its base URL, and the host without its
-non-conformant option `--resource` stopped there (E11). After a server fix, one run without a deviation
-option succeeded (E12). Several decisions are provisional and
+Three implementations exist: a reference server (MCPGate, source not public), an independent reference
+host in the repository (`local-file-1`), and a coding-agent plugin that resolves into files, commands and
+the screen but declares no extension. Several decisions are provisional and
 need review.
 
 We did not find a first-class MCP mechanism that combines server-issued opaque references, host-trusted
@@ -44,4 +45,4 @@ Questions for review:
 5. Is cross-server redemption necessary for version 1, or should it stay deferred?
 6. Does this fit an MCP extension, another extension category, or a future core primitive?
 
-This is Concept 0.6 draft work. It is not an MCP standard and not an accepted SEP.
+This is Concept 0.7 draft work. It is not an MCP standard and not an accepted SEP.

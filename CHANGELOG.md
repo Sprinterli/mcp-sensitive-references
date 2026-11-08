@@ -1,5 +1,82 @@
 # Changelog
 
+## Concept 0.7 (draft)
+
+Concept 0.7 describes what runs in the implementations and has proven itself there. Each line names its
+source: an SC entry of [protocol-package/SPEC-CHANGES.md](protocol-package/SPEC-CHANGES.md), an OQ item of
+[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), or a profile file of the package. The evidence is revision R3 of
+the reference server, releases 0.9.0 and 0.9.1 of the second host, and run E13.
+
+### Structure
+
+- Two new normative sink profiles: PROCESS-PROFILE.md (`process-1`) and DISPLAY-PROFILE.md (`display-1`).
+  The package gets an evidence file for each. (SC-22, SC-23)
+- A third implementation, the second host, is in IMPLEMENTATION-EVIDENCE.md. (new)
+
+### Core
+
+- New term "sink scope". A sink profile also defines its sink scope, if any, and its limit. (SC-21)
+- References are per person: an issuer resolves a reference only for its owner, and a reference of
+  another principal fails with `unknown`. Concept 0.6 let the issuer authorize other principals, for
+  example for a shared record. (SC-24)
+- SECURITY-MODEL.md: TM-1 names the consent at every authorization request and the revocation per device;
+  TM-4 names the sink scopes; new TM-14 (process) and TM-15 (display). (SC-06, SC-21 to SC-23, SC-26)
+
+### `oauth-resolver-1`
+
+- The discovery object gets `sinks` (the `sink_type` and the whole scope set of each sink profile), and
+  `process_scope` and `display_scope` for the two profiles that need them. The field name
+  `sensitive_references` is fixed; OQ-8 is decided. (SC-21, OQ-8)
+- A sink profile can require a sink scope. The host asks for the resolve scope and the sink scopes that it
+  can honour, in one request. The authorization server accepts only those combinations (plus `openid`);
+  every other scope next to the resolve scope, and a sink scope alone, get `invalid_scope`. This replaces
+  the rule "no scope other than the resolve scope and `openid`" of Concept 0.6. (SC-21, SC-03)
+- A missing sink scope gives `403 insufficient_scope` before any lookup, with no value and no audit
+  event. The header and the body name the whole scope set and carry an `error_description`. (SC-21)
+- A refresh keeps the granted scope set. A new sink needs a new authorization. (SC-21)
+- The consent page comes at every authorization request; a stored approval no longer gives a code without
+  the page. The page names the account with an action to use another account, the client, the loopback
+  host and port, the time of the request and one line per sink scope. The stored approval binds subject,
+  client, resource and the granted scope set. (SC-06)
+- Revocation per device (principal and client), by the person and by an administrator. A credential from
+  before the revocation stays dead after a new approval. (SC-26)
+- An optional `account_hint` in the token answer and in the refresh answer. (SC-24)
+- The loopback rule for authorization codes covers every sink profile that puts the value on the computer
+  of the host. (SC-22, SC-23)
+- `sink_type` has three values: `local_file`, `process`, `display`. A value that is not exactly one of
+  them gets `403 ineligible_sink`. (SC-22, SC-23)
+- Audit: a server MUST write the audit event before it sends a value, else `503 audit_unavailable`. Concept
+  0.6 said SHOULD. Every released value counts in the quota. (SC-25)
+- The error table gets the new meaning of `insufficient_scope` and the code `503 audit_unavailable`.
+  (SC-21, SC-25)
+
+### `local-file-1`
+
+- The profile needs no sink scope. (SC-21)
+
+### `process-1` (new)
+
+- `sink_type` `process`; destination the program name, never the command line; the server audit keeps
+  the last path part without white space, else `other`; the host masks the command output also on the
+  failure path and resolves only when the command reads the value; a process scope. The identifier is
+  provisional. (SC-22, OQ-21)
+
+### `display-1` (new)
+
+- `sink_type` `display`, destination `screen`, one reference per request, only on a click of the person;
+  never to the model, a transcript or an export; a paste is masked back; copy only on a second click; one
+  audit event per reveal, counted in the quota; a display scope. (SC-23)
+
+### Non-normative files
+
+- README.md: "Changes in this revision", the document map, three implementations, known gaps.
+- IMPLEMENTATION-EVIDENCE.md: what R3 does, the second host and its limits, run E13.
+- OPEN-QUESTIONS.md: OQ-8 decided; OQ-16 names the second host; new OQ-19 (safe metadata of a reference),
+  OQ-20 (a "tokenize" profile) and OQ-21 (the identifier of the process profile).
+- protocol-package/: SC-21 to SC-26, amendments of SC-03 and SC-06, the R3 evidence rows, TM-14 and TM-15,
+  run E13, new guide items.
+- STATUS.md, DESIGN-DECISIONS.md, COMMUNITY-DISCUSSION.md and OUTREACH-POST.md follow Concept 0.7.
+
 ## Concept 0.6 (draft)
 
 Concept 0.6 puts the validated protocol decisions of [protocol-package/](protocol-package/) into one

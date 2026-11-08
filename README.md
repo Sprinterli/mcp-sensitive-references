@@ -1,6 +1,6 @@
 # Sensitive References for MCP
 
-> **Status: Concept 0.6 draft (not an MCP standard, not an accepted SEP).**
+> **Status: Concept 0.7 draft (not an MCP standard, not an accepted SEP).**
 >
 > This repository describes a possible optional MCP extension for opaque references to server-held
 > sensitive data. It is not affiliated with the Model Context Protocol project.
@@ -32,6 +32,9 @@ and the possession of a reference from the authority to resolve it.
   and recorded it outside model text. On loss or ambiguity of that record, the host fails closed.
 - A separately authorized resolver resolves references into an eligible sink. The model-facing result
   keeps the references.
+- References are per person. A reference of one person never resolves for another.
+- Each sink that hands a value to a local process or a screen needs its own scope, which a person can
+  leave out on the consent page.
 
 ## Documents
 
@@ -50,6 +53,8 @@ Normative profiles:
 |---|---|
 | [RESOLVER-PROFILE.md](RESOLVER-PROFILE.md) | `oauth-resolver-1`: a separate OAuth resolver client |
 | [LOCAL-FILE-PROFILE.md](LOCAL-FILE-PROFILE.md) | `local-file-1`: resolution into one local file |
+| [PROCESS-PROFILE.md](PROCESS-PROFILE.md) | `process-1`: resolution into a command that the host runs |
+| [DISPLAY-PROFILE.md](DISPLAY-PROFILE.md) | `display-1`: one value on the screen of the person, after a click |
 
 Not normative:
 
@@ -57,27 +62,49 @@ Not normative:
 |---|---|
 | [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | Remaining design decisions, with options and provisional choices |
 | [DESIGN-DECISIONS.md](DESIGN-DECISIONS.md) | The decisions that the normative text applies |
-| [CHANGELOG.md](CHANGELOG.md) | Every change from Concept 0.5 to 0.6, with its source |
+| [CHANGELOG.md](CHANGELOG.md) | Every change of Concept 0.6 and 0.7, with its source |
 | [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) | The two implementations, the evidence and the known gaps |
 | [STATUS.md](STATUS.md) | The current state |
 | [PRIOR-ART.md](PRIOR-ART.md) | Adjacent mechanisms |
-| [protocol-package/](protocol-package/) | Supporting rationale, implementation evidence and history (SC-01 to SC-20) |
+| [protocol-package/](protocol-package/) | Supporting rationale, implementation evidence and history (SC-01 to SC-26) |
 | [prototype/](prototype/) | The reference host and the feasibility prototype |
+
+## Changes in this revision
+
+Concept 0.7 describes what runs and has proven itself in the implementations. [CHANGELOG.md](CHANGELOG.md)
+lists every change with its source.
+
+1. **Sink scopes.** A sink profile can require its own scope. The discovery object names the scope set of
+   each sink profile, and its name `sensitive_references` is fixed. The host asks for the resolve scope
+   and the sink scopes it can honour, in one request. A missing sink scope gives `403 insufficient_scope`
+   before any lookup. A refresh keeps the granted set.
+2. **Two new sink profiles.** `process-1` gives a value to a command and masks the command output.
+   `display-1` shows one value on the screen after a click of the person.
+3. **Consent at every authorization request.** No stored approval replaces the decision. The page names
+   the account, the client, the loopback host and port, the time and each sink scope.
+4. **References per person.** A reference of person A never resolves for person B. An optional
+   `account_hint` shows which account a token belongs to.
+5. **No value without its audit event** (`503 audit_unavailable` otherwise).
+6. **Revocation per device**, by the person and by an administrator.
 
 ## Implementations
 
 - **Reference server: MCPGate.** It issues references, implements `oauth-resolver-1` and accepts
-  `local-file-1`. Its source is not public. Since 2026-10-27, its challenge names the metadata of its
-  MCP URL (P16 fixed; seen in a separate operator check). The host
-  then ran without a deviation option (E12).
+  `local-file-1`, `display-1` and the process profile (as `mcpgate-process-1`, see OQ-21). Revision R3
+  (versions 2.0.3824 and 2.0.3826, 2026-11-08) implements every change of Concept 0.7. Its source is not
+  public.
 - **Reference host: [prototype/demo/mcp_host.py](prototype/demo/mcp_host.py).** An independent MCP host.
   It negotiates the extension, records provenance, gets its own resolver token and writes a local file.
-  133 tests passed on 2026-10-27 in the tested configuration.
+  133 tests passed on 2026-10-27 in the tested configuration. It implements `local-file-1` only.
+- **Second host: [maisecrets](https://github.com/Mcpgate-de/maisecrets)** (releases 0.9.0 and 0.9.1). A
+  plugin for coding agents. It resolves into files, commands and the screen. It declares no extension, so
+  it is not a supporting host (SPEC-DRAFT.md, section 6.2).
 
-**Known gaps.** The run of the reference host against the reference server without a deviation option
-(E12) is one operator run of each step and is not independently reproduced. SC-20 has no automated test. Browser-side DNS rebinding remains a residual risk (TM-11). MCP
-SDK 1.x was not tested. The consent lessons come from one browser. See
-[IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).
+**Known gaps.** The reference server tests of R3 were read, not run by this repository. The display run
+E13 (2026-11-08) is one operator run, not independently reproduced. No end-to-end run of the process
+profile is recorded. The reference host does not read the `sinks` member of the discovery object. Run E12
+(2026-10-27) is one operator run of each step. Browser-side DNS rebinding remains a residual risk (TM-11).
+MCP SDK 1.x was not tested. See [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md).
 
 ## Run the prototype
 
@@ -91,7 +118,9 @@ PYTHONPATH=src python3 -m unittest discover -s tests
 
 - **Concept 0.5** is the git tag `concept-0.5`:
   <https://github.com/Sprinterli/mcp-sensitive-references/tree/concept-0.5>.
-- **Concept 0.6** is the current text in this repository. [CHANGELOG.md](CHANGELOG.md) lists the changes.
+- **Concept 0.6** is the git tag `concept-0.6`:
+  <https://github.com/Sprinterli/mcp-sensitive-references/tree/concept-0.6>.
+- **Concept 0.7** is the current text in this repository. [CHANGELOG.md](CHANGELOG.md) lists the changes.
 
 ## Out of scope
 

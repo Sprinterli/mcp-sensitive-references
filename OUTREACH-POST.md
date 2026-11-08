@@ -14,7 +14,7 @@ The model can carry and route the opaque reference. A separately authorized non-
 put the plaintext into an eligible protected sink. Possession of a reference alone does not authorize
 resolution.
 
-Concept 0.6 is one normative text with a core and two profiles. The text, the reference host and the
+Concept 0.7 is one normative text with a core and four profiles. The text, the reference host and the
 evidence are here:
 
 https://github.com/Sprinterli/mcp-sensitive-references
@@ -25,4 +25,4 @@ We would value feedback on three questions:
 2. Is a separate OAuth resolver client with its own consent a sensible profile?
 3. Which of the remaining design decisions in OPEN-QUESTIONS.md should change?
 
-This is Concept 0.6 draft work, not a standard and not an accepted SEP.
+This is Concept 0.7 draft work, not a standard and not an accepted SEP.

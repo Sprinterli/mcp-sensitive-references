@@ -1,12 +1,12 @@
 # Open questions and remaining design decisions
 
-**Status: Concept 0.6 draft.** This file is not normative. It lists what still needs a decision.
+**Status: Concept 0.7 draft.** This file is not normative. It lists what still needs a decision.
 
 A **provisional v1 design decision** is the working normative design for version 1. Implementations can
 differ from it; [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) records each known difference. The
 normative text marks it with **Provisional (OQ-n)**. No community review confirmed it. The options stay
 open. OQ-1 to OQ-11 come from [protocol-package/OPEN-QUESTIONS.md](protocol-package/OPEN-QUESTIONS.md).
-OQ-12 to OQ-18 are new in Concept 0.6.
+OQ-12 to OQ-18 are new in Concept 0.6. OQ-19 to OQ-21 are new in Concept 0.7. Concept 0.7 decides OQ-8.
 
 ## Remaining design decisions
 
@@ -14,12 +14,12 @@ OQ-12 to OQ-18 are new in Concept 0.6.
 |---|---|---|---|
 | OQ-1 | Two independent issuers | A: keep cross-server disclosure deferred | SPEC-DRAFT.md, section 9 |
 | OQ-2 | Where a masked display travels | C: no display on the wire | WIRE-REPRESENTATION.md, section 4 |
-| OQ-3 | The issuer-side sink and the agent-token rule (SC-18) | None in Concept 0.6. The package proposed A. An interim floor applies. | SPEC-DRAFT.md, section 6.4 |
+| OQ-3 | The issuer-side sink and the agent-token rule (SC-18) | None in Concept 0.7. The package proposed A. An interim floor applies. | SPEC-DRAFT.md, section 6.4 |
 | OQ-4 | Consent with dynamic registration and loopback ports | A: any loopback port, one client | RESOLVER-PROFILE.md, section 9.2 |
 | OQ-5 | Sender-constrained resolver tokens | B: DPoP optional; short lifetime and rotation | RESOLVER-PROFILE.md, section 11 |
 | OQ-6 | The destination field | B: a label | RESOLVER-PROFILE.md, section 12.1; LOCAL-FILE-PROFILE.md, section 3 |
 | OQ-7 | Durable host provenance | A host can persist; loss fails closed | HOST-INTEGRATION.md, section 3 |
-| OQ-8 | Location of the discovery object | A: RFC 9728 metadata | RESOLVER-PROFILE.md, section 4 |
+| OQ-8 | Location and name of the discovery object | Decided in Concept 0.7: RFC 9728 metadata, name `sensitive_references` | RESOLVER-PROFILE.md, section 4 |
 | OQ-9 | The extension identifier | Ask the MCP project; configuration until then | SPEC-DRAFT.md, section 4 |
 | OQ-10 | The subject of an opaque resolver token | B: any stable binding at the resource server | RESOLVER-PROFILE.md, section 14 |
 | OQ-11 | Reference lifetime | B: the server documents it | SPEC-DRAFT.md, section 5.3 |
@@ -30,6 +30,9 @@ OQ-12 to OQ-18 are new in Concept 0.6.
 | OQ-16 | Who authors the content of a local-file write | Both sources permitted | LOCAL-FILE-PROFILE.md, section 1 |
 | OQ-17 | Non-string sensitive values | none | none |
 | OQ-18 | Audit and rate-limit minimum; recovery beyond section 11.1 | none | RESOLVER-PROFILE.md, sections 11.1 and 15 |
+| OQ-19 | Safe metadata of a reference | none | none |
+| OQ-20 | A "tokenize" profile | none | none |
+| OQ-21 | The identifier of the process profile | `process-1` (the maintainer still confirms it) | PROCESS-PROFILE.md |
 
 ## OQ-1. Two independent issuers
 
@@ -74,13 +77,13 @@ uses the authenticated principal, the tool and the action that the issuer author
 and the owner of the reference. The reference must be exact and current. A failure of one reference refuses
 the whole call. The issuer replaces each resolved value with its reference in every model-visible result.
 
-**No provisional decision in Concept 0.6.** The package proposed A ([protocol-package/OPEN-QUESTIONS.md](protocol-package/OPEN-QUESTIONS.md)).
+**No provisional decision in Concept 0.7.** The package proposed A ([protocol-package/OPEN-QUESTIONS.md](protocol-package/OPEN-QUESTIONS.md)).
 
 **Interim floor.** Until OQ-3 is decided, SPEC-DRAFT.md, section 6.4, requires the checks above for every
 issuer-side use. The floor holds under option A and under option B. It does not make issuer-side use part
 of the conformant scope of version 1.
 
-**Why Concept 0.6 does not integrate SC-18.** Option A lets the agent token, together with the tool
+**Why Concept 0.7 does not integrate SC-18.** Option A lets the agent token, together with the tool
 authorization, release plaintext into an outbound call. In Concept 0.5, resolution authority was separate
 from the agent token. Option A can therefore weaken the separation of resolution authority from ordinary
 access. The required controls of SECURITY-MODEL.md must not weaken without a community decision. Also, no
@@ -129,15 +132,15 @@ audit and does not show the file system layout. The reference host still sends a
 closed. A host without persistence (B) conforms. The integrity mechanism and the freshness of a stored
 observation stay open. A standard needs a second host implementation before it can define both.
 
-## OQ-8. Location of the discovery object
+## OQ-8. Location and name of the discovery object
 
 - Option A: RFC 9728 metadata with a registered field name.
 - Option B: the extension settings object.
 - Option C: both.
 
-**Provisional v1 design decision:** A. The resolver token belongs to the protected resource, not to the MCP
-session. The field name `sensitive_references` is not registered in the IANA "OAuth Protected Resource
-Metadata" registry. A SEP must register it or choose another location.
+**Decided in Concept 0.7:** A, with the field name `sensitive_references`. The resolver token belongs to the
+protected resource, not to the MCP session. Both implementations of the resolver use this name. The field
+name is not registered in the IANA "OAuth Protected Resource Metadata" registry. A SEP must register it.
 
 ## OQ-9. The extension identifier
 
@@ -161,7 +164,7 @@ every resolve request.
 
 ## OQ-12. Issuer identity for non-HTTP transports
 
-Concept 0.6 defines the issuer identity for an MCP server over HTTP only.
+Concept 0.7 defines the issuer identity for an MCP server over HTTP only.
 
 - Option A: define an identity for stdio, for example from the host configuration of the server.
 - Option B: do not support references over stdio in version 1.
@@ -174,7 +177,7 @@ later version defines the identity.
 The MCP authorization specification (version 2025-11-25) permits a fallback to the well-known URL at the
 origin root. RFC 9728 section 3.3 makes the `resource` of that document the origin, not the MCP URL.
 
-- Option A: no root fallback for resolution (Concept 0.6).
+- Option A: no root fallback for resolution (Concept 0.7).
 - Option B: accept a root document that names the MCP URL. This breaks RFC 9728 section 3.3.
 - Option C: change the MCP specification for servers that offer this extension.
 
@@ -183,7 +186,7 @@ the RFC 9728 section 3.1 rule for a trailing slash is also not confirmed.
 
 ## OQ-14. A resolve endpoint on another origin
 
-- Option A: refuse it (Concept 0.6).
+- Option A: refuse it (Concept 0.7).
 - Option B: define a separately authenticated binding of the endpoint to the resource, and a token with
   the endpoint as its audience.
 
@@ -194,7 +197,7 @@ the RFC 9728 section 3.1 rule for a trailing slash is also not confirmed.
 RFC 8252 section 7.3 counts `[::1]` as a loopback IP redirect URI. In one tested browser, a consent page
 policy that listed `[::1]` did not let the redirect through.
 
-- Option A: a server can refuse `[::1]`, and a host uses `127.0.0.1` (Concept 0.6).
+- Option A: a server can refuse `[::1]`, and a host uses `127.0.0.1` (Concept 0.7).
 - Option B: a server must accept both literals.
 
 **Provisional v1 design decision:** A. The evidence is one observation in one browser. A later version must
@@ -206,8 +209,9 @@ remove the permission when browsers deliver the redirect to `[::1]`.
 - Option B: the host takes the content from its own configuration only.
 
 **Provisional v1 design decision:** both sources are permitted (LOCAL-FILE-PROFILE.md, section 1). The
-reference host does B. The use case of Concept 0.5 (the model routes a reference into a file) needs A. No
-implementation tested A.
+reference host does B. The second host does A for the file tools of a coding agent
+(IMPLEMENTATION-EVIDENCE.md). The use case of Concept 0.5 (the model routes a reference into a file) needs
+A.
 
 ## OQ-17. Non-string sensitive values
 
@@ -224,17 +228,60 @@ grace period for a rotated refresh token that the host lost before it wrote its 
 
 No provisional decision.
 
+## OQ-19. Safe metadata of a reference
+
+A model can carry a reference, but it cannot see that two references name the same person, or what kind of
+value a reference stands for beyond its kind. Some attributes could tell the model more without the value:
+
+- a masked form of the value, for example the domain of an email address;
+- a stable pseudonym (for example "Person 3") that stays the same within one session and cannot be linked
+  across sessions.
+
+Questions: which attributes disclose nothing that makes the value recoverable; whether they travel inside
+the reference, next to it, or through a separate request; how they relate to OQ-2 (no display on the
+wire); and how a host keeps a pseudonym from linking sessions.
+
+No provisional decision. Concept 0.7 defines no metadata of a reference. The reasoning comes from issue 33
+of the second host (`Sprinterli/maisecrets` on gitlab.com).
+
+## OQ-20. A "tokenize" profile
+
+Today only the server issues references, for values that it holds. A client also holds sensitive text, for
+example the output of a local command. In a "tokenize" profile, the client sends its own text to the server,
+and the server returns the text with references in place of the sensitive values. The server keeps the
+values. They resolve through the same sinks, scopes and audit as the references that the server issued
+itself. How the server detects the values (named-entity recognition, rules, word lists) would not be part
+of the profile.
+
+Questions: the new data flow from the client to the server; a scope of its own for it; whether the person
+or an organisation must turn it on; and the owner of a reference that the client caused.
+
+No provisional decision. Concept 0.7 defines no such profile. The reasoning comes from the same issue as
+OQ-19.
+
+## OQ-21. The identifier of the process profile
+
+The reference server publishes the process profile as `mcpgate-process-1`. A product name does not belong
+in a profile identifier.
+
+- Option A: `process-1` in the specification. The reference server publishes both identifiers during a
+  transition, and then `process-1` only.
+- Option B: keep the published identifier.
+
+**Provisional v1 design decision:** A. This is a recommendation that the maintainer still confirms. At R3
+the reference server publishes only `mcpgate-process-1`, and the second host asks for that identifier.
+
 ## Questions of Concept 0.5
 
-| Concept 0.5 item | State in Concept 0.6 |
+| Concept 0.5 item | State in Concept 0.7 |
 |---|---|
 | 1. Provenance across restart | OQ-7 |
-| 2. Host integration point for local sinks | Answered for local files by `local-file-1`. Command and document sinks stay open. |
+| 2. Host integration point for local sinks | Answered for local files by `local-file-1`, for commands by `process-1` and for the screen by `display-1`. Document sinks stay open. |
 | 3. Extension identifier and settings | Settings in WIRE-REPRESENTATION.md, section 3. Identifier: OQ-9. |
 | 4. Resolver endpoint discovery | OQ-8 |
 | 5. Stable subject claim | OQ-10 |
 | 6. Authorization servers for validation | Open. See IMPLEMENTATION-EVIDENCE.md. |
 | 7. Sender constraint | OQ-5 |
-| 8. Audit, rate limit, consent, recovery and revocation | Consent: RESOLVER-PROFILE.md, section 10. Minimum recovery: section 11.1. The rest: OQ-18. |
+| 8. Audit, rate limit, consent, recovery and revocation | Consent: RESOLVER-PROFILE.md, section 10. Revocation: section 10.4. Minimum recovery: section 11.1. Audit: section 15. The rest: OQ-18. |
 | 9. Non-string sensitive values | OQ-17 |
 | 10. Cross-server redemption | OQ-1 |

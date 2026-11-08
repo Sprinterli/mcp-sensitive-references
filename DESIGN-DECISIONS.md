@@ -31,11 +31,11 @@ Each decision names its source in [protocol-package/SPEC-CHANGES.md](protocol-pa
 - **Fetch policy.** The host sends no request to a non-public address that a server supplied. It follows
   no redirect, uses no environment proxy and connects to the checked address (SC-01).
 - **Discovery object.** The resolve endpoint and scope live in a `sensitive_references` object in the
-  RFC 9728 metadata (SC-02). The location is provisional (OQ-8).
+  RFC 9728 metadata (SC-02).
 - **Scope.** The resolve scope stays out of `scopes_supported`, and mixed scopes get neither (SC-03).
 - **Endpoint origin.** The resolve endpoint is on the origin of the resource (SC-04).
 - **Token classes.** A resolver token and an agent token never stand in for each other (SC-05).
-- **Consent.** One approval binds subject, client, resource, resolve scope and sink-profile set (SC-06).
+- **Consent.** One approval binds subject, client, resource and scope set (SC-06).
 - **Token handling.** Short access tokens, rotating refresh tokens, an owner-only cache and one renewal
   after 401 (SC-07).
 - **Authorization checks.** PKCE S256, `state`, RFC 9207 `iss` and the RFC 8414 issuer (SC-08).
@@ -52,6 +52,20 @@ Each decision names its source in [protocol-package/SPEC-CHANGES.md](protocol-pa
 - **Supporting host.** A host that cannot verify negotiation does not declare the extension (SC-19).
 - **Loopback redirects.** Any loopback port; `127.0.0.1` always accepted; `form-action` permits the
   loopback origin (SC-20).
+
+## Decisions added in Concept 0.7
+
+- **Sink scopes.** A sink profile can require its own scope; the discovery object names the scope set of
+  each sink profile; a missing sink scope gives `403 insufficient_scope` before any lookup (SC-21).
+- **Discovery name.** The field name `sensitive_references` is fixed (SC-21, OQ-8).
+- **Process sink.** `process-1` gives a value to a command; the destination is the program name; the host
+  masks the output (SC-22). The identifier is provisional (OQ-21).
+- **Display sink.** `display-1` shows one value on the screen after a click of the person (SC-23).
+- **Consent.** A consent page at every authorization request, which names the account, the client, the
+  loopback host and port, the time and each sink scope (SC-06).
+- **References per person.** A reference resolves only for its owner (SC-24).
+- **Audit.** No value without its audit event (SC-25).
+- **Revocation.** Per device, by the person and by an administrator (SC-26).
 
 ## Decision not integrated
 
