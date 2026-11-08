@@ -1,6 +1,6 @@
 # SEP readiness
 
-**Status: experimental, honest checklist, 2026-10-27.** This file lists what a Specification Enhancement Proposal (SEP)
+**Status: experimental, honest checklist, 2026-10-27, updated for Concept 0.7 on 2026-11-08.** This file lists what a Specification Enhancement Proposal (SEP)
 for Sensitive References needs, and the state of each item.
 
 The sources of this package do not include the MCP SEP process document. The list below is the set of
@@ -19,9 +19,9 @@ Legend: **Done**, **Partial**, **Missing**.
 | Token grammar with test vectors | Done | `prototype/EXTENSION-PROFILE-DRAFT.md` "Test vectors"; `test_reference_grammar.py` |
 | Settings schema | Partial | `prototype/schema/sensitive-references-settings.schema.json`. It has no field for limits (SC-09). |
 | Resolver profile text | Partial | [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md) states it as a proposed profile with implementation evidence. SC-01 to SC-11 and SC-20 are proposals, not accepted text. |
-| Sink profile text | Partial | [PROFILE-local-file-1.md](PROFILE-local-file-1.md). The destination field is open (OQ-6). |
+| Sink profile text | Partial | Normative: `LOCAL-FILE-PROFILE.md`, `PROCESS-PROFILE.md`, `DISPLAY-PROFILE.md` (Concept 0.7). Evidence: [PROFILE-local-file-1.md](PROFILE-local-file-1.md), [PROFILE-process-1.md](PROFILE-process-1.md), [PROFILE-display-1.md](PROFILE-display-1.md). The destination field of `local-file-1` is open (OQ-6). The identifier `process-1` is provisional (OQ-21). |
 | Error codes | Partial | SC-11 and SC-12 propose them. SC-12 defines a schema for `structuredContent`; no test checks it. The reference server and the fake server of the host tests use the SC-11 codes. No accepted text. |
-| Issuer identity | Partial | SC-01 proposes the RFC 9728 `resource` value, identical to the MCP URL (RFC 9728 section 3.3). The reference server is not conformant to SC-01 (known deviation P16). The test host interoperates with it only through a non-conformant operator option. |
+| Issuer identity | Partial | SC-01: the RFC 9728 `resource` value, identical to the MCP URL (RFC 9728 section 3.3). The reference server fixed P16 on 2026-10-27; an operator check and run E12 show it, and no server test checks it. |
 | Alignment with the MCP authorization specification | Missing | SC-01 differs from the MCP specification 2025-11-25: for resolution it does not accept the well-known document at the origin root for an MCP URL with a path, because RFC 9728 section 3.3 makes that document unusable for the MCP URL. The SEP must resolve this conflict with the MCP project. The SEP must also confirm the reading of the RFC 9728 section 3.1 rule for a trailing slash (SC-01). |
 | Resolve endpoint on another origin | Missing | SC-04 refuses an endpoint on another origin than the resource, also a configured one. A deployment that needs another origin needs a separately authenticated binding of the endpoint and a token with the endpoint as its audience. No text defines it. |
 | Security considerations | Partial | `SECURITY-MODEL.md` and [THREAT-MODEL.md](THREAT-MODEL.md). No external security review of the protocol text. |
@@ -34,10 +34,10 @@ Legend: **Done**, **Partial**, **Missing**.
 | Item | State | Evidence or gap |
 |---|---|---|
 | Official extension identifier | Missing | A provisional reverse-DNS identifier is in use. Examples use `org.example/sensitive-references` (SC-15, P7). |
-| Profile identifiers `oauth-resolver-1`, `local-file-1` | Partial | Both implementations use them. No registry exists. |
-| Wire value of `sink_type` | Partial | `local_file` in both implementations. Not in concept 0.5 (SC-10). |
-| Metadata field `sensitive_references` | Missing | Not registered in the IANA "OAuth Protected Resource Metadata" registry (SC-02). |
-| Resolve scope name | Partial | `sensitive-references.resolve` in both implementations. "Deployment-defined" in the profile draft (SC-03). |
+| Profile identifiers `oauth-resolver-1`, `local-file-1`, `process-1`, `display-1` | Partial | The implementations use them, except `process-1`: the reference server publishes `mcpgate-process-1` (OQ-21). No registry exists. |
+| Wire values of `sink_type` | Partial | `local_file`, `process` and `display` at the reference server and the second host. |
+| Metadata field `sensitive_references` | Partial | The name is fixed in Concept 0.7 (SC-21). Not registered in the IANA "OAuth Protected Resource Metadata" registry. |
+| Scope names | Partial | `sensitive-references.resolve`, `sensitive-references.resolve.process` and `sensitive-references.resolve.display` at the reference server. The profile lets a server choose the names and publish them in the discovery object. |
 
 ## Implementations and interoperability
 
@@ -47,7 +47,7 @@ Legend: **Done**, **Partial**, **Missing**.
 | One host implementation | Done | `prototype/demo/mcp_host.py`, 97 resolve tests and 13 host tests passed on 2026-10-27 at commit `6cdd658`. |
 | End-to-end run of host and server | Partial | E1 to E3 and E7 (local), E4 to E6 (production, synthetic). E8 to E10: materialization in production on 2026-10-26, observed in one operator run, not independently reproduced, and only with the non-conformant option `--resource` (deviation P16). No conformant run succeeded: in E11 the conformant host stops at the challenge of the reference server, which names the metadata of the base URL. See [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#end-to-end-runs). |
 | A second independent server | Missing | No other server implements the extension. |
-| A second independent host | Missing | No general-purpose MCP host supports the extension. A plugin host cannot (P11, SC-19). |
+| A second independent host | Partial | A public coding-agent plugin resolves into files, commands and the screen against the reference server (IMPLEMENTATION-EVIDENCE.md). It declares no extension and cannot verify negotiation (SC-19), so it is not a supporting host. No general-purpose MCP host supports the extension. |
 | A public server implementation | Missing | The reference server source is not public. A reviewer cannot read it. |
 | Interoperability with a second authorization server | Partial | The prototype Keycloak probes validate JWT/JWKS and Authorization Code + PKCE (`RESOLVER-PROFILE.md`). They did not run the full `oauth-resolver-1` flow with consent and refresh. |
 | An official MCP SDK implementation | Missing | `prototype/CONFORMANCE.md` "Remaining before a standards proposal". |
@@ -70,6 +70,6 @@ Legend: **Done**, **Partial**, **Missing**.
 
 The core semantics and one pair of implementations are ready for discussion. A SEP is **not ready** for
 submission. The blocking items are: an official extension identifier, a second independent implementation
-(server or host), community review of the proposed changes, community confirmation of the provisional v1
-design decisions (in particular OQ-1 and OQ-3), the conformance of the reference server to SC-01, and the
-registration of the discovery field or a decision on another location (OQ-8).
+(server or supporting host), community review of the changes, community confirmation of the provisional v1
+design decisions (in particular OQ-1 and OQ-3), a server test for SC-01, and the registration of the
+discovery field.

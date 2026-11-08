@@ -1,11 +1,10 @@
-# Profile `local-file-1` (proposed, with implementation evidence)
+# Profile `local-file-1` (Concept 0.7, with implementation evidence)
 
-**Status: proposed change, experimental.** This file states the local-file sink profile. The test host
-is one implementation of it (`prototype/demo/mcp_host.py`, `--resolve-into`, and
-`prototype/src/sensitive_references/sink.py`, `ProtectedFileSink`). Where the test host differs from a
-rule, the evidence column says so. It replaces nothing in concept 0.5.
-`SPEC-DRAFT.md`, "Resolution and sinks", and `prototype/EXTENSION-PROFILE-DRAFT.md`, "Local file sink
-profile", stay as they are.
+**Status: evidence record, experimental.** The normative text of this profile is
+[LOCAL-FILE-PROFILE.md](../LOCAL-FILE-PROFILE.md) (Concept 0.7). The test host is one implementation of it
+(`prototype/demo/mcp_host.py`, `--resolve-into`, and `prototype/src/sensitive_references/sink.py`,
+`ProtectedFileSink`). Where the test host differs from a rule, the evidence column says so. Section 5a
+adds the evidence of the reference server at revision R3 and of the second host.
 
 The evidence columns use the same terms as [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md).
 "Host" means `prototype/tests/test_mcp_host_resolve.py` unless another file is named. "Prototype" means
@@ -53,11 +52,23 @@ model does not see the file content.
 | L16 | The sink MUST send `sink_type: local_file` and a non-empty `destination` (1 to 4096 characters, no control characters) to the resolve endpoint (SC-10). The test host sends the absolute path. See SC-10 for the proposed change to a label. | `resolver_client.py`, `OAuthHttpResolver._batch`. The content of `destination` is not asserted by a host test. |
 | L17 | If a later action echoes a value that this operation resolved, the host can replace the value with its reference. | Prototype `test_downstream_echo_redaction_uses_only_values_resolved_in_this_operation`. The test host does not run a later action. |
 
+## 5a. Evidence of Concept 0.7
+
+The evidence columns use the terms of [PROFILE-process-1.md](PROFILE-process-1.md): a server test at R3,
+read and not run, and the second host at release 0.9.1, read and not run.
+
+| ID | Rule | Server (R3) | Second host |
+|---|---|---|---|
+| L18 | `local-file-1` needs no sink scope. A token with the resolve scope alone resolves into a file. | `test_a_file_only_token_still_resolves_into_a_file`, `test_a_resolve_into_a_file_still_returns_the_value` | `test_a_login_without_the_process_scope_still_fills_a_file` |
+| L19 | A token with only the resolve scope resolves nothing into another sink, and the server writes no audit event for it. | `test_a_file_grant_resolves_nothing_into_a_process_and_writes_no_audit_row` | Not applicable |
+| L20 | The audit event names the sink. For a file it names no program. | `test_the_audit_row_names_the_sink_the_value_went_to`, `test_a_process_token_also_resolves_into_a_file_and_that_row_names_no_program` | Not applicable |
+| L21 | The content may come from model output (OQ-16). Only observed references resolve. | Not applicable | The second host fills the content of a file tool of a coding agent, which the model writes. It sends the path as `destination` (OQ-6: not a label). A reference in a path is refused: `test_a_reference_in_the_path_is_refused`. A file with a reference that the session did not get is not written: `test_a_file_with_a_reference_no_session_received_is_not_written`. |
+
 ## 6. Not in this profile
 
-- Command interpolation, document sinks and a general filesystem policy (`prototype/EXTENSION-PROFILE-DRAFT.md`,
+- Command interpolation (see `process-1`), document sinks and a general filesystem policy (`prototype/EXTENSION-PROFILE-DRAFT.md`,
   "Local file sink profile").
 - Protection after the file exists. A process with the same operating-system privileges can read the file
   (`SECURITY-MODEL.md`, "Limits").
 - A destination policy at the server. The reference server checks only the length of `destination`
-  (at most 4096 characters, read in its source).
+  (at most 4096 characters, read in its source at R1).

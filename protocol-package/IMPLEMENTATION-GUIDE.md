@@ -1,7 +1,8 @@
 # Implementation guide
 
-**Status: experimental.** This guide derives from the findings F1 to F13 and P1 to P16, and from the
-lessons of one production run on 2026-10-26 (last section). Each item names its source. The rules in
+**Status: experimental.** This guide derives from the findings F1 to F13 and P1 to P16, from the
+lessons of one production run on 2026-10-26 (last section), and from the implementations of Concept 0.7
+(SC-21 to SC-26). Each item names its source. The rules in
 SPEC-CHANGES.md are proposals. This guide does not make them normative. The guide names one product: the
 browser of the tests in lessons L-a and L-b. The normative text stays browser-neutral.
 
@@ -19,12 +20,15 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
 5. Publish the complete `sensitive_references` object (all four mandatory members) in every RFC 9728
    metadata document of a resource that offers the profile, while the profile is on. Remove it while the
    profile is off (SC-02).
-6. Name the resolve scope in the discovery object only. Keep it out of `scopes_supported` (SC-03, F13, P15).
-7. Refuse an authorization request that mixes the resolve scope with scopes other than `openid` (SC-03).
-8. Show a consent page for the first authorization of a client. Name the client, the resource and the sink
-   profiles on it. Store the approval for subject, client, resource, resolve scope and the profile set that
-   the page showed. Ask again for a new profile or a broader request. Send `frame-ancestors 'none'`, and
-   require a single-use nonce and a same-origin `Origin` header on the consent post (SC-06).
+6. Name the resolve scope and the scope set of each sink profile in the discovery object only (`sinks`,
+   and `process_scope` and `display_scope`). Keep them out of `scopes_supported` (SC-03, SC-21, F13, P15).
+7. Accept only the resolve scope plus sink scopes of your discovery object, plus `openid`. Answer every
+   other set with `invalid_scope`, also a sink scope without the resolve scope (SC-03, SC-21).
+8. Show a consent page at every authorization request, also when a live approval exists. Name the
+   account with a button to use another account, the client, the loopback host and port, the time of the
+   request and one line per requested sink scope. Store the approval for subject, client, resource and the
+   granted scope set. Send `frame-ancestors 'none'`, and require a single-use nonce and a same-origin
+   `Origin` header on the consent post and on the account switch (SC-06).
 9. Check the consent on every refresh and on every resolve (SC-06; plan section 6, Gate A finding HIGH).
 10. Issue resolver tokens as their own class. Refuse them on every MCP path, also on a path that looks up
     a bearer by its suffix (SC-05, TM-3).
@@ -34,8 +38,20 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
     `test_a_consented_resolver_resolves_its_users_reference`).
 14. Use `isError: true` when a tool call fails because a reference does not resolve (SC-12, P14).
 15. Publish RFC 9728 metadata whose `resource` value is identical to the MCP URL. That value is the
-    issuer identity (SC-01). Do not publish only a parent resource of the MCP URL: the reference server
-    does that, and it is not conformant (P16).
+    issuer identity (SC-01). Do not publish only a parent resource of the MCP URL (P16).
+16. Check the sink scope before any lookup. Answer a missing one with `403 insufficient_scope`, the whole
+    scope set in the header and the body, and an `error_description` that tells the person to sign in
+    again (SC-21).
+17. Keep the granted scope set on refresh. Never add a scope at a refresh (SC-21).
+18. Look up a reference only in the records of the token principal. Report a reference of another person
+    as `unknown` (SC-24). Send `account_hint` in the token answer and in the refresh answer, so a host can
+    show the account (SC-24).
+19. Write the audit event before you send a value. If the write fails, answer `503 audit_unavailable`
+    (SC-25).
+20. Let a person and an administrator revoke a device. Give each pair of principal and client an epoch,
+    and check it in the same atomic step as each write of a credential (SC-26).
+21. For `process-1`, keep only the program name in the audit, else `other`. For `display-1`, accept only
+    the destination `screen` and one reference, and count each reveal in the quota (SC-22, SC-23).
 
 ### Do not
 
@@ -72,8 +88,9 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
    non-conformant in its report.
 4. Resolve only a reference with exactly one trusted issuer, and only at the endpoint of that issuer
    (`local-file-1`, L5, L6).
-5. Use a separate resolver client with Authorization Code, PKCE S256, the `resource` parameter and no
-   scope other than the resolve scope and, optionally, `openid` (SC-03, SC-08).
+5. Use a separate resolver client with Authorization Code, PKCE S256 and the `resource` parameter. Ask
+   for the resolve scope and the sink scopes of the profiles that you can honour, in one request, and
+   optionally `openid` (SC-03, SC-08, SC-21). Take the scope set of each sink from `sinks`.
 6. Check `state`, the RFC 9207 `iss` parameter and the RFC 8414 issuer. If the server advertises
    `authorization_response_iss_parameter_supported`, refuse a response without `iss` (SC-08, F10).
 7. Refuse a token response that does not grant the resolve scope (SC-03, F2).
@@ -85,6 +102,16 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
 11. Accept a 200 answer only if its keys are exactly the references of the batch (`local-file-1`, L13).
 12. Return the reference-bearing content to the model. Report counts and codes only (`local-file-1`, L14,
     L15).
+13. On `403 insufficient_scope`, tell the person to sign in again and allow the sink. Do not retry with the
+    same token (SC-21).
+14. Show the `account_hint` to the person when every reference is `unknown`. Two accounts are a common
+    cause (SC-24, run E13).
+15. For `process-1`: mask the command output before the model sees it, also when the command fails, is
+    killed or times out. Resolve only when the command reads the value, for example through a pipe that
+    the command opens. Send the program name, never the command line (SC-22).
+16. For `display-1`: resolve one reference per click of the person, never while you draw. Keep the value
+    out of the transcript and the export, mask a paste of it, and copy only on a second click. Make sure
+    that a link the model writes cannot copy (SC-23).
 
 ### Do not
 
@@ -96,10 +123,9 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
 6. Do not let the model choose the destination or the content template (`local-file-1`, L3, L4).
 7. Do not show a server message to the model. Report the error code only (SC-11, F9).
 8. Do not send an absolute path as `destination` if a label is enough (SC-10, F8).
-9. Do not register a new client for each authorization if you can keep one client, because each new client
-   causes a new consent page (SC-06, F5).
+9. Do not register a new client for each authorization if you can keep one client (SC-06, F5).
 10. Do not use `[::1]` for the loopback redirect URI. Use `127.0.0.1` (SC-20, lesson L-b).
-11. Do not accept a discovery object without all four mandatory members or without the negotiated
+11. Do not accept a discovery object without all mandatory members or without the negotiated
     profiles. Do not fill a missing member from a default or from configuration (SC-02).
 12. If the metadata exists but has no discovery object, stop as for an incomplete object. Use operator
     configuration only after an explicit operator statement, and label the run as not conformant (SC-02).
@@ -112,6 +138,8 @@ browser of the tests in lessons L-a and L-b. The normative text stays browser-ne
     endpoint is outside this control.
 14. Build the RFC 8414 well-known URL of an authorization server without a terminating "/" of the issuer
     path (RFC 8414 section 3.1). Keep a trailing slash of a longer path for the RFC 9728 URL (SC-01).
+15. Do not ask for a sink scope that you cannot honour, for example the process scope on a platform where
+    you cannot mask the command output (SC-21, SC-22).
 
 ## Lessons from a production run (2026-10-26)
 
@@ -201,8 +229,9 @@ The first post succeeds. The second post fails, and the user sees an error after
 ### L-f. Refresh renews the resolver token without a new consent page
 
 A cached resolver token expired. The host renewed it through the refresh token. No consent page appeared.
-This is the expected behaviour: the approval covers the same subject, client, resource, scope and
-profile set (SC-06), and a refresh grant has no user interaction (RFC 6749 section 6).
+This is the expected behaviour: a refresh grant is no authorization request and has no user interaction
+(RFC 6749 section 6). It keeps the granted scope set (SC-21). A new authorization request always shows the
+page (SC-06).
 
 - Host: try the refresh token before an interactive authorization. With `--no-interactive`, a host can
   still renew through refresh.

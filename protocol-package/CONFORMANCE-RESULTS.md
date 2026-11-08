@@ -1,7 +1,9 @@
 # Conformance results
 
 **Status: evidence record, experimental.** This file is not a standards conformance claim. It maps each
-requirement to the evidence that exists for it on 2026-10-27.
+requirement to the evidence that exists for it on 2026-10-27, and adds the evidence of Concept 0.7 of
+2026-11-08 (section "Concept 0.7"). Run E12 of 2026-10-27 is recorded in
+[IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTATION-EVIDENCE.md).
 
 ## Test run
 
@@ -171,9 +173,10 @@ E10 only says "observed": it is not a verification.
 | Separate client, Authorization Code + PKCE S256, `resource` | `test_an_unregistered_client_gets_no_resolver_code`. PKCE S256 enforcement: not yet tested. | `test_interactive_authorization_materializes_and_reports_no_secret` | E1; observed: E8 |
 | `state` and RFC 9207 `iss` checks (SC-08) | — | `test_a_callback_with_another_state_is_refused`, `test_a_callback_from_another_issuer_is_refused`, `test_a_callback_without_iss_is_refused_when_the_server_advertises_iss`, `test_a_callback_without_iss_is_accepted_when_the_server_does_not_advertise_iss`, `test_a_wrong_iss_is_refused_also_when_the_server_does_not_advertise_iss` | — |
 | Separate token class (SC-05) | `test_the_resolver_token_is_its_own_class_and_short_lived`, `test_a_resolver_token_is_refused_where_an_agent_token_is_expected`, `test_an_agent_token_is_refused_at_the_resolve_endpoint`, `test_a_resolver_token_never_reaches_the_agent_suffix_lookup` | `test_the_agent_token_is_never_sent` | — |
-| One-time consent per approval (SC-06) | `test_the_first_authorization_shows_a_consent_page_and_issues_no_code`, `test_consent_is_asked_once_per_client_then_codes_follow_without_interaction` (subject and client) | — | E1, E2; observed: E8 (one consent), E9 and E10 (no consent page) |
+| A consent page at every authorization request (SC-06, Concept 0.7) | `test_the_first_authorization_shows_a_consent_page_and_issues_no_code`; (R3) `test_consent_is_asked_on_every_authorization_with_the_same_neutral_text`, `test_a_second_authorization_with_a_live_consent_returns_the_page_and_no_code` | — | E1; observed: E8 (one consent). E2, E9 and E10 started no authorization request (cache and refresh). |
 | Consent cannot be forged (SC-06) | `test_consent_cannot_be_given_without_the_users_own_answer_on_the_page`, `test_a_consent_post_without_an_origin_header_grants_nothing` | — | — |
-| Approval bound to resource, scope and sink-profile set; page names client, resource and profiles (SC-06) | Not verified | Not applicable | — |
+| The page names the account with a switch, the client, the loopback host and port, and each sink scope (SC-06, Concept 0.7) | (R3) see "Concept 0.7" below | Not applicable | — |
+| The stored approval is bound to resource and scope set; the page names the time and the resource (SC-06) | Not verified | Not applicable | — |
 | Consent bounds refresh and access (SC-06) | `test_a_withdrawn_or_expired_consent_stops_refresh_and_the_live_token` | — | — |
 | Refresh rotation bound to the client (SC-07) | `test_refresh_rotates_and_the_old_refresh_token_is_dead`, `test_a_refresh_token_works_only_for_its_own_client` | `test_an_expired_token_is_refreshed_and_rotated` | Observed: E10 (renewal through refresh; rotation not observed) |
 | Token cache 0600, one renewal after 401 (SC-07) | — | `test_a_cache_file_that_others_can_read_is_refused`, `test_an_expired_token_is_refreshed_once_then_the_run_fails` | E2; observed: E9 (token from the cache) |
@@ -202,7 +205,47 @@ E10 only says "observed": it is not a verification.
 | Report holds no secret | Not applicable | `assert_report_clean`, `test_the_host_materializes_an_observed_reference` | E1 |
 | Destination is a label, not a path (SC-10, proposed) | Not implemented | Not implemented | — |
 
+## Concept 0.7
+
+**Server tests of revision R3.** This package read the names and the assertions of the reference server
+tests below at revision R3 ([README.md](README.md#sources-and-versions)). It did not run them. The pipeline
+of the release tag of R3 does not run the unit tests, so this package has no run record of them.
+
+**Second host.** The second host is the coding-agent plugin that IMPLEMENTATION-EVIDENCE.md names, at
+release 0.9.1. This package read its source and its test names. It did not run its tests.
+
+| Requirement | S (R3) | Second host | E |
+|---|---|---|---|
+| A sink scope per sink profile; `sinks` in discovery (SC-21) | `test_discovery_and_server_settings_name_exactly_the_three_sinks`, `test_discovery_and_server_settings_list_both_sinks_with_their_scopes`, `test_discovery_and_server_settings_list_the_display_sink_with_its_scopes` | Reads `process_scope` and `display_scope`, not `sinks` | — |
+| Resolve scope plus sink scopes in one request; a sink scope alone or with agent scopes is `invalid_scope` (SC-21) | `test_the_process_scope_alone_or_with_agent_scopes_is_refused`, `test_the_display_scope_alone_or_with_agent_scopes_is_refused`, `test_a_request_that_mixes_the_resolve_scope_with_agent_scopes_gets_neither` | `test_the_process_scope_is_asked_for_on_top_where_command_output_is_masked` | — |
+| A missing sink scope: `403 insufficient_scope` before any lookup, no value, no audit row; header and body name the scope set and an `error_description` (SC-21) | `test_a_token_without_the_display_scope_gets_insufficient_scope_before_any_lookup`, `test_a_file_only_token_gets_insufficient_scope_for_a_process_without_a_value_or_a_row` | `test_a_login_without_the_display_scope_names_the_reason`, `test_a_login_without_commands_names_the_reason_and_runs_nothing` | — |
+| A refresh keeps the granted set (SC-21) | `test_the_process_scope_survives_a_refresh_and_a_file_grant_stays_file_only`, `test_the_display_scope_survives_a_refresh` | — | — |
+| `process-1` (SC-22) | PROFILE-process-1.md, PR2 to PR19 | PROFILE-process-1.md | Not recorded |
+| `display-1` (SC-23) | PROFILE-display-1.md, DS2 to DS19 | PROFILE-display-1.md | Observed: E13 |
+| The consent page names the account, offers a switch, names the client and the loopback host and port, and each sink scope (SC-06) | `test_the_consent_page_names_the_signed_in_account_and_no_other`, `test_the_consent_page_offers_to_use_another_account_through_a_same_origin_form`, `test_use_another_account_signs_out_and_returns_to_the_same_authorize_request`, `test_the_switch_keeps_the_scopes_the_page_asked_for`, `test_the_other_account_gets_its_own_consent_page_for_the_same_request`, `test_a_second_authorization_with_a_live_consent_returns_the_page_and_no_code` | Not applicable | — |
+| References per person; another account gets `unknown` (SC-24) | `test_a_reference_of_another_account_writes_a_refusal_line_with_counts_and_hashes_only` | Not applicable | Observed: E13 |
+| `account_hint` in token and refresh answers (SC-24) | `test_the_account_hint_keeps_a_few_first_characters_and_the_whole_domain`, `test_the_token_answer_carries_the_masked_account_and_not_the_address`, `test_the_refresh_answer_carries_the_masked_account_too` | Not implemented | — |
+| No value without its audit row; `503 audit_unavailable` (SC-25) | `test_no_value_leaves_when_its_audit_row_cannot_be_written` | — | — |
+| Revocation per device, by the person and by an administrator; epoch per principal and client (SC-26) | PROFILE-oauth-resolver-1.md, V1 to V7 | — | — |
+| Every person with an account may use the resolver; a block list; no service account (A7) | `test_a_member_and_a_guest_without_a_block_sign_in_and_resolve`, `test_a_blocked_person_gets_access_denied_without_a_consent_page`, `test_a_service_account_gets_access_denied_without_a_consent_page` | — | — |
+| `form-action` names the loopback origin of the request; `[::1]` is no resolver redirect (SC-20) | `test_the_consent_page_lets_its_form_redirect_to_this_loopback_client_and_nowhere_else`, `test_a_redirect_uri_the_consent_policy_cannot_name_is_no_resolver_redirect`, `test_the_consent_policy_names_the_origin_rebuilt_from_host_and_port` | — | — |
+
+The SC-20 rule "any loopback port" is not covered by a test that this package read.
+
+### Runs of Concept 0.7
+
+| Run | Setting | Fact |
+|---|---|---|
+| E13 | production, 2026-11-08, observed in one operator run, not independently reproduced, synthetic data | The second host at release 0.9.1 against the reference server at R3. First, a resolve got `409 unresolvable` with the reason `unknown`: the person had signed in to the resolver with one account and had an MCP session with another account. After the person signed in to the resolver with the same account, a click on a reference showed its value on the screen (`display-1`). |
+
+No end-to-end run of `process-1` is recorded in this package. The reference host in `prototype/` did not
+run against R3.
+
 ## Known deviation of the reference server (SC-01, P16)
+
+**Fixed on 2026-10-27.** An operator check after a server fix observed the MCP URL as `resource`, and
+run E12 ran without a deviation option ([IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTATION-EVIDENCE.md)). This
+section keeps the record of the state before the fix.
 
 The reference server publishes its base URL as the RFC 9728 `resource` value. Its MCP URL is a path below
 that value. This is **not conformant** to SC-01, which follows RFC 9728 section 3.3 strictly. The server
@@ -218,6 +261,10 @@ tests (`test_a_configured_parent_resource_is_the_issuer`, `test_a_resource_the_m
 `test_the_mcp_url_must_lie_under_the_resource`) show the tolerance. They are not evidence for SC-01.
 
 ## Gaps that this matrix shows
+
+- Concept 0.7: the reference server tests of R3 were read, not run. E13 is one operator run. The reference
+  host does not read `sinks` and implements neither `process-1` nor `display-1`. The second host declares
+  no extension and does not read `sinks`.
 
 - The reference server does not conform to SC-01 (P16). No server test checks that the MCP URL and the
   RFC 9728 `resource` are identical.

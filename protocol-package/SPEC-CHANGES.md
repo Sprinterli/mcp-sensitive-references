@@ -11,6 +11,12 @@ Each entry has four parts:
 - **Proposed text:** normative text with MUST, SHOULD and MAY in the sense of RFC 2119 and RFC 8174.
 - **Compatibility:** the effect on an implementation that follows concept 0.5 today.
 
+**Concept 0.7.** SC-01 to SC-20 were the proposals for Concept 0.6. SC-21 to SC-26 are the changes of
+Concept 0.7. Concept 0.7 also amends SC-03 and SC-06; each of these entries ends with a paragraph
+"Concept 0.7". All of SC-21 to SC-26 and both amendments are in the normative text of Concept 0.7
+(RESOLVER-PROFILE.md, PROCESS-PROFILE.md and DISPLAY-PROFILE.md). Their evidence is at revision R3 of the
+reference server and at release 0.9.1 of the second host ([README.md](README.md#sources-and-versions)).
+
 Notation. "Reference server test `x`" means a test of the reference server at revision R1, or at revision
 R2 where the text says so. R1 and R2 are labels for two non-public revisions ([README.md](README.md#sources-and-versions)).
 This package read that test and did not run it. "Host test `x`" means a test in `prototype/tests/` at the
@@ -42,6 +48,12 @@ Several findings of the two lists describe the same gap. This table shows which 
 | SC-18 | The issuer-side sink | P1 |
 | SC-19 | Hosts that cannot verify negotiation | P11, P6 |
 | SC-20 | Loopback redirect URIs of the resolver client | F5, production lessons L-a to L-c (2026-10-26) |
+| SC-21 | Sink scopes, and the fixed name of the discovery object | R3, second host 0.9.0 and 0.9.1 |
+| SC-22 | The sink profile `process-1` | R3, second host 0.9.0 |
+| SC-23 | The sink profile `display-1` | R3, second host 0.9.1 |
+| SC-24 | References per person, and the account hint | R3, run E13 |
+| SC-25 | No value without its audit event | R3 |
+| SC-26 | Revocation per device | R3 |
 
 P2 (two issuers) and P3 (where the display travels) get no normative text in this package. They are in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) as OQ-1 and OQ-2.
@@ -383,6 +395,10 @@ mixes the resolve scope with agent scopes gets neither, so such a client fails.
 because the resolve scope is not there. A deployment that lists the resolve scope in `scopes_supported`
 today must remove it.
 
+**Concept 0.7.** SC-21 replaces the rule "no scope other than the resolve scope and `openid`". A request
+can also name the sink scopes that the discovery object names. Every other scope next to the resolve scope,
+and a sink scope without the resolve scope, stays `invalid_scope`.
+
 ## SC-04. The resolve endpoint is bound to the origin of the resource
 
 **Problem.** A resolver token has the protected resource as its audience. A resolve endpoint on another
@@ -496,6 +512,28 @@ host that registers a new client (RFC 7591) for each interactive authorization c
 time, because each loopback port gives a new redirect URI (F5). See OQ-4 in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md). SC-20 requires that the authorization server accepts any loopback
 port, so that a host can keep one client.
+
+**Concept 0.7.** The consent page comes at every authorization request. A stored approval never replaces
+the decision. The page names the account (with an action to use another account), the client, the host
+and the port of the loopback redirect URI, the time of the request, the resource and one line for each
+requested sink scope. The stored approval binds subject, client, resource and the granted scope set, and
+still bounds refresh and live tokens. A refresh needs no page. RESOLVER-PROFILE.md, section 10, has the
+text.
+
+*Problem.* A stored approval let any local program that can open the browser of the person get a code
+without a click, for as long as the approval lived (180 days at the reference server). The page also did
+not say which account signed in. A person with two accounts could approve the wrong one.
+
+*Evidence.* Reference server tests (R3) `test_consent_is_asked_on_every_authorization_with_the_same_neutral_text`,
+`test_a_second_authorization_with_a_live_consent_returns_the_page_and_no_code`,
+`test_the_consent_page_names_the_signed_in_account_and_no_other`,
+`test_the_consent_page_offers_to_use_another_account_through_a_same_origin_form`,
+`test_use_another_account_signs_out_and_returns_to_the_same_authorize_request`,
+`test_the_other_account_gets_its_own_consent_page_for_the_same_request` and
+`test_the_switch_spends_the_nonce_so_the_old_page_grants_nothing`.
+
+*Compatibility.* A host that relied on a code without a page now shows the page at each authorization. A
+host with a token cache and refresh does not see a page more often (E9, E10).
 
 ## SC-07. Resolver token lifetime, cache and renewal
 
@@ -1032,3 +1070,127 @@ other side sees. They stay guidance in IMPLEMENTATION-GUIDE.md.
 client. A server that compares only some parts of a redirect URI, for example the scheme, the host and
 the path, must compare the whole URI except the loopback port. A host that uses `[::1]` should change to `127.0.0.1`. The text supports option A of OQ-4, the
 provisional v1 design decision.
+
+## SC-21. Sink scopes, and the fixed name of the discovery object
+
+**Problem.** In Concept 0.6, one resolver token with the resolve scope released values into every sink
+that the server offered. A sink that gives a value to a command or to a screen hands it to a local process
+that the server cannot check. A person could not allow a file and refuse a command. The discovery object
+also had a field name that the reference server called provisional.
+
+**Evidence.**
+
+- Reference server tests (R3) `test_a_file_only_token_gets_insufficient_scope_for_a_process_without_a_value_or_a_row`,
+  `test_a_token_without_the_display_scope_gets_insufficient_scope_before_any_lookup` (asserts the
+  `WWW-Authenticate` header, the `scope` and `error_description` members, no lookup and no audit row),
+  `test_the_process_scope_alone_or_with_agent_scopes_is_refused`,
+  `test_the_display_scope_alone_or_with_agent_scopes_is_refused`,
+  `test_the_process_scope_survives_a_refresh_and_a_file_grant_stays_file_only`,
+  `test_the_display_scope_survives_a_refresh`,
+  `test_discovery_and_server_settings_name_exactly_the_three_sinks`.
+- Second host: it asks for the process scope where it masks command output, and for the display scope
+  (`maisecrets/sref_client.py`, `login_scope`; test
+  `test_the_process_scope_is_asked_for_on_top_where_command_output_is_masked`).
+
+**Text.** RESOLVER-PROFILE.md, sections 4 and 5. A sink profile MAY require a sink scope. The discovery
+object names the scope set of each sink profile in `sinks`, and the sink scopes of `process-1` and
+`display-1` in `process_scope` and `display_scope`. The host asks for the resolve scope and the sink scopes
+that it can honour, in one request. The authorization server accepts only those combinations (plus
+`openid`); any other scope next to the resolve scope, and a sink scope alone, get `invalid_scope`. A
+missing sink scope gives `403 insufficient_scope` before any lookup, with no value and no audit event; the
+header and the body name the whole scope set and carry an `error_description`. A refresh keeps the granted
+set. A new sink needs a new authorization. The field name `sensitive_references` is fixed.
+
+**Compatibility.** A host that uses only `local-file-1` keeps its scope request. A host must read `sinks`.
+The reference host does not read it yet. A token from before a sink scope existed stays without it; the
+person signs in again.
+
+## SC-22. The sink profile `process-1`
+
+**Problem.** A coding agent runs commands that need a value, for example a password for a database
+client. Concept 0.6 had only the file sink. A host that put a value into a command had no rule for the
+destination, for the command output or for the moment of the resolve.
+
+**Evidence.** [PROFILE-process-1.md](PROFILE-process-1.md), rows PR1 to PR19.
+
+**Text.** PROCESS-PROFILE.md. `sink_type` `process`. The destination is the program name (the first word
+after `NAME=value` assignments), never the command line. The audit keeps the last path part without white
+space, else `other`. The host masks the command output before the model sees it, also on the failure path,
+and resolves only when the command reads the value, so that a refused command costs no resolve. Its own
+sink scope. Limit: any local process of the person that holds a token with the process scope gets the
+full value.
+
+**Compatibility.** New profile. The reference server publishes it as `mcpgate-process-1` at R3. The
+identifier `process-1` is provisional (OQ-21): the recommendation, which the maintainer still confirms, is
+that the reference server publishes both identifiers during a transition.
+
+## SC-23. The sink profile `display-1`
+
+**Problem.** A person sometimes needs to see a value, for example to read a customer number on a call.
+The model must not see it. Concept 0.6 had no sink for the screen.
+
+**Evidence.** [PROFILE-display-1.md](PROFILE-display-1.md), rows DS1 to DS19, and run E13.
+
+**Text.** DISPLAY-PROFILE.md. `sink_type` `display`, `destination` exactly `screen`, one reference per
+request. A resolve only on the click of the person, never while the host draws. Never to the model, a
+transcript or an export. The host keeps the released value, so that a paste is masked back. A copy only on
+a second click. One audit event per reveal, counted in the daily quota. Its own sink scope. Limit as in
+SC-22.
+
+**Compatibility.** New profile.
+
+## SC-24. References per person, and the account hint
+
+**Problem.** RESOLVER-PROFILE.md of Concept 0.6 let the issuer authorize other principals than the owner,
+for example for a shared record. The reference server resolves a reference only for its owner. A person
+with two accounts who signed in to the resolver with one and to the MCP server with the other got
+`unknown` for every reference and could not see why.
+
+**Evidence.**
+
+- Reference server tests `test_a_batch_with_one_reference_that_does_not_resolve_returns_no_value` (the
+  cross-user case) and (R3) `test_a_reference_of_another_account_writes_a_refusal_line_with_counts_and_hashes_only`.
+  The server looks up a reference in the pseudonym map of the token principal (24-hour lifetime, read in
+  the source at R3).
+- Reference server tests (R3) `test_the_account_hint_keeps_a_few_first_characters_and_the_whole_domain`,
+  `test_two_accounts_of_one_person_get_different_hints`,
+  `test_the_token_answer_carries_the_masked_account_and_not_the_address`,
+  `test_the_refresh_answer_carries_the_masked_account_too`.
+- Run E13 (2026-11-08): `409 unresolvable` with the reason `unknown` for two accounts, and a display after
+  the sign-in with the same account.
+
+**Text.** SPEC-DRAFT.md, section 6.3, and RESOLVER-PROFILE.md, sections 11.2 and 12.2. A reference of
+person A never resolves for person B: `409 unresolvable` with the reason `unknown`. An optional
+`account_hint` in the token answer and in the refresh answer names the account in a masked form, for
+example `ali…@example.com`.
+
+**Compatibility.** An issuer that authorized other principals must issue a reference for each person. A
+host can ignore `account_hint`.
+
+## SC-25. No value without its audit event
+
+**Problem.** Concept 0.6 said a server SHOULD record an audit event. A server that sends values while its
+audit store fails releases values that no audit shows.
+
+**Evidence.** Reference server test (R3) `test_no_value_leaves_when_its_audit_row_cannot_be_written`.
+
+**Text.** RESOLVER-PROFILE.md, section 15. The server writes the audit event before it sends values. If it
+cannot, it answers `503 audit_unavailable` and sends no value.
+
+**Compatibility.** A host fails closed for every non-200 answer already. A server must make the audit
+write a precondition of the answer.
+
+## SC-26. Revocation per device
+
+**Problem.** Concept 0.6 let a person withdraw an approval. It did not say how a person or an administrator
+stops one device, and whether a token that a refresh mints during the revocation survives it.
+
+**Evidence.** [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md), rows V1 to V7.
+
+**Text.** RESOLVER-PROFILE.md, section 10.4. The person and an administrator can list and revoke a device:
+the pair of a principal and a resolver client. A revocation stops every credential of the device, and only
+of that principal. A credential from before the revocation stays dead after a new approval. An epoch per
+pair, checked in the same atomic step as the write of a new credential, is one way to meet the rule.
+
+**Compatibility.** A server must keep a record per device. A host sees a revoked device as `401
+invalid_token` and recovers as in RESOLVER-PROFILE.md, section 11.1, item 5.

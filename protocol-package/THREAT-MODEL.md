@@ -1,18 +1,23 @@
-# Threat model delta for `oauth-resolver-1` and `local-file-1`
+# Threat model delta for `oauth-resolver-1` and its sink profiles
 
-**Status: proposed change, experimental.** This file adds to [SECURITY-MODEL.md](../SECURITY-MODEL.md). It
-does not replace it. The trust boundaries and the required controls of that file stay valid.
+**Status: evidence record, experimental.** This file adds to [SECURITY-MODEL.md](../SECURITY-MODEL.md) of
+Concept 0.7. It does not replace it. The trust boundaries and the required controls of that file stay
+valid. The ids match SECURITY-MODEL.md. TM-13 (durable host provenance) is only in SECURITY-MODEL.md and
+has no evidence entry here. TM-14 and TM-15 cover the sink profiles `process-1` and `display-1`.
 
 ## New assets
 
 The two profiles add these assets to the model of concept 0.5:
 
 - **The resolver token.** An OAuth access token and a refresh token that release plaintext values.
-- **The consent record.** The approval of one user for one resolver client, one resource, the resolve
-  scope and the set of sink profiles that the consent page showed (SC-06).
+- **The consent record.** The approval of one user for one resolver client, one resource and the granted
+  scope set: the resolve scope and the sink scopes that the user allowed on the page (SC-06, SC-21).
+- **The sink scopes.** A token with the process scope or the display scope releases values into a command
+  or onto a screen (SC-21 to SC-23).
 - **The resolve endpoint.** An HTTP endpoint that returns plaintext to a program outside the model.
 - **The token cache of the host.** A local file that holds the resolver tokens.
-- **The destination.** The local file that receives plaintext, and its path.
+- **The destination.** The local file that receives plaintext and its path, the command that reads a
+  value, or the screen that shows it.
 
 ## Threats
 
@@ -24,21 +29,29 @@ residual risk.
 **Threat.** A local program that can open the browser of the user gets a resolver token without the
 knowledge of the user. The browser session of the user signs the request.
 
-**Control.** The authorization server shows a consent page for the first authorization of a client. A
-browser session alone issues no code. The page cannot be framed. A one-time nonce binds the answer to the
-user and to every request parameter. The consent post must carry a same-origin `Origin` header. SC-06
-also binds the approval to the resource, the resolve scope and the sink profiles that the page names, so
-that a later profile needs a new decision.
+**Control.** The authorization server shows a consent page at every authorization request. A stored
+approval and a browser session alone issue no code. The page names the account with an action to use
+another account, the client, the loopback host and port, the time of the request and one line per
+requested sink scope, so that a person can leave out a sink. The page cannot be framed. A one-time nonce
+binds the answer to the user and to every request parameter. The consent post must carry a same-origin
+`Origin` header (SC-06). The person and an administrator can revoke a device (SC-26).
 
 **Evidence.** Reference server tests `test_the_first_authorization_shows_a_consent_page_and_issues_no_code`,
-`test_consent_cannot_be_given_without_the_users_own_answer_on_the_page` and
-`test_a_consent_post_without_an_origin_header_grants_nothing`. The binding to resource, scope and profile
-set is **not verified** in the reference server.
+`test_consent_cannot_be_given_without_the_users_own_answer_on_the_page`,
+`test_a_consent_post_without_an_origin_header_grants_nothing`, and (R3)
+`test_consent_is_asked_on_every_authorization_with_the_same_neutral_text`,
+`test_a_second_authorization_with_a_live_consent_returns_the_page_and_no_code`,
+`test_the_consent_page_names_the_signed_in_account_and_no_other`,
+`test_the_consent_page_names_commands_only_when_the_client_asks_for_them`,
+`test_the_consent_page_names_the_screen_only_when_the_client_asks_for_it`,
+`test_a_user_lists_and_revokes_a_device_and_every_token_of_it_stops`. The binding of the stored approval
+to resource and scope set, the time and the resource on the page are **not verified** by a test that this
+package read.
 
 **Residual risk.** After consent, a program that can read the token cache of the host can use the token
-without interaction (see TM-8). The consent page names the client and its return host. A user can still
-approve a malicious client that has a plausible name. The page does not show the destination. This
-package did not verify that the page of the reference server names the resource and the sink profiles.
+without interaction until the access token and the refresh token end (see TM-8). A user can still approve
+a malicious client that has a plausible name, also when the page names the time and the port. The page
+does not show the destination.
 
 ### TM-2. Token class confusion
 
@@ -73,11 +86,14 @@ the scope" separates the classes. A server without a prefix needs another separa
 **Threat.** A client requests the resolve scope together with agent scopes. One token then carries both
 rights. A generic MCP client that requests every scope in `scopes_supported` does this without intent.
 
-**Control.** The authorization server refuses a request that mixes the resolve scope with other scopes
-(`invalid_scope`). The server does not list the resolve scope in `scopes_supported` (SC-03).
+**Control.** The authorization server refuses a request that mixes the resolve scope with scopes other
+than the sink scopes of its discovery object and `openid`, and a sink scope without the resolve scope
+(`invalid_scope`). The server does not list the resolve scope in `scopes_supported` (SC-03, SC-21).
 
 **Evidence.** Reference server tests `test_a_request_that_mixes_the_resolve_scope_with_agent_scopes_gets_neither`
-and `test_the_resolve_scope_stays_out_of_scopes_supported`.
+and `test_the_resolve_scope_stays_out_of_scopes_supported`; (R3)
+`test_the_process_scope_alone_or_with_agent_scopes_is_refused` and
+`test_the_display_scope_alone_or_with_agent_scopes_is_refused`.
 
 **Residual risk.** A host learns the scope from the discovery object. If an attacker controls that object,
 see TM-5.
@@ -265,6 +281,42 @@ host cannot tell a credential from a tenant name.
 
 **Residual risk.** A server that needs a credential in the query exposes it to the authorization server
 and to the token cache. The host cannot detect this.
+
+### TM-14. A value in a command reaches the model
+
+**Threat.** A command that receives a value prints it, writes it into an error text or fails. The model
+reads the output. Or a program that is not the program the host names asks for the value.
+
+**Control.** `process-1` (SC-22): the host masks the command output before the model sees it, also on the
+failure path; it resolves only when the command reads the value; the destination is the program name,
+never the command line, and the server audit keeps only that name or `other`. A separate process scope,
+which a person can leave out, and which a host asks for only where it masks command output.
+
+**Evidence.** [PROFILE-process-1.md](PROFILE-process-1.md): server tests at R3 for the scope and the audit
+(PR3, PR5, PR6, PR17); second host tests for the masking, the moment of the resolve and the program name
+(PR11 to PR15).
+
+**Residual risk.** Any local process of the person that holds a token with the process scope gets the full
+value. The server trusts the program name; it cannot see the program. A program can transform the value
+before it prints it, and the masking does not recognize it. The second host shows a printed value to the
+model on some failure paths (PR15).
+
+### TM-15. A value on the screen reaches the model or another person
+
+**Threat.** The host draws the value into a text that the model, a transcript or an export reads. A text
+that the model wrote starts a resolve or a copy. A person near the screen sees the value.
+
+**Control.** `display-1` (SC-23): destination `screen`, one reference per request, only on a click of the
+person, never while the host draws; the value never goes to the model, a transcript or an export; the host
+keeps the released value so a paste is masked back; a copy only on a second click; one audit event per
+reveal, counted in the daily quota. A separate display scope.
+
+**Evidence.** [PROFILE-display-1.md](PROFILE-display-1.md): server tests at R3 (DS3, DS5, DS8, DS9, DS16,
+DS17); second host test DS10 and source DS13 to DS15; run E13 (observed).
+
+**Residual risk.** Any local process of the person that holds a token with the display scope gets the full
+value. Anyone who sees the screen sees the value, also in a screen share or a recording. A copied value is
+in the clipboard of the system.
 
 ## Accepted residual risks of the reference server
 

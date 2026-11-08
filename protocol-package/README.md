@@ -3,25 +3,25 @@
 **Status: experimental, pre-SEP.** This package is not an MCP standard, not an accepted Specification
 Enhancement Proposal (SEP), and not a product specification.
 
-**Known conformance gap (E11, P16).** No conformant end-to-end run of the test host against the reference
-server succeeded. The challenge of the reference server names the protected-resource metadata of its base
-URL, not of the MCP endpoint (deviation P16), and the conformant test host at commit `8394a02` stopped
-there (E11, one operator run). The production runs E8 to E10, observed in one operator run and not
-independently reproduced, succeeded only with the non-conformant option `--resource`. This package does
-not claim interoperability or conformance of the reference server. See
-[CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#end-to-end-runs).
+**Concept 0.7.** The normative text is in the repository root. This package keeps the history of the
+proposals (SPEC-CHANGES.md, SC-01 to SC-26) and the evidence for each rule. The conformance gap of E11
+(P16) ended with a server fix on 2026-10-27; run E12 ran without a deviation option
+([IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTATION-EVIDENCE.md)).
 
 ## What this package is
 
-This package collects the protocol results of two implementations of concept 0.5:
+This package collects the protocol results of three implementations:
 
 - **The reference server.** An MCP server that issues Sensitive References, implements the
-  `oauth-resolver-1` profile and accepts the `local-file-1` sink. Its source is not public.
+  `oauth-resolver-1` profile and accepts the sink profiles `local-file-1`, `process-1` (under another
+  identifier, see PROFILE-process-1.md) and `display-1`. Its source is not public.
 - **The test host.** The independent MCP host in this repository, `prototype/demo/mcp_host.py`. It negotiates
   the extension, records issuer provenance, gets its own resolver token and writes a local file.
+- **The second host.** A public coding-agent plugin. It resolves references into files, commands and the
+  screen of the person. It declares no extension (PROFILE-process-1.md, PR1).
 
-The package does not change concept 0.5. The concept files in the repository root stay as they are. The root `.gitignore` gets one line
-(`.DS_Store`). Each proposal in this folder is a **proposed change**. A reader must not treat a proposal as concept text.
+The proposals in SPEC-CHANGES.md are the history of the normative text. The normative text of Concept 0.7
+is in the repository root.
 
 ## Files
 
@@ -29,7 +29,9 @@ The package does not change concept 0.5. The concept files in the repository roo
 |---|---|
 | [SPEC-CHANGES.md](SPEC-CHANGES.md) | Each proposed change to concept 0.5, with the problem, the evidence, proposed normative text and the compatibility impact. |
 | [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md) | The proposed OAuth resolver profile with implementation evidence. Each rule names its test or says "not yet tested", "not verified" or "not conformant". |
-| [PROFILE-local-file-1.md](PROFILE-local-file-1.md) | The proposed local-file sink profile with the evidence of the test host. |
+| [PROFILE-local-file-1.md](PROFILE-local-file-1.md) | The local-file sink profile with the evidence of the test host, the reference server and the second host. |
+| [PROFILE-process-1.md](PROFILE-process-1.md) | The process sink profile with the evidence of the reference server and the second host. |
+| [PROFILE-display-1.md](PROFILE-display-1.md) | The display sink profile with the evidence of the reference server and the second host. |
 | [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md) | A matrix: requirement, server-side evidence, host-side evidence, end-to-end evidence. |
 | [THREAT-MODEL.md](THREAT-MODEL.md) | The delta to [SECURITY-MODEL.md](../SECURITY-MODEL.md) that the two profiles cause. |
 | [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md) | Do and do-not lists for a server implementer and for a host implementer. |
@@ -43,48 +45,22 @@ and SEP-READINESS.md list what this package does not decide.
 
 ## Changes in this revision
 
-All changes stay proposals. None of them is concept text.
+This revision records Concept 0.7. The normative text of each change is in the repository root.
 
-- **SC-01** follows RFC 9728 section 3.3 strictly: the `resource` value is identical to the MCP URL. The
-  rule that the MCP URL may lie under the resource is removed. The reference server behaviour (P16) is a
-  separate, non-conformant "known deviation" in SC-01, PROFILE D5 and CONFORMANCE-RESULTS.md.
-- **SC-18** requires an explicit authorization decision for issuer-side resolution. Possession of a
-  reference does not authorize it. THREAT-MODEL.md gets TM-10.
-- **SC-11** records that the fake server of the host tests uses the SC-11 codes. The host name
-  `unauthorized` is a host failure reason, not a server code. A 401 answer carries `WWW-Authenticate`.
-- **SC-20** (new) makes the loopback redirect rules normative: exact string comparison of the redirect URI
-  with any port for a loopback IP redirect URI only, the literal `127.0.0.1`, and a `form-action`
-  directive of the consent page, if the page has one, that permits the exact loopback origin.
-- **SC-06** binds an approval to subject, client, resource, resolve scope and the sink profiles that the
-  consent page names. SC-06, SC-14 and SC-18 define "resist framing and CSRF", "integrity" and "current"
-  by observable outcomes.
-- **SC-01, SC-02 and SC-08** in the test host: the issuer string stays as given, discovery uses only the two
-  RFC 9728 mechanisms, an incomplete discovery object stops the host, and a missing `iss` is refused when
-  the server advertises it. Each rule has new host tests.
-- **IMPLEMENTATION-GUIDE.md** gets six lessons from a production run on 2026-10-26. Lessons L-a and L-b
-  name the tested browser.
-- **CONFORMANCE-RESULTS.md** records the tested configuration (Python 3.14.8, `mcp` 2.3.0, 88 tests
-  passed at that time; SDK 1.x not tested) and the production runs E8 to E10. The runs are "observed (one operator
-  run, not independently reproduced)" and upgrade no row to "verified".
-- **Second review round.** SC-01 uses the discovery order of the MCP specification (the
-  `WWW-Authenticate` challenge first) and names its conflict with the MCP root fallback. The issuer keeps
-  the query of the MCP URL, and the well-known URL keeps the query and a trailing slash. Without metadata
-  the host stops, unless an operator states that the server has none. SC-04 refuses a configured endpoint
-  on another origin. D10 requires S256 in the authorization server metadata. SC-12 gets a schema. The
-  profile titles say "proposed, with implementation evidence".
-- **Fourth review round.** The fetch policy of SC-01 defines a non-public address by the IANA
-  special-purpose registries, has no automatic exception for a local MCP URL, and forbids redirects and
-  environment proxies for each request of the discovery and the authorization. SC-07 names the attacker
-  boundary of the token cache. SC-10 requires `destination`. SC-11 defines protected data by exact
-  representations and encodings. SC-12 states the `reasons` key without the `reference_` prefix. SC-20
-  names its restriction of RFC 8252 section 7.3.
-- **Fifth review round.** SC-01 requires that the host connects to the checked address (DNS rebinding),
-  and the most specific registry entry decides. SC-20 requires only that a `form-action` directive, if
-  present, permits the loopback origin; the rest is a security recommendation in lesson L-a. SC-11 moves
-  derived values (a hash, a MAC) to security guidance outside the proposed text. SC-13 permits `unknown` after the
-  server discards the record of an expired reference.
-- **OPEN-QUESTIONS.md** labels each recommendation as a provisional v1 design decision. OQ-7 now permits
-  durable host provenance, and loss of trustworthy provenance must fail closed. SEP-READINESS.md follows.
+- **SC-21** (new): a sink profile can require its own scope. The discovery object names the scope set of
+  each sink profile in `sinks`, and the field name `sensitive_references` is fixed. A missing sink scope
+  gives `403 insufficient_scope` before any lookup. SC-03 gets a "Concept 0.7" paragraph.
+- **SC-22** and **SC-23** (new): the sink profiles `process-1` and `display-1`, each with its own evidence
+  file.
+- **SC-06** gets a "Concept 0.7" paragraph: a consent page at every authorization request, with the
+  account, the client, the loopback host and port, the time and one line per sink scope.
+- **SC-24** (new): references per person, and the account hint. **SC-25** (new): no value without its
+  audit event. **SC-26** (new): revocation per device.
+- **PROFILE-oauth-resolver-1.md** gets the evidence of revision R3 (rows A3, A7, C1, C2, C5, C7, C9, T13
+  to T15, R5, R10, R11, R15, R16, and section 5a, V1 to V7).
+- **THREAT-MODEL.md** updates TM-1 and TM-4 and adds TM-14 (process) and TM-15 (display).
+- **CONFORMANCE-RESULTS.md** gets the section "Concept 0.7" and run E13.
+- **IMPLEMENTATION-GUIDE.md** gets server items 16 to 21 and host items 13 to 16.
 
 ## Finding identifiers
 
@@ -106,13 +82,16 @@ with `local-file-1`. This package is milestone M6.
 | Concept 0.5 (the root files) | this repository. Unchanged on this branch. |
 | The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `6cdd658` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`) |
 | The reference server plan, sections 4 to 8 | reference server revision R1 (not public) |
-| The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2. |
+| The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2, rows marked "(R3)" tests of revision R3. |
+| The second host | release 0.9.1 of a public coding-agent plugin ([IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTATION-EVIDENCE.md) names it), commit `4f9fd34` of its main branch |
 
 **Evidence labels R1 and R2.** The reference server is not public, so its revision identifiers do not
 help a reader. This package uses two neutral labels instead. **R1** is the revision of the plan and the
 tests that this package read first. **R2** is the later revision after the second server review. At R2
 the implementer ran end-to-end round E7 and reported 58 passing test cases in the consent module. The
-profile rows A8, C7, C9, C10, R9, R12, R13 and R14 cite tests of R2.
+profile rows A8, C7, C9, C10, R9, R12, R13 and R14 cite tests of R2. **R3** is the revision of Concept 0.7:
+the server versions 2.0.3824 and 2.0.3826 of 2026-11-08. This package read its tests at the release tag
+of 2.0.3826 and did not run them.
 
 This package did not run the reference server tests. It read their names and assertions at the revision
 above. A row that cites a reference server test is "read, not re-run".

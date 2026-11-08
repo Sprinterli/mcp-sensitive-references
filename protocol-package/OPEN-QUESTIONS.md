@@ -7,6 +7,10 @@ for version 1. It is not a community decision, and the options stay open for rev
 [../OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md) stay valid. This file names the item there that a question
 continues.
 
+**Concept 0.7.** The current list of open questions is [../OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md). It
+decides OQ-8 (the name of the discovery object is fixed) and adds OQ-19 to OQ-21. This file keeps the
+questions as the package first stated them.
+
 ## OQ-1. Two independent issuers (P2)
 
 A user reads a record from server A and writes it to server B. Server B does not know the reference of
