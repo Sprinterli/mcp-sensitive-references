@@ -121,6 +121,9 @@ Ninth review round (Opus):
 
 * ``_NOT_GLOBAL_ADDED``: the Dummy IPv6 Prefix 100:0:0:1::/64 counted as public
   [test_every_entry_of_the_iana_registries, test_the_registry_entries_that_the_python_tables_do_not_follow].
+
+Round ten (Concept 0.7): ``MUTATIONS_07`` in ``tests/tools/mutation_probe.py``. Its tests are in
+``tests/test_issuer_server.py`` and ``tests/test_concept_07_host.py``. ``FakeServer`` now publishes ``sinks``.
 """
 
 from __future__ import annotations
@@ -198,6 +201,10 @@ class FakeServer:
         extra = {"resolve_endpoint": f"{self.base}/resolve", "resolve_scope": SCOPE,
                  "resolver_profiles": ["oauth-resolver-1"], "sink_profiles": ["local-file-1"]}
         extra.update(members)
+        if "sinks" not in members:
+            # Concept 0.7: the scope set of each sink profile (RESOLVER-PROFILE.md, section 4).
+            scope = extra.get("resolve_scope")
+            extra["sinks"] = {"local-file-1": {"sink_type": "local_file", "scopes": [scope]}}
         return {k: v for k, v in extra.items() if v is not None}
 
     def metadata(self, resource: str | None = None) -> dict:
@@ -938,7 +945,7 @@ def _forward(method: str, url: str, body: bytes, headers: dict) -> tuple[int, li
     except HTTPError as error:
         status, answer, data = error.code, error.headers, error.read()
     kept = [(k.lower().encode(), v.encode()) for k, v in answer.items()
-            if k.lower() in ("content-type", "location", "www-authenticate")]
+            if k.lower() in ("content-type", "location", "www-authenticate", "set-cookie")]
     return status, kept, data
 
 
@@ -985,7 +992,7 @@ def _serve_mcp(tool_text: str, settings: dict, fallback: str):
         query = scope["query_string"].decode()
         url = fallback + scope["path"] + (f"?{query}" if query else "")
         headers = {k.decode(): v.decode() for k, v in scope["headers"]
-                   if k.lower() in (b"authorization", b"content-type", b"accept")}
+                   if k.lower() in (b"authorization", b"content-type", b"accept", b"cookie", b"origin")}
         status, kept, data = await asyncio.to_thread(_forward, scope["method"], url, body, headers)
         await send({"type": "http.response.start", "status": status, "headers": kept})
         await send({"type": "http.response.body", "body": data})
@@ -1291,7 +1298,9 @@ class FetchPolicyTests(unittest.TestCase):
                                       "sensitive_references": {
                                           "resolve_endpoint": "https://mcp.example.com/resolve",
                                           "resolve_scope": SCOPE, "resolver_profiles": ["oauth-resolver-1"],
-                                          "sink_profiles": ["local-file-1"]}})
+                                          "sink_profiles": ["local-file-1"],
+                                          "sinks": {"local-file-1": {"sink_type": "local_file",
+                                                                     "scopes": [SCOPE]}}}})
 
     def as_metadata(self, **endpoints):
         doc = {"issuer": "https://as.example.com", "authorization_endpoint": "https://as.example.com/authorize",

@@ -35,13 +35,14 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 from urllib.request import HTTPHandler, HTTPRedirectHandler, HTTPSHandler, ProxyHandler, Request, build_opener
 
-from .oauth_profile import RESOLVE_SCOPE
 from .resolver import ResolutionError, SinkContext
+from .sink_profiles import DISPLAY, LOCAL_FILE, PROCESS, RESOLVE_SCOPE, SCREEN, SINK_TYPES
 
 RESOLVER_PROFILE = "oauth-resolver-1"
-SINK_PROFILE = "local-file-1"
-#: The provisional field of RFC 9728 protected-resource metadata (not in concept 0.5).
+SINK_PROFILE = LOCAL_FILE
+#: The field of RFC 9728 protected-resource metadata. Concept 0.7 fixes the name (RESOLVER-PROFILE.md, section 4).
 DISCOVERY_FIELD = "sensitive_references"
+#: The effective limit of a server that publishes no ``max_references`` (section 12.3).
 MAX_BATCH = 100
 #: A cached access token counts as expired this many seconds before its stated end.
 EXPIRY_SKEW = 30
@@ -359,6 +360,21 @@ class ProtectedResource:
     resolve_scope: str | None = None
     resolver_profiles: tuple[str, ...] | None = None
     sink_profiles: tuple[str, ...] | None = None
+    #: ``sinks``: sink profile -> (``sink_type``, the whole scope set). The host takes scopes from here.
+    sinks: dict[str, tuple[str, tuple[str, ...]]] | None = None
+    max_references: int = MAX_BATCH
+
+    def scopes_for(self, profiles: Sequence[str], resolve_scope: str | None = None) -> str:
+        """The scope of one authorization request for ``profiles`` (section 5.2): the union of their scope
+        sets in ``sinks``, resolve scope first. A configured ``resolve_scope`` replaces the discovered one."""
+        wanted: list[str] = []
+        for profile in profiles:
+            for scope in self.sinks[profile][1]:
+                scope = resolve_scope if resolve_scope and scope == self.resolve_scope else scope
+                if scope not in wanted:
+                    wanted.append(scope)
+        first = resolve_scope or self.resolve_scope
+        return " ".join([first] + sorted(s for s in wanted if s != first))
 
 
 #: The ``resource_metadata`` parameter of a ``WWW-Authenticate`` challenge (RFC 9728, section 5.1).
@@ -405,6 +421,28 @@ def _discovery_object(document: dict[str, Any]) -> dict[str, Any] | None:
         value = extra.get(name)
         if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
             raise ResolverClientError("malformed_discovery", f"the discovery object has no valid {name}")
+    sinks = extra.get("sinks")
+    if not isinstance(sinks, dict):
+        raise ResolverClientError("malformed_discovery", "the discovery object has no valid sinks")
+    for name, entry in sinks.items():
+        scopes = entry.get("scopes") if isinstance(entry, dict) else None
+        if (not isinstance(entry, dict) or not isinstance(entry.get("sink_type"), str) or not entry["sink_type"]
+                or not isinstance(scopes, list) or not scopes
+                or not all(isinstance(v, str) and v for v in scopes) or extra["resolve_scope"] not in scopes):
+            raise ResolverClientError("malformed_discovery", "a member of sinks is not valid")
+    # process_scope and display_scope repeat the sink scope that sinks names (section 4).
+    for name, profile in (("process_scope", PROCESS), ("display_scope", DISPLAY)):
+        if name not in extra:
+            if profile in extra["sink_profiles"]:
+                raise ResolverClientError("malformed_discovery", f"the discovery object has no {name}")
+            continue
+        named = sinks.get(profile, {}).get("scopes", [])
+        if not isinstance(extra[name], str) or not extra[name] or extra[name] not in named \
+                or extra[name] == extra["resolve_scope"]:
+            raise ResolverClientError("malformed_discovery", f"{name} is not the sink scope of {profile}")
+    limit = extra.get("max_references", MAX_BATCH)
+    if type(limit) is not int or limit < MAX_BATCH:
+        raise ResolverClientError("malformed_discovery", "max_references is not an integer of 100 or more")
     return extra
 
 
@@ -450,6 +488,8 @@ def discover_protected_resource(resource: str, *, use_challenge: bool = True, po
         resolve_scope=extra["resolve_scope"],
         resolver_profiles=tuple(extra["resolver_profiles"]),
         sink_profiles=tuple(extra["sink_profiles"]),
+        sinks={name: (entry["sink_type"], tuple(entry["scopes"])) for name, entry in extra["sinks"].items()},
+        max_references=extra.get("max_references", MAX_BATCH),
     )
 
 
@@ -511,9 +551,13 @@ class TokenCache:
 
     def __init__(self, path: Path | str | None) -> None:
         self.path = Path(path).expanduser() if path else None
+        #: Without a file the token lives in process memory for this run only.
+        self._memory: dict[str, Any] = {}
 
     def _read_all(self) -> dict[str, Any]:
-        if self.path is None or not self.path.exists():
+        if self.path is None:
+            return dict(self._memory)
+        if not self.path.exists():
             return {}
         if self.path.stat().st_mode & 0o077:
             raise ResolverClientError("token_cache_permissions", "the resolver token cache is readable by others")
@@ -529,6 +573,10 @@ class TokenCache:
 
     def store(self, key: str, entry: dict[str, Any] | None) -> None:
         if self.path is None:
+            if entry is None:
+                self._memory.pop(key, None)
+            else:
+                self._memory[key] = entry
             return
         data = self._read_all()
         if entry is None:
@@ -591,11 +639,16 @@ class OAuthResolverCredential:
                  open_browser: Callable[[str], Any] | None = None, interactive: bool = True,
                  client_id: str | None = None, client_name: str = "Sensitive References host",
                  authorization_timeout: float = 300.0, timeout: float = 10.0,
-                 clock: Callable[[], float] = time.time, policy: FetchPolicy | None = None) -> None:
+                 clock: Callable[[], float] = time.time, policy: FetchPolicy | None = None,
+                 resolve_scope: str | None = None) -> None:
         self.resource = resource
         self.policy = policy or FetchPolicy(resource)
         self.authorization_server = authorization_server
         self.scope = scope
+        #: The resolve scope in ``scope`` (default: its first word). A token without it is refused.
+        self.resolve_scope = resolve_scope or scope.split()[0]
+        #: The masked account of the last token answer (section 11.2). Never for the model, never a decision.
+        self.account_hint: str | None = None
         self.cache = cache
         self._metadata_provider = metadata or (lambda: discover_authorization_server(
             authorization_server, policy=self.policy, timeout=timeout))
@@ -623,6 +676,7 @@ class OAuthResolverCredential:
             expires_at = entry.get("expires_at")
             if expires_at is None or self.clock() < expires_at - EXPIRY_SKEW:
                 self.source = "cache"
+                self.account_hint = entry.get("account_hint")
                 return entry["access_token"]
         return self.renew(entry)
 
@@ -638,6 +692,12 @@ class OAuthResolverCredential:
             raise ResolverClientError("unauthorized", "no valid resolver token and interactive authorization is off")
         return self._authorize()
 
+    def granted_scopes(self) -> frozenset[str]:
+        """The scope set that the cached token holds (the requested set if the answer named none)."""
+        entry = self.cache.load(self.key) or {}
+        granted = entry.get("scope")
+        return frozenset((granted if isinstance(granted, str) else self.scope).split())
+
     def forget_access_token(self) -> None:
         entry = self.cache.load(self.key)
         if entry:
@@ -652,9 +712,14 @@ class OAuthResolverCredential:
         if str(document.get("token_type", "")).lower() != "bearer":
             raise ResolverClientError("token_response", "the token endpoint returned no bearer token")
         granted = document.get("scope")
-        if isinstance(granted, str) and self.scope not in granted.split():
+        # Without a scope parameter the granted scope is the requested scope (RFC 6749 section 5.1).
+        granted = granted.split() if isinstance(granted, str) else self.scope.split()
+        if self.resolve_scope not in granted:
             raise ResolverClientError("scope_not_granted", "the authorization server did not grant the resolve scope")
-        entry = {"client_id": client_id, "access_token": document["access_token"]}
+        entry = {"client_id": client_id, "access_token": document["access_token"], "scope": " ".join(granted)}
+        hint = document.get("account_hint")
+        if isinstance(hint, str) and hint:
+            entry["account_hint"] = self.account_hint = hint
         if isinstance(document.get("expires_in"), (int, float)):
             entry["expires_at"] = self.clock() + float(document["expires_in"])
         # Refresh tokens rotate: a new one replaces the old one; without a new one keep the old one.
@@ -766,30 +831,41 @@ class OAuthHttpResolver:
     """
 
     def __init__(self, endpoints: dict[str, ResolveEndpoint], *, agent_token: str | None = None,
-                 timeout: float = 10.0) -> None:
+                 timeout: float = 10.0, sink_scopes: dict[str, frozenset[str]] | None = None,
+                 max_references: int = MAX_BATCH) -> None:
         self._endpoints = endpoints
         self._agent_token = agent_token or None
         self._timeout = timeout
+        #: ``sink_type`` -> the scope set that ``sinks`` names for its profile. Only these sinks resolve.
+        self._sink_scopes = sink_scopes if sink_scopes is not None else {"local_file": frozenset()}
+        self._max = max_references
         self.requests = 0
 
     def resolve(self, issuer: str, references: Sequence[str], sink_context: SinkContext) -> dict[str, str]:
         endpoint = self._endpoints.get(issuer)
         if endpoint is None:
             raise ResolverClientError("wrong_issuer", "the issuer has no configured resolve endpoint")
-        if sink_context.sink_type != "local_file":
-            raise ResolverClientError("ineligible_sink", "the sink is not a local file")
+        needed = self._sink_scopes.get(sink_context.sink_type)
+        if needed is None:
+            raise ResolverClientError("ineligible_sink", "the sink was not negotiated for this run")
         require_secure(endpoint.url, "resolve endpoint")
         unique = list(dict.fromkeys(references))
+        if sink_context.sink_type == SINK_TYPES[DISPLAY] and (len(unique) != 1 or sink_context.destination != SCREEN):
+            raise ResolverClientError("invalid_request", "a display request holds one reference for the screen")
         values: dict[str, str] = {}
         # All batches resolve before the sink writes anything.
-        for start in range(0, len(unique), MAX_BATCH):
-            values.update(self._batch(endpoint, unique[start:start + MAX_BATCH], sink_context))
+        for start in range(0, len(unique), self._max):
+            values.update(self._batch(endpoint, unique[start:start + self._max], sink_context, needed))
         return values
 
-    def _batch(self, endpoint: ResolveEndpoint, batch: list[str], context: SinkContext) -> dict[str, str]:
+    def _batch(self, endpoint: ResolveEndpoint, batch: list[str], context: SinkContext,
+               needed: frozenset[str] = frozenset()) -> dict[str, str]:
         body = json.dumps({"references": batch, "sink_type": context.sink_type,
                            "destination": context.destination}).encode()
         token = endpoint.credential.access_token()
+        # Section 5.3: a token serves a sink profile only if it holds every scope of that profile.
+        if not needed <= endpoint.credential.granted_scopes():
+            raise ResolverClientError("insufficient_scope", "the resolver token does not hold the sink scope")
         renewed = False
         while True:
             if self._agent_token is not None and hmac.compare_digest(token, self._agent_token):

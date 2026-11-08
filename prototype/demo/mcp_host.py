@@ -106,8 +106,13 @@ from sensitive_references.resolver_client import (  # noqa: E402
     origin,
     require_secure,
 )
+from sensitive_references.display_sink import DisplayRefused, DisplaySink, UserAction  # noqa: E402
 from sensitive_references.oauth_profile import RESOLVE_SCOPE  # noqa: E402
+from sensitive_references.output_guard import SessionMask  # noqa: E402
+from sensitive_references import process_sink  # noqa: E402
+from sensitive_references.process_sink import ProcessSink  # noqa: E402
 from sensitive_references.sink import ProtectedFileSink  # noqa: E402
+from sensitive_references.sink_profiles import DISPLAY, LOCAL_FILE, PROCESS, SINK_TYPES  # noqa: E402
 
 #: Anything that starts like a reference; a canonical token must match exactly.
 _REFERENCE_LIKE = re.compile(r"(?i)sref\s*:")
@@ -168,6 +173,8 @@ class HostReport:
     negotiated_version: str | None = None
     calls: list[CallReport] = field(default_factory=list)
     materialization: "MaterializeReport | None" = None
+    process: "ProcessReport | None" = None
+    display: "DisplayReport | None" = None
     failures: list[str] = field(default_factory=list)
 
     @property
@@ -267,7 +274,8 @@ def _check(report: HostReport, call: CallReport, *, expect_success: bool = False
 class ResolveConfig:
     """What ``--resolve-into`` needs. Every server-specific value is optional."""
 
-    destination: str
+    #: ``local-file-1``: the file to write. None: no file.
+    destination: str | None = None
     template: str = "{ref}\n"
     resolve_endpoint: str | None = None
     resolve_scope: str | None = None
@@ -288,6 +296,22 @@ class ResolveConfig:
     open_browser: Any = None
     authorization_timeout: float = 300.0
     timeout: float = 30.0
+    #: ``process-1``: a shell command with ``{ref}``. The host runs it once with the trusted references.
+    command: str | None = None
+    #: ``approve(program, command) -> bool``: the decision of the person before the command runs.
+    approve: Any = None
+    process_timeout: float = 60.0
+    #: ``display-1``: offer each trusted reference for a reveal on the screen of the person.
+    reveal: bool = False
+    #: ``click(index, total) -> bool``: an explicit action of the person on reference ``index``.
+    click: Any = None
+    #: ``screen(reference, value)``: draws a value for the person; never model-visible.
+    screen: Any = None
+
+    def profiles(self) -> tuple[str, ...]:
+        """The sink profiles that this run uses, so the sink scopes that it asks for."""
+        return tuple(p for p, on in ((LOCAL_FILE, self.destination), (PROCESS, self.command),
+                                     (DISPLAY, self.reveal)) if on)
 
 
 @dataclass
@@ -308,10 +332,17 @@ class MaterializeReport:
     non_conformant: list[str] = field(default_factory=list)
 
 
-def resolution_negotiated(agreed: Any) -> bool:
-    """Both profiles are in the negotiated intersection."""
+def resolution_negotiated(agreed: Any, profile: str = SINK_PROFILE) -> bool:
+    """The resolver profile and the sink profile ``profile`` are in the negotiated intersection."""
     return (agreed is not None and RESOLVER_PROFILE in agreed.resolver_profiles
-            and SINK_PROFILE in agreed.sink_profiles)
+            and profile in agreed.sink_profiles)
+
+
+def resolving_host_settings(config: "ResolveConfig") -> dict:
+    """The settings of a resolving host: the sink profiles of this run, and only where it meets their rules
+    (``process-1`` only where it can mask command output)."""
+    sinks = [p for p in config.profiles() if p != PROCESS or process_sink.supported()]
+    return {"versions": ["1"], "resolver_profiles": [RESOLVER_PROFILE], "sink_profiles": sorted(sinks)}
 
 
 def fetch_policy(mcp_url: str, config: ResolveConfig) -> FetchPolicy:
@@ -320,7 +351,8 @@ def fetch_policy(mcp_url: str, config: ResolveConfig) -> FetchPolicy:
 
 
 def _resolver_setup(issuer: str, config: ResolveConfig, mcp_url: str | None = None,
-                    policy: FetchPolicy | None = None) -> tuple[str, str, str, FetchPolicy, list[str]]:
+                    policy: FetchPolicy | None = None, profiles: tuple[str, ...] = (SINK_PROFILE,)
+                    ) -> tuple[str, str, str, FetchPolicy, list[str], dict[str, frozenset[str]], int]:
     """The resolve endpoint, the authorization server, the resolve scope, the
     fetch policy and the deviations from SC-01 and SC-02 for ``issuer``.
 
@@ -336,6 +368,12 @@ def _resolver_setup(issuer: str, config: ResolveConfig, mcp_url: str | None = No
     configured, must be on the origin of the protected resource (SC-04); the
     metadata must name ``issuer`` itself. Every request passes the fetch policy
     of the MCP URL (RFC 9728 section 7.7); ``policy`` is the policy made at connection.
+
+    Concept 0.7: the scope of the authorization request is the union of the
+    scope sets that ``sinks`` names for ``profiles`` (RESOLVER-PROFILE.md,
+    sections 4 and 5.2). The last two values are the scope set per ``sink_type``
+    and the effective batch limit. Configuration mode knows no sink scope, so it
+    serves ``local-file-1`` only.
     """
     policy = policy or fetch_policy(mcp_url or issuer, config)
     deviations: list[str] = []
@@ -364,8 +402,13 @@ def _resolver_setup(issuer: str, config: ResolveConfig, mcp_url: str | None = No
     if discovered:
         if RESOLVER_PROFILE not in metadata.resolver_profiles:
             raise ResolverClientError("profile_not_offered", "the metadata does not offer the resolver profile")
-        if SINK_PROFILE not in metadata.sink_profiles:
-            raise ResolverClientError("profile_not_offered", "the metadata does not offer the sink profile")
+        for profile in profiles:
+            if profile not in metadata.sink_profiles:
+                raise ResolverClientError("profile_not_offered", "the metadata does not offer the sink profile")
+            if profile not in metadata.sinks or metadata.sinks[profile][0] != SINK_TYPES[profile]:
+                raise ResolverClientError("malformed_discovery", "sinks names no valid member for the sink profile")
+    elif set(profiles) - {LOCAL_FILE}:
+        raise ResolverClientError("no_sink_scopes", "without the discovery object the host knows no sink scope")
     endpoint = config.resolve_endpoint
     if endpoint is None:
         if not discovered:
@@ -383,19 +426,49 @@ def _resolver_setup(issuer: str, config: ResolveConfig, mcp_url: str | None = No
             raise ResolverClientError("authorization_server",
                                       "zero or several authorization servers; set --authorization-server")
         server = servers[0]
-    if config.resolve_scope:
-        scope = config.resolve_scope
-    elif discovered:
-        scope = metadata.resolve_scope
+    if discovered:
+        # The host takes the scope sets from sinks (section 4); a configured resolve scope replaces its part.
+        scope = metadata.scopes_for(profiles, config.resolve_scope)
+        resolve_scope = config.resolve_scope or metadata.resolve_scope
+        sink_scopes = {SINK_TYPES[p]: frozenset(resolve_scope if s == metadata.resolve_scope else s
+                                                for s in metadata.sinks[p][1]) for p in profiles}
+        limit = metadata.max_references
     else:
-        scope = RESOLVE_SCOPE
-    return endpoint, server, scope, policy, deviations
+        scope = config.resolve_scope or RESOLVE_SCOPE
+        sink_scopes = {SINK_TYPES[LOCAL_FILE]: frozenset({scope})}
+        limit = 100
+    return endpoint, server, scope, policy, deviations, sink_scopes, limit
+
+
+@dataclass
+class ResolveSession:
+    """One resolver token and one resolver for all sinks of a run: one authorization for all sink scopes."""
+
+    resolver: OAuthHttpResolver
+    credential: OAuthResolverCredential
+    deviations: list[str]
+    mask: SessionMask = field(default_factory=SessionMask)
+
+
+def open_resolve_session(*, issuer: str, config: ResolveConfig, profiles: tuple[str, ...], agent_token: str | None,
+                         mcp_url: str | None = None, policy: FetchPolicy | None = None) -> ResolveSession:
+    endpoint, server, scope, policy, found, sink_scopes, limit = _resolver_setup(
+        issuer, config, mcp_url, policy, profiles)
+    credential = OAuthResolverCredential(
+        resource=issuer, authorization_server=server, scope=scope, cache=TokenCache(config.token_cache),
+        open_browser=config.open_browser, interactive=config.interactive, client_id=config.client_id,
+        authorization_timeout=config.authorization_timeout, timeout=config.timeout, policy=policy,
+        resolve_scope=scope.split()[0])
+    # The endpoint belongs to this issuer only; a reference from another issuer finds none.
+    resolver = OAuthHttpResolver({issuer: ResolveEndpoint(endpoint, credential)}, agent_token=agent_token,
+                                 timeout=config.timeout, sink_scopes=sink_scopes, max_references=limit)
+    return ResolveSession(resolver, credential, found)
 
 
 def materialize(*, issuer: str, references: list[str], provenance: ProvenanceStore, agreed: Any,
                 config: ResolveConfig, sentinels: list[str], agent_token: str | None,
                 mcp_url: str | None = None, deviations: list[str] | None = None,
-                policy: FetchPolicy | None = None) -> MaterializeReport:
+                policy: FetchPolicy | None = None, session: ResolveSession | None = None) -> MaterializeReport:
     """Write ``config.template`` once per trusted reference through the protected sink.
 
     Only references with exactly one trusted issuer go into the content. The sink
@@ -420,15 +493,12 @@ def materialize(*, issuer: str, references: list[str], provenance: ProvenanceSto
     resolver = None
     credential = None
     try:
-        endpoint, server, scope, policy, found = _resolver_setup(issuer, config, mcp_url, policy)
-        report.non_conformant += found
-        credential = OAuthResolverCredential(
-            resource=issuer, authorization_server=server, scope=scope, cache=TokenCache(config.token_cache),
-            open_browser=config.open_browser, interactive=config.interactive, client_id=config.client_id,
-            authorization_timeout=config.authorization_timeout, timeout=config.timeout, policy=policy)
-        # The endpoint belongs to this issuer only; a reference from another issuer finds none.
-        resolver = OAuthHttpResolver({issuer: ResolveEndpoint(endpoint, credential)},
-                                     agent_token=agent_token, timeout=config.timeout)
+        if session is None:
+            session = open_resolve_session(issuer=issuer, config=config, profiles=(LOCAL_FILE,),
+                                           agent_token=agent_token, mcp_url=mcp_url, policy=policy)
+        report.non_conformant += session.deviations
+        resolver, credential = session.resolver, session.credential
+        requests_before = resolver.requests
         sink = ProtectedFileSink(provenance, resolver, principal="resolver-token-subject")
         result = sink.write(destination, content)
     except ResolverClientError as error:
@@ -448,9 +518,107 @@ def materialize(*, issuer: str, references: list[str], provenance: ProvenanceSto
         report.sentinels_in_model_content = sum(result.model_facing_content.count(v) for v in sentinels if v)
     finally:
         if resolver is not None:
-            report.resolve_requests = resolver.requests
+            report.resolve_requests = resolver.requests - requests_before
         if credential is not None:
             report.resolver_token_source = credential.source
+    return report
+
+
+@dataclass
+class ProcessReport:
+    """``process-1``: counts, a status and the program name only (PROCESS-PROFILE.md, section 5, rule 4)."""
+
+    program: str | None = None
+    exit_status: int | None = None
+    references_sent: int = 0
+    references_withheld: int = 0
+    resolve_requests: int = 0
+    refused: bool = False
+    timed_out: bool = False
+    sentinels_in_model_output: int | None = None
+    failure: str | None = None
+
+
+def run_command(*, references: list[str], provenance: ProvenanceStore, agreed: Any, config: ResolveConfig,
+                sentinels: list[str], session_factory: Any, transcript: list[str]) -> ProcessReport:
+    """Run ``config.command`` once, with ``{ref}`` replaced by each trusted reference (space-separated).
+
+    The command text keeps the references; the values reach the command through pipes, and the output is
+    masked before it goes into ``transcript`` (what a model would see).
+    """
+    report = ProcessReport()
+    usable = [r for r in dict.fromkeys(references) if _trusted(provenance, r)]
+    if not process_sink.supported():
+        report.failure = "this platform cannot mask command output"
+        return report
+    if not resolution_negotiated(agreed, PROCESS):
+        report.failure = "the resolver and process profiles were not negotiated"
+        return report
+    if "{ref}" not in config.command or not usable:
+        report.failure = "no {ref} in the command or no reference with exactly one trusted issuer"
+        return report
+    command = config.command.replace("{ref}", " ".join(usable))
+    report.program = process_sink.program_name(command)
+    try:
+        session = session_factory()
+    except ResolverClientError as error:
+        report.failure = f"resolution failed: {error.code}"
+        return report
+    sink = ProcessSink(provenance, session.resolver, mask=session.mask, timeout=config.process_timeout)
+    result = sink.run(command, approve=config.approve or (lambda program, text: True))
+    transcript.append(result.model_output)
+    report.exit_status, report.refused, report.timed_out = result.exit_status, result.refused, result.timed_out
+    report.references_sent = result.references if result.resolved else 0
+    report.references_withheld = result.references_withheld
+    report.resolve_requests = result.resolve_requests
+    report.failure = result.failure
+    report.sentinels_in_model_output = sum(result.model_output.count(v) for v in sentinels if v)
+    return report
+
+
+@dataclass
+class DisplayReport:
+    """``display-1``: counts only. The value goes to the screen, never into this report."""
+
+    references_offered: int = 0
+    revealed: int = 0
+    resolve_requests: int = 0
+    sentinels_in_transcript: int | None = None
+    failure: str | None = None
+
+
+def reveal_references(*, references: list[str], provenance: ProvenanceStore, agreed: Any, config: ResolveConfig,
+                      sentinels: list[str], session_factory: Any, transcript: list[str]) -> DisplayReport:
+    """Offer each trusted reference to the person. Only a ``click`` resolves, one reference per click."""
+    report = DisplayReport()
+    usable = [r for r in dict.fromkeys(references) if _trusted(provenance, r)]
+    report.references_offered = len(usable)
+    if not resolution_negotiated(agreed, DISPLAY):
+        report.failure = "the resolver and display profiles were not negotiated"
+        return report
+    if config.click is None or config.screen is None:
+        report.failure = "no local screen for a reveal"
+        return report
+    session = None
+    sink = None
+    for index, reference in enumerate(usable, 1):
+        if not config.click(index, len(usable)):
+            continue
+        try:
+            if session is None:
+                session = session_factory()
+                sink = DisplaySink(provenance, session.resolver, mask=session.mask, screen=config.screen)
+            sink.reveal(UserAction(reference))
+        except ResolverClientError as error:
+            report.failure = f"resolution failed: {error.code}"
+            break
+        except DisplayRefused as error:
+            report.failure = f"reveal refused: {error.code}"
+            break
+        report.revealed += 1
+    if sink is not None:
+        report.resolve_requests = sink.requests
+    report.sentinels_in_transcript = sum(text.count(v) for text in transcript for v in sentinels if v)
     return report
 
 
@@ -462,6 +630,19 @@ def _check_materialization(report: HostReport, m: MaterializeReport) -> None:
         report.failures.append("materialize: the model-facing content lost a reference")
     if m.sentinels_in_model_content:
         report.failures.append("materialize: a sentinel value reached the model-facing content")
+
+
+def _check_sinks(report: HostReport) -> None:
+    if report.process is not None:
+        if report.process.failure:
+            report.failures.append(f"process: {report.process.failure}")
+        if report.process.sentinels_in_model_output:
+            report.failures.append("process: a sentinel value reached the model-visible command output")
+    if report.display is not None:
+        if report.display.failure:
+            report.failures.append(f"display: {report.display.failure}")
+        if report.display.sentinels_in_transcript:
+            report.failures.append("display: a sentinel value reached the transcript")
 
 
 async def run(args: argparse.Namespace) -> HostReport:
@@ -489,8 +670,9 @@ async def run(args: argparse.Namespace) -> HostReport:
             report.failures.append("the MCP URL is not under the configured resource")
             return report
     provenance = ProvenanceStore()
-    resolving = bool(getattr(args, "resolve_into", None))
-    host_settings = dict(RESOLVING_HOST_SETTINGS if resolving else HOST_SETTINGS)
+    config = resolve_config(args)
+    resolving = bool(config.profiles())
+    host_settings = resolving_host_settings(config) if resolving else dict(HOST_SETTINGS)
     extensions = {args.extension_id: host_settings} if declared else {}
     agreed = None
     first_references: list[str] = []
@@ -498,7 +680,7 @@ async def run(args: argparse.Namespace) -> HostReport:
     policy = None
     if resolving:
         try:
-            policy = fetch_policy(endpoint, resolve_config(args))
+            policy = fetch_policy(endpoint, config)
         except ValueError:
             report.failures.append("a local origin is not a valid URL")
             return report
@@ -526,6 +708,7 @@ async def run(args: argparse.Namespace) -> HostReport:
                 report.calls.append(call)
                 _check(report, call, expect_success=args.expect_success)
                 first_references = [ref.token for text in model_visible(first) for ref in find_tokens(text)]
+                transcript = list(model_visible(first))
 
                 if args.then_tool:
                     references = sorted({ref.token for text in model_visible(first) for ref in find_tokens(text)})
@@ -543,17 +726,47 @@ async def run(args: argparse.Namespace) -> HostReport:
                                               refusal_pattern=args.refusal_pattern)
                         report.calls.append(call)
                         _check(report, call, expect_success=args.expect_success)
+                        transcript += model_visible(second)
     if declared and args.expect_negotiation and not report.negotiated_version:
         report.failures.append("the extension was not negotiated")
     if resolving:
         # After the MCP session: an interactive authorization can take minutes.
         parent = (["--resource names a parent of the MCP URL (deviation P16, not SC-01 conformant)"]
                   if issuer != endpoint else [])
-        report.materialization = materialize(
-            issuer=issuer, references=first_references, provenance=provenance, agreed=agreed,
-            config=resolve_config(args), sentinels=sentinels, agent_token=token or None, mcp_url=endpoint,
-            deviations=parent, policy=policy)
-        _check_materialization(report, report.materialization)
+        # One authorization for every sink scope of the run, opened at the first resolve (section 5.2).
+        profiles = tuple(p for p in config.profiles() if p in (agreed.sink_profiles if agreed else ()))
+        opened: list[ResolveSession] = []
+
+        def session_factory() -> ResolveSession:
+            if not opened:
+                opened.append(open_resolve_session(issuer=issuer, config=config, profiles=profiles,
+                                                   agent_token=token or None, mcp_url=endpoint, policy=policy))
+            return opened[0]
+
+        if config.destination:
+            try:
+                shared = session_factory() if resolution_negotiated(agreed) else None
+            except ResolverClientError as error:
+                report.materialization = MaterializeReport(destination=str(config.destination),
+                                                           failure=f"resolution failed: {error.code}")
+            else:
+                report.materialization = materialize(
+                    issuer=issuer, references=first_references, provenance=provenance, agreed=agreed,
+                    config=config, sentinels=sentinels, agent_token=token or None, mcp_url=endpoint,
+                    deviations=parent, policy=policy, session=shared)
+            _check_materialization(report, report.materialization)
+        if config.command:
+            report.process = run_command(references=first_references, provenance=provenance, agreed=agreed,
+                                         config=config, sentinels=sentinels, session_factory=session_factory,
+                                         transcript=transcript)
+        if config.reveal:
+            report.display = reveal_references(references=first_references, provenance=provenance, agreed=agreed,
+                                               config=config, sentinels=sentinels,
+                                               session_factory=session_factory, transcript=transcript)
+        _check_sinks(report)
+        if opened and opened[0].credential.account_hint:
+            # For the person only (section 11.2): never in the report, never for the model.
+            print(f"The resolver token belongs to {opened[0].credential.account_hint}.", file=sys.stderr)
     return report
 
 
@@ -578,7 +791,37 @@ def _print_url(url: str) -> None:
     print(f"Open this page to authorize the resolver: {url}", file=sys.stderr)
 
 
+def _tty_click(index: int, total: int) -> bool:
+    """An explicit action of the person on the terminal: Enter with "y" reveals reference ``index``."""
+    with open("/dev/tty", "r+", encoding="utf-8") as tty:
+        tty.write(f"Show the real value of reference {index} of {total} on this screen? [y/N] ")
+        tty.flush()
+        return tty.readline().strip().lower() == "y"
+
+
+def _tty_screen(reference: str, value: str) -> None:
+    """Draw a value on the terminal of the person, not on stdout or stderr, where a caller may capture it."""
+    with open("/dev/tty", "w", encoding="utf-8") as tty:
+        tty.write(f"{reference} = {value}\n")
+
+
+def _tty_approve(program: str, command: str) -> bool:
+    with open("/dev/tty", "r+", encoding="utf-8") as tty:
+        tty.write(f"Run this command with real values (program {program})?\n  {command}\n[y/N] ")
+        tty.flush()
+        return tty.readline().strip().lower() == "y"
+
+
+def _has_tty() -> bool:
+    try:
+        with open("/dev/tty", "r+", encoding="utf-8"):
+            return True
+    except OSError:
+        return False
+
+
 def resolve_config(args: argparse.Namespace) -> ResolveConfig:
+    tty = (args.reveal or (args.run_command and not args.yes)) and _has_tty()
     return ResolveConfig(
         destination=args.resolve_into, template=args.materialize_template,
         resolve_endpoint=args.resolve_endpoint, resolve_scope=args.resolve_scope,
@@ -587,7 +830,11 @@ def resolve_config(args: argparse.Namespace) -> ResolveConfig:
         no_metadata=args.no_resource_metadata, no_discovery_object=args.no_discovery_object,
         allow_local=args.allow_local_targets, local_origins=tuple(args.local_origin or ()),
         open_browser=_print_url if args.no_browser else open_browser,
-        authorization_timeout=args.authorization_timeout, timeout=args.timeout)
+        authorization_timeout=args.authorization_timeout, timeout=args.timeout,
+        command=args.run_command, process_timeout=args.process_timeout,
+        approve=(lambda program, command: True) if args.yes else (_tty_approve if tty else (lambda *a: False)),
+        reveal=args.reveal, click=_tty_click if tty and args.reveal else None,
+        screen=_tty_screen if tty and args.reveal else None)
 
 
 #: Replaced in tests; a real run opens the system browser.
@@ -645,6 +892,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     resolve.add_argument("--local-origin", action="append", metavar="ORIGIN",
                          help="an exact origin (scheme, host, port) that local mode also allows; repeatable")
     resolve.add_argument("--authorization-timeout", type=float, default=300.0)
+    sinks = parser.add_argument_group("process-1 and display-1 (Concept 0.7)")
+    sinks.add_argument("--run-command", metavar="COMMAND",
+                       help="after the first call, run this shell command once; {ref} becomes the trusted "
+                            "references, and each value reaches the command through a pipe (process-1, POSIX)")
+    sinks.add_argument("--yes", action="store_true", help="run the command without asking on the terminal")
+    sinks.add_argument("--process-timeout", type=float, default=60.0)
+    sinks.add_argument("--reveal", action="store_true",
+                       help="offer each trusted reference on the terminal; a 'y' shows its value there "
+                            "(display-1; needs a terminal)")
     return parser.parse_args(argv)
 
 
