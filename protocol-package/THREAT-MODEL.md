@@ -285,21 +285,27 @@ and to the token cache. The host cannot detect this.
 ### TM-14. A value in a command reaches the model
 
 **Threat.** A command that receives a value prints it, writes it into an error text or fails. The model
-reads the output. Or a program that is not the program the host names asks for the value.
+reads the output. Or a program that is not the program the host names asks for the value. Or a local
+process opens the channel that carries the value to the command.
 
 **Control.** `process-1` (SC-22): the host masks the command output before the model sees it, also on the
 failure path; it resolves only when the command reads the value; the destination is the program name,
-never the command line, and the server audit keeps only that name or `other`. A separate process scope,
-which a person can leave out, and which a host asks for only where it masks command output.
+never the command line, and the server audit keeps only that name or `other`. The value goes through a
+channel that only the command reads; a named channel is owner-only, in a directory that only the owner
+can open, and gives the value once, to one reader. A separate process scope, which a person can leave out,
+and which a host asks for only where it masks command output.
 
 **Evidence.** [PROFILE-process-1.md](PROFILE-process-1.md): server tests at R3 for the scope and the audit
 (PR3, PR5, PR6, PR17); second host tests for the masking, the moment of the resolve and the program name
-(PR11 to PR15).
+(PR11 to PR15), and source for the channel (PR20).
 
 **Residual risk.** Any local process of the person that holds a token with the process scope gets the full
 value. The server trusts the program name; it cannot see the program. A program can transform the value
 before it prints it, and the masking does not recognize it. The second host shows a printed value to the
-model on some failure paths (PR15).
+model on some failure paths (PR15). A process of the same person that finds the channel can open it before
+the command, cause the resolve and read the value; at the second host, a process of the same user can open
+its FIFO (PR20). The destination is advisory: a wrapper such as `env` or `sudo`, or a pipeline, names
+another program than the one that reads the value (PROCESS-PROFILE.md, section 7).
 
 ### TM-15. A value on the screen reaches the model or another person
 
@@ -308,15 +314,19 @@ that the model wrote starts a resolve or a copy. A person near the screen sees t
 
 **Control.** `display-1` (SC-23): destination `screen`, one reference per request, only on a click of the
 person, never while the host draws; the value never goes to the model, a transcript or an export; the host
-keeps the released value so a paste is masked back; a copy only on a second click; one audit event per
+keeps the released value so a paste is masked back; a copy only on a second click; no value in a link
+target, a URL or markup, and no text that the model wrote as the label of the action; one audit event per
 reveal, counted in the daily quota. A separate display scope.
 
 **Evidence.** [PROFILE-display-1.md](PROFILE-display-1.md): server tests at R3 (DS3, DS5, DS8, DS9, DS16,
-DS17); second host test DS10 and source DS13 to DS15; run E13 (observed).
+DS17); second host test DS10 and source DS13 to DS15, DS20 and DS21; run E13 (observed).
 
 **Residual risk.** Any local process of the person that holds a token with the display scope gets the full
 value. Anyone who sees the screen sees the value, also in a screen share or a recording. A copied value is
-in the clipboard of the system.
+in the clipboard of the system. The host cannot always verify that the surface is local: at the second
+host, a remote client that reports a local surface gets the drawing (its threat model, C32). A pasted value
+is masked back only as a whole value and in known encodings. At the second host, the label of the click
+target can be text that the model wrote (DS21).
 
 ## Accepted residual risks of the reference server
 

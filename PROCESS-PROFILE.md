@@ -47,6 +47,9 @@ sink SHOULD send its last part. The sink MUST NOT send the command line, an argu
 value or a part of a value as `destination`. The destination MUST meet the rules of RESOLVER-PROFILE.md,
 section 12.1.
 
+This profile does not define how the host splits the command into words where the command has quotes,
+escapes, a pipeline or a compound command. Section 7 names the effect.
+
 ## 4. When the sink resolves
 
 1. The host MUST resolve only when the command reads the value. A command that the host, the client or the
@@ -55,8 +58,10 @@ section 12.1.
    reference or one request fails, the command MUST get no value. The host MUST then stop the command, or
    MUST NOT start it. The host MUST NOT run the command with the reference text in place of a value
    without the knowledge of the person.
-3. The host SHOULD give a value to the command through a channel that only the command reads, for example
-   a pipe that the command opens, and not in the command line.
+3. The host MUST give a value to the command through a channel that only the command reads, for example
+   a pipe that the command opens. The host MUST NOT put the value into the command line. If the channel
+   has a name in the file system, for example a named pipe, the host MUST create it with access for the
+   owner only, in a directory that only the owner can open, and MUST give the value once, to one reader.
 
 ## 5. Output boundary
 
@@ -93,6 +98,15 @@ The server trusts the program name that the host sends. It cannot check which pr
 Any local process of the person that holds a resolver token with the process scope can get the full value
 of every reference of that person. This is the reason why the process scope is a separate scope that a
 person can leave out on the consent page.
+
+A local process of the person that finds the channel of section 4, rule 3 can open it before the command
+does. It then causes the resolve and reads the value without a token of its own. The access rules of that rule keep
+out other users, not other processes of the same person.
+
+The destination is advisory. The first word of a command is often not the program that reads the value:
+for `cd dir && prog`, `env prog`, `sudo prog` or `bash -c '...'` the destination is `cd`, `env`, `sudo` or
+`bash`, and for `printf %s <reference> | prog` it is `printf`. Hosts can also split words differently
+(section 3). A server uses the destination for audit only (RESOLVER-PROFILE.md, section 12.1).
 
 ## 8. Not in this profile
 

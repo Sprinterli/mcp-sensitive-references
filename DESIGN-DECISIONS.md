@@ -63,7 +63,7 @@ Each decision names its source in [protocol-package/SPEC-CHANGES.md](protocol-pa
 - **Display sink.** `display-1` shows one value on the screen after a click of the person (SC-23).
 - **Consent.** A consent page at every authorization request, which names the account, the client, the
   loopback host and port, the time and each sink scope (SC-06).
-- **References per person.** A reference resolves only for its owner (SC-24).
+- **References per principal (account).** A reference resolves only for its owner (SC-24).
 - **Audit.** No value without its audit event (SC-25).
 - **Revocation.** Per device, by the person and by an administrator (SC-26).
 

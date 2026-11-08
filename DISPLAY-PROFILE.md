@@ -54,6 +54,10 @@ with `400 invalid_request`.
    shown value. A link or an action that the model wrote MUST NOT copy a value.
 4. The host MUST NOT resolve the same reference again for a second action in the same session if it still
    holds the value.
+5. The host MUST NOT put a released value into a link target, a URL or markup. The value is visible text
+   only.
+6. The host MUST NOT use text that the model wrote, for example display text next to the reference, as the
+   label of the action that resolves or copies a value.
 
 ## 6. Server rules
 
@@ -76,6 +80,13 @@ reason why the display scope is a separate scope that a person can leave out on 
 
 Anyone who sees the screen sees the value, also through a screen share, a screenshot or a recording. A
 copied value is in the clipboard of the system, where other programs can read it.
+
+A host cannot always verify that the surface that draws the value is local. A remote client can report
+that it draws locally, and the value then goes to that client.
+
+The mask of section 5, rule 2 recognizes a pasted value only as the whole value and only in the encodings
+that the host knows (SECURITY-MODEL.md, section 6). A part of the value, or the value in another encoding,
+reaches the model.
 
 ## 8. Not in this profile
 

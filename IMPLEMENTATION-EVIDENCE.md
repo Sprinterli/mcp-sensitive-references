@@ -60,11 +60,11 @@ repository):
   server has its own sign-in page; else the page names the account and offers no switch.
 - **People.** Every person with an account (members and guests) may use the resolver. Administrators keep
   a block list per user. Service accounts and synthetic identities are refused.
-- **References per person.** The server looks up a reference in the pseudonym map of the token principal
+- **References per principal.** The server looks up a reference in the pseudonym map of the token principal
   (lifetime 24 hours). A reference of another account is `409 unresolvable` with the reason `unknown`.
 - **Account hint.** Token and refresh answers carry `account_hint`: at most three first characters of the
   local part (never more than half of it), an ellipsis and the whole domain, for example
-  `ali…@example.com`. The refresh mints through the same function as the token answer.
+  `al…@example.com` for `alice@example.com`. The refresh mints through the same function as the token answer.
 - **Audit.** No value leaves without its audit row; else `503 audit_unavailable`. The audit of a process
   resolve keeps the last path part of the destination if the destination has no white space and that part
   is a plain name (`[A-Za-z0-9][A-Za-z0-9._+-]{0,63}`), else `other`. Each reveal of the display sink
@@ -140,7 +140,7 @@ What the prototype implements of Concept 0.7, tested offline only:
   combinations and `invalid_scope`; `403 insufficient_scope` before any lookup, with no value and no audit
   event; a refresh that keeps the granted set; consent at every authorization with the account, a switch
   action, the client, the loopback host and port, the time, the resource and one line per sink scope;
-  references per person; `account_hint`; `503 audit_unavailable`; revocation per device with an epoch.
+  references per principal; `account_hint`; `503 audit_unavailable`; revocation per device with an epoch.
 - `process-1`: the program name as destination, a resolve only when the command reads the value, a stop
   after a failed resolve, and the masked output before the model, also after a failure, a signal or a
   timeout.
@@ -232,6 +232,13 @@ Limits:
   command with its own EXIT trap, `exec`, a killed command and a command past the timeout of the client.
   On these paths it does not meet PROCESS-PROFILE.md, section 5, rule 2.
 - It does not read `account_hint`.
+- A process of the same user can open the FIFO of a command before the command does: the FIFO has mode
+  0600 in a per-user directory with mode 0700. That process then causes the resolve and reads the value
+  (PROFILE-process-1.md, PR20).
+- It takes the program name from the first word at white space, without the quoting rules of the shell
+  (PR11).
+- The label of a click target is the reference text as drawn, with a display part if it has one, also in
+  a reply of the model (PROFILE-display-1.md, DS21).
 - Its login asks for the display scope also in a client where it draws no value. It does not meet
   DISPLAY-PROFILE.md, section 1, rule 4 (PROFILE-display-1.md, DS4).
 

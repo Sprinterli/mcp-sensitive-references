@@ -53,7 +53,7 @@ Several findings of the two lists describe the same gap. This table shows which 
 | SC-21 | Sink scopes, and the fixed name of the discovery object | R3, second host 0.9.0 and 0.9.1 |
 | SC-22 | The sink profile `process-1` | R3, second host 0.9.0 |
 | SC-23 | The sink profile `display-1` | R3, second host 0.9.1 |
-| SC-24 | References per person, and the account hint | R3, run E13 |
+| SC-24 | References per principal (account), and the account hint | R3, run E13 |
 | SC-25 | No value without its audit event | R3 |
 | SC-26 | Revocation per device | R3 |
 
@@ -1115,14 +1115,16 @@ person signs in again.
 client. Concept 0.6 had only the file sink. A host that put a value into a command had no rule for the
 destination, for the command output or for the moment of the resolve.
 
-**Evidence.** [PROFILE-process-1.md](PROFILE-process-1.md), rows PR1 to PR19.
+**Evidence.** [PROFILE-process-1.md](PROFILE-process-1.md), rows PR1 to PR20.
 
 **Text.** PROCESS-PROFILE.md. `sink_type` `process`. The destination is the program name (the first word
 after `NAME=value` assignments), never the command line. The audit keeps the last path part without white
 space, else `other`. The host masks the command output before the model sees it, also on the failure path,
 and resolves only when the command reads the value, so that a refused command costs no resolve. Its own
-sink scope. Limit: any local process of the person that holds a token with the process scope gets the
-full value.
+sink scope. The value goes through a channel that only the command reads; a named channel is owner-only,
+in a directory that only the owner can open, and gives the value once, to one reader. Limit: any local
+process of the person that holds a token with the process scope gets the full value, a process of the
+person that finds the channel can open it first, and the destination is advisory.
 
 **Compatibility.** New profile. The identifier is `process-1` (OQ-21, decided). At R3 the reference server
 publishes the profile under a vendor-prefixed identifier (PROFILE-process-1.md).
@@ -1132,17 +1134,19 @@ publishes the profile under a vendor-prefixed identifier (PROFILE-process-1.md).
 **Problem.** A person sometimes needs to see a value, for example to read a customer number on a call.
 The model must not see it. Concept 0.6 had no sink for the screen.
 
-**Evidence.** [PROFILE-display-1.md](PROFILE-display-1.md), rows DS1 to DS19, and run E13.
+**Evidence.** [PROFILE-display-1.md](PROFILE-display-1.md), rows DS1 to DS21, and run E13.
 
 **Text.** DISPLAY-PROFILE.md. `sink_type` `display`, `destination` exactly `screen`, one reference per
 request. A resolve only on the click of the person, never while the host draws. Never to the model, a
 transcript or an export. The host keeps the released value, so that a paste is masked back. A copy only on
-a second click. One audit event per reveal, counted in the daily quota. Its own sink scope. Limit as in
-SC-22.
+a second click. No value in a link target, a URL or markup, and no text that the model wrote as the label
+of the action. One audit event per reveal, counted in the daily quota. Its own sink scope. Limit as in
+SC-22; also, the host cannot always verify that the surface is local, and the paste mask knows only whole
+values in known encodings.
 
 **Compatibility.** New profile.
 
-## SC-24. References per person, and the account hint
+## SC-24. References per principal (account), and the account hint
 
 **Problem.** RESOLVER-PROFILE.md of Concept 0.6 let the issuer authorize other principals than the owner,
 for example for a shared record. The reference server resolves a reference only for its owner. A person
@@ -1163,11 +1167,12 @@ with two accounts who signed in to the resolver with one and to the MCP server w
   the sign-in with the same account.
 
 **Text.** SPEC-DRAFT.md, section 6.3, and RESOLVER-PROFILE.md, sections 11.2 and 12.2. A reference of
-person A never resolves for person B: `409 unresolvable` with the reason `unknown`. An optional
-`account_hint` in the token answer and in the refresh answer names the account in a masked form, for
-example `ali…@example.com`.
+principal A never resolves for principal B, also for two accounts of one person: `409 unresolvable` with
+the reason `unknown`. An optional `account_hint` in the token answer and in the refresh answer names the
+account in a masked form: at most min(3, floor(n/2)) characters of a local part of n characters, for
+example `al…@example.com` for `alice@example.com`.
 
-**Compatibility.** An issuer that authorized other principals must issue a reference for each person. A
+**Compatibility.** An issuer that authorized other principals must issue a reference for each principal. A
 host can ignore `account_hint`.
 
 ## SC-25. No value without its audit event

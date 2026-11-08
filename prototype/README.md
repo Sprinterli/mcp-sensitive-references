@@ -4,7 +4,7 @@ This is a small, dependency-free feasibility prototype for the Sensitive Referen
 
 **Concept 0.7.** The prototype implements the rules of Concept 0.7 for a host and for an issuer: the
 discovery object with `sinks`, the sink scopes, the sink profiles `local-file-1`, `process-1` and `display-1`,
-consent at every authorization, references per person, `account_hint`, no value without its audit event, and
+consent at every authorization, references per principal (account), `account_hint`, no value without its audit event, and
 revocation per device. Section "Concept 0.7" below says what is demo level.
 
 The core remains dependency-free. `demo/mcp_sdk_server.py` is an additional MCP SDK registration probe. It uses `MCPServer` (MCP SDK 2.x) and falls back to `FastMCP` (MCP SDK 1.x). It does not implement OAuth transport, persistence, policy, or a filesystem sandbox.

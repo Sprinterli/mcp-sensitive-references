@@ -19,9 +19,9 @@ the reference server, releases 0.9.0 and 0.9.1 of the second host, and run E13.
 ### Core
 
 - New term "sink scope". A sink profile also defines its sink scope, if any, and its limit. (SC-21)
-- References are per person: an issuer resolves a reference only for its owner, and a reference of
-  another principal fails with `unknown`. Concept 0.6 let the issuer authorize other principals, for
-  example for a shared record. (SC-24)
+- References are per principal (account): an issuer resolves a reference only for its owner, and a
+  reference of another principal fails with `unknown`, also for two accounts of one person. Concept 0.6 let
+  the issuer authorize other principals, for example for a shared record. (SC-24)
 - SECURITY-MODEL.md: TM-1 names the consent at every authorization request and the revocation per device;
   TM-4 names the sink scopes; new TM-14 (process) and TM-15 (display). (SC-06, SC-21 to SC-23, SC-26)
 
@@ -43,7 +43,8 @@ the reference server, releases 0.9.0 and 0.9.1 of the second host, and run E13.
   client, resource and the granted scope set. (SC-06)
 - Revocation per device (principal and client), by the person and by an administrator. A credential from
   before the revocation stays dead after a new approval. (SC-26)
-- An optional `account_hint` in the token answer and in the refresh answer. (SC-24)
+- An optional `account_hint` in the token answer and in the refresh answer. For an email address it holds
+  at most min(3, floor(n/2)) characters of a local part of n characters (MUST). (SC-24)
 - The loopback rule for authorization codes covers every sink profile that puts the value on the computer
   of the host. (SC-22, SC-23)
 - `sink_type` has three values: `local_file`, `process`, `display`. A value that is not exactly one of
@@ -63,12 +64,19 @@ the reference server, releases 0.9.0 and 0.9.1 of the second host, and run E13.
   the last path part without white space, else `other`; the host masks the command output also on the
   failure path and resolves only when the command reads the value; a process scope. The identifier is
   `process-1`. (SC-22, OQ-21)
+- The value goes through a channel that only the command reads (MUST): a named channel is owner-only, in a
+  directory that only the owner can open, and gives the value once, to one reader. The limit names a
+  process of the same person that opens the channel first. (SC-22, TM-14)
+- The destination is advisory: the limit names wrappers, pipelines and the open word splitting. (SC-22)
 
 ### `display-1` (new)
 
 - `sink_type` `display`, destination `screen`, one reference per request, only on a click of the person;
   never to the model, a transcript or an export; a paste is masked back; copy only on a second click; one
   audit event per reveal, counted in the quota; a display scope. (SC-23)
+- No released value in a link target, a URL or markup, and no text that the model wrote as the label of
+  the action that resolves or copies. The limit names a surface that the host cannot verify as local and
+  the paste mask that knows only whole values in known encodings. (SC-23, TM-15)
 
 ### Non-normative files
 

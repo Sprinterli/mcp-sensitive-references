@@ -221,7 +221,7 @@ principal. The resolver and the issuer MUST NOT infer that principal from displa
 The issuer MUST authorize each resolution request. The decision MUST NOT depend on possession of the
 reference. The issuer MUST refuse the whole request if one reference fails.
 
-References are per person. An issuer MUST resolve a reference only for its owner. A reference of another
+References are per principal (account). An issuer MUST resolve a reference only for its owner. A reference of another
 principal MUST fail with the reason `unknown` (section 5.5).
 
 Resolved plaintext MUST NOT return through an ordinary model-visible MCP result. A sink profile defines the

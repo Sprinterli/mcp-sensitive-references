@@ -32,7 +32,7 @@ and the possession of a reference from the authority to resolve it.
   and recorded it outside model text. On loss or ambiguity of that record, the host fails closed.
 - A separately authorized resolver resolves references into an eligible sink. The model-facing result
   keeps the references.
-- References are per person. A reference of one person never resolves for another.
+- References are per principal (account). A reference of one account never resolves for another.
 - Each sink that hands a value to a local process or a screen needs its own scope, which a person can
   leave out on the consent page.
 
@@ -82,8 +82,8 @@ lists every change with its source.
    `display-1` shows one value on the screen after a click of the person.
 3. **Consent at every authorization request.** No stored approval replaces the decision. The page names
    the account, the client, the loopback host and port, the time and each sink scope.
-4. **References per person.** A reference of person A never resolves for person B. An optional
-   `account_hint` shows which account a token belongs to.
+4. **References per principal (account).** A reference of account A never resolves for account B. An
+   optional `account_hint` shows which account a token belongs to.
 5. **No value without its audit event** (`503 audit_unavailable` otherwise).
 6. **Revocation per device**, by the person and by an administrator.
 

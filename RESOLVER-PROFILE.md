@@ -491,17 +491,18 @@ the risk of a stolen token.
 
 ### 11.2 Account hint
 
-A token response and a refresh response MAY carry `account_hint`: a string that lets a host show the
-person which account its token belongs to. The hint MUST NOT contain the whole account name. If the account
-is an email address, the hint SHOULD hold at most the first three characters of the local part, and never
-more than half of it, then an ellipsis (U+2026), then the whole domain, for example `ali…@example.com`. A
-server that sends the hint in the token response MUST also send it in the refresh response.
+A token response and a refresh response MAY carry `account_hint`: a string that lets a host show the person
+which account its token belongs to. The hint MUST NOT contain the whole account name. If the account is an
+email address with a local part of n characters, the hint MUST hold at most the first min(3, floor(n/2))
+characters of the local part, then an ellipsis (U+2026), then the whole domain. For `alice@example.com`
+(n=5) the hint is `al…@example.com` or shorter. A server that sends the hint in the token response MUST also
+send it in the refresh response.
 
 A host MUST NOT use the hint for a decision of this profile. A host MUST NOT give it to the model.
 
-**Note.** References are per person (section 12.2). If a person signs in to the resolver with one account
-and to the MCP server with another, every reference is `unknown`. The hint lets the host tell the person
-which account the resolver token belongs to.
+**Note.** References are per principal, that is per account (section 12.2). If a person signs in to the
+resolver with one account and to the MCP server with another, every reference is `unknown`. The hint lets
+the host tell the person which account the resolver token belongs to.
 
 ## 12. Resolve request and response
 
@@ -550,12 +551,12 @@ If one condition fails for one reference, the server MUST return no value for th
 condition 3 fails, the reason for that reference is `unknown` (SPEC-DRAFT.md, section 5.5), also when the
 reference is revoked or expired.
 
-References are per person. A reference that the issuer issued to person A MUST NOT resolve for person B,
-also when B holds a valid resolver token and the reference is current. A server SHOULD look up a reference
-only in the records of the subject of the resolver token, so that a record of another person is never
-read.
+References are per principal (account). A reference that the issuer issued to principal A MUST NOT resolve
+for principal B, also when A and B are two accounts of one person, and also when B holds a valid resolver
+token and the reference is current. A server SHOULD look up a reference only in the records of the subject
+of the resolver token, so that a record of another principal is never read.
 
-**Note.** A record that several people may see needs a reference for each person.
+**Note.** A record that several people may see needs a reference for each principal.
 
 ### 12.3 Batch limits and duplicates
 

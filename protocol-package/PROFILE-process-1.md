@@ -45,7 +45,7 @@ second host asks for that identifier ([IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTA
 | ID | Rule | Server | Second host |
 |---|---|---|---|
 | PR10 | `sink_type` is `process`. A value that is not exactly a known `sink_type` gets `403 ineligible_sink`. | `test_a_sink_type_that_is_not_exactly_a_known_one_is_refused` | `maisecrets/sref_client.py`, `SINKS` |
-| PR11 | `destination` is the program name: the first word after leading `NAME=value` assignments, its last path part. Never the command line. | Not applicable (the server cannot see the command) | `maisecrets/sref_hooks.py`, `program_of` (the base name of the first word after the assignments; `sh` if the command holds only assignments). `test_the_value_reaches_the_command_and_the_gateway_learns_the_program`, `test_the_program_name_comes_from_the_command_not_from_a_display` |
+| PR11 | `destination` is the program name: the first word after leading `NAME=value` assignments, its last path part. Never the command line. | Not applicable (the server cannot see the command) | `maisecrets/sref_hooks.py`, `program_of` (the base name of the first word after the assignments; `sh` if the command holds only assignments). `test_the_value_reaches_the_command_and_the_gateway_learns_the_program`, `test_the_program_name_comes_from_the_command_not_from_a_display`. The host splits words at white space, without the quoting rules of the shell. The reference host uses the quoting rules (`shlex`). PROCESS-PROFILE.md, section 3 leaves this open. |
 
 ## 4. When the sink resolves
 
@@ -53,6 +53,7 @@ second host asks for that identifier ([IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTA
 |---|---|---|---|
 | PR12 | The host resolves only when the command reads the value. A refused command costs no resolve. | Not applicable | `test_the_hook_resolves_nothing_and_the_command_fetches_the_value_once_when_it_starts`. A child process serves the value through a FIFO and resolves only after the command opened it (C31). |
 | PR13 | All references of a command resolve before it gets a value. A failure stops the command. | Whole-request refusal: PROFILE-oauth-resolver-1.md, R2. | `test_a_failed_resolve_stops_the_command_instead_of_running_it_without_the_value` (exit status 97) |
+| PR20 | The value goes through a channel that only the command reads, never in the command line. A named channel is owner-only, in a directory that only the owner can open, and gives the value once, to one reader. | Not applicable | Source: a FIFO with mode 0600 in a per-user directory with mode 0700 (`maisecrets/hooks.py`, `_run_dir` and `_serve_value_later`). The child writes the value once and removes the FIFO. A process of the same user can open the FIFO before the command (PROCESS-PROFILE.md, section 7). |
 
 ## 5. Output boundary
 

@@ -104,7 +104,7 @@ This revision records Concept 0.7. The normative text of each change is in the r
   file.
 - **SC-06** gets a "Concept 0.7" paragraph: a consent page at every authorization request, with the
   account, the client, the loopback host and port, the time and one line per sink scope.
-- **SC-24** (new): references per person, and the account hint. **SC-25** (new): no value without its
+- **SC-24** (new): references per principal (account), and the account hint. **SC-25** (new): no value without its
   audit event. **SC-26** (new): revocation per device.
 - **PROFILE-oauth-resolver-1.md** gets the evidence of revision R3 (rows A3, A7, C1, C2, C5, C7, C9, T13
   to T15, R5, R10, R11, R15, R16, and section 5a, V1 to V7).

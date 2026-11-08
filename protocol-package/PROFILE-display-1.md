@@ -44,6 +44,8 @@ the prototype issuer implements its server rules. Their tests run offline only;
 | DS13 | The value goes to the screen only, never to the model, a transcript, a log, an export or a file. | Not applicable | Source: the value lives in the memory of the module only. The host threat model (C32) reports a measurement on one client version for values of its own store: no value in a model request, the transcript, the debug log or the export. A revealed reference uses the same drawing function. Not measured separately. |
 | DS14 | The host keeps the released value, so a paste of it is masked back. | Not applicable | Source: `show_values.reveal` releases the value for the session (`_server_release`). |
 | DS15 | Copy only on a second action. A link that the model wrote copies nothing. | Not applicable | Source: the copy link of a reference exists only after its value is shown. Each copy link carries a random part that only the drawing holds (release 0.9.1). |
+| DS20 | No released value in a link target, a URL or markup. | Not applicable | Source: a line with a link, a URL or HTML keeps its references and gets no value (`LINKY` and `rewrite` in `show-values.mjs`). The copy link carries the random part and the reference, not the value. |
+| DS21 | Text that the model wrote is not the label of the action that resolves or copies. | Not applicable | **Deviation (source).** The label of the click target is the whole reference text as the drawn text holds it, with a display part if it has one, also in a reply of the model (`rewriteLine` in `show-values.mjs`). |
 
 ## 5. Server rules
 

@@ -5,7 +5,7 @@
 Sensitive References is a possible optional MCP extension. Concept 0.7 is one normative text: a core, the
 resolver profile `oauth-resolver-1` and three sink profiles (`local-file-1`, `process-1`, `display-1`). It
 describes what runs in the implementations: sink scopes, a consent page at every authorization request,
-references per person, no value without its audit event, and revocation per device. SC-18 (the
+references per principal (account), no value without its audit event, and revocation per device. SC-18 (the
 issuer-side sink) is still not integrated and stays open as OQ-3, with an interim floor.
 
 Three implementations exist: the reference server MCPGate (source not public; revision R3, versions
