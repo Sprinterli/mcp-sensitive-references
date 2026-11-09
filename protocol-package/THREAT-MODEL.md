@@ -49,8 +49,9 @@ binds the answer to the user and to every request parameter. The consent post mu
 `test_the_stored_approval_holds_only_the_resource_and_the_scope_set_it_was_given_for`,
 `test_a_token_for_a_resource_that_was_never_approved_resolves_nothing`,
 `test_a_token_whose_scope_set_was_never_approved_resolves_nothing` and
-`test_the_consent_page_names_the_resource_the_code_is_issued_for`. The time on the page is **not
-verified** by a test that this package read.
+`test_the_consent_page_names_the_resource_the_code_is_issued_for`, and (R5)
+`test_the_consent_page_names_the_time_of_the_request` and
+`test_the_rows_name_the_account_client_host_resource_and_time`.
 
 **Residual risk.** After consent, a program that can read the token cache of the host can use the token
 without interaction until the access token and the refresh token end (see TM-8). A user can still approve

@@ -37,15 +37,16 @@ The information is from 2026-11-08.
   implements `oauth-resolver-1` and accepts `local-file-1`, `display-1` and `process-1`
   (since R4; [PROFILE-process-1.md](PROFILE-process-1.md) names the identifier of R3).
 - Revisions: R1 and R2 (earlier revisions, see "Sources and versions"), and R3, the versions 2.0.3824 and
-  2.0.3826 of 2026-11-08, the revision of Concept 0.7, and R4, the version 2.0.3830 of 2026-11-08.
+  2.0.3826 of 2026-11-08, the revision of Concept 0.7, R4, the version 2.0.3830 of 2026-11-08, and R5, the
+  version 2.0.3837 of 2026-11-09.
 - Maturity: deployed in production. The runs E4 to E6 and E8 to E13 ran against a production deployment,
   with synthetic data.
 - Coverage: [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md),
   [PROFILE-process-1.md](PROFILE-process-1.md) and [PROFILE-display-1.md](PROFILE-display-1.md) map each
   rule to its tests and name each deviation. It implements an issuer-side sink, which Concept 0.7 does not
   define (OQ-3).
-- Licensing: the source is not public. This package read its tests and its source at R3 and R4 and did
-  not run them.
+- Licensing: the source is not public. This package read its tests and its source at R3, R4 and R5 and
+  did not run them.
 
 **Second independent host: maisecrets.**
 
@@ -110,6 +111,9 @@ This revision records Concept 0.7. The normative text of each change is in the r
   to T15, R5, R10, R11, R15, R16, and section 5a, V1 to V7).
 - **Revision R4** of the reference server: the identifier `process-1` (PROFILE-process-1.md, row D1) and the
   binding of the approval to resource and scope set (rows C5, C7 and R11, TM-1).
+- **Revision R5** of the reference server: a missing resolve scope names the whole scope set of the sink
+  (row R11), a test covers the time on the consent page (row C5, TM-1), and the consent page has a new
+  layout and new wording.
 - **THREAT-MODEL.md** updates TM-1 and TM-4 and adds TM-14 (process) and TM-15 (display).
 - **CONFORMANCE-RESULTS.md** gets the section "Concept 0.7" and run E13.
 - **IMPLEMENTATION-GUIDE.md** gets server items 16 to 21 and host items 13 to 16.
@@ -134,10 +138,10 @@ with `local-file-1`. This package is milestone M6.
 | Concept 0.5 (the root files) | this repository. Unchanged on this branch. |
 | The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `6cdd658` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`); for Concept 0.7, branch `concept-0.7`, commit `65f17e5` |
 | The reference server plan, sections 4 to 8 | reference server revision R1 (not public) |
-| The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2, rows marked "(R3)" tests of revision R3, rows marked "(R4)" tests of revision R4. |
+| The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2, rows marked "(R3)" tests of revision R3, rows marked "(R4)" tests of revision R4, rows marked "(R5)" tests of revision R5. |
 | The second host | release 0.9.1 of maisecrets (section "Implementations"), commit `4f9fd34` of its main branch |
 
-**Evidence labels R1 to R4.** The source of the reference server is not public, so its commit
+**Evidence labels R1 to R5.** The source of the reference server is not public, so its commit
 identifiers do not help a reader. This package uses short labels instead. **R1** is the revision of the plan and the
 tests that this package read first. **R2** is the later revision after the second server review. At R2
 the implementer ran end-to-end round E7 and reported 58 passing test cases in the consent module. The
@@ -146,7 +150,11 @@ the server versions 2.0.3824 and 2.0.3826 of 2026-11-08. This package read its t
 of 2.0.3826 and did not run them. **R4** is the server version 2.0.3830 of 2026-11-08. It adds two changes
 to R3: the process profile has the identifier `process-1`, with no alias for the identifier of R3, and the
 stored approval binds the resource and the scope set (the consent page names the resource). This package
-read the tests and the source of R4 at the release tag of 2.0.3830 and did not run them.
+read the tests and the source of R4 at the release tag of 2.0.3830 and did not run them. **R5** is the
+server version 2.0.3837 of 2026-11-09. It adds two changes to R4: a token without the resolve scope gets a
+`403 insufficient_scope` that names the whole scope set of the sink in the request, and the consent page has
+a new layout and new wording, with a test for the time of the request. This package read the tests, the
+source and the page template of R5 at the release tag of 2.0.3837 and did not run them.
 
 This package did not run the reference server tests. It read their names and assertions at the revision
 above. A row that cites a reference server test is "read, not re-run".

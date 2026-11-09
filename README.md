@@ -96,7 +96,9 @@ versions.
   `local-file-1`, `display-1` and `process-1`. Revision R3 (2026-11-08) implements the changes of
   Concept 0.7, with the deviations and limits that [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md)
   lists. Revision R4 (2026-11-08) adds the identifier `process-1` and binds the stored approval to
-  resource and scope set. Its source is not public.
+  resource and scope set. Revision R5 (2026-11-09) names the whole scope set of the sink when the resolve
+  scope is missing, and has a new consent page with a test for the time of the request. Its source is not
+  public.
 - **Reference host: [prototype/demo/mcp_host.py](prototype/demo/mcp_host.py).** An independent MCP host.
   It negotiates the extension, records provenance, gets its own resolver token and writes a local file.
   Since Concept 0.7 it also implements `process-1` (POSIX) and `display-1` at demo level, with a prototype
@@ -105,7 +107,7 @@ versions.
   files, commands and the screen. It declares no extension, so it is not a supporting host (SPEC-DRAFT.md,
   section 6.2).
 
-**Known gaps.** The reference server tests of R3 and R4 were read, not run by this repository. The display run
+**Known gaps.** The reference server tests of R3, R4 and R5 were read, not run by this repository. The display run
 E13 (2026-11-08) is one operator run, not independently reproduced. No end-to-end run of the process
 profile is recorded against the reference server. The reference host implements Concept 0.7. The prototype
 issuer in `prototype/` implements the server rules of Concept 0.7. Both are demo level, and no run against

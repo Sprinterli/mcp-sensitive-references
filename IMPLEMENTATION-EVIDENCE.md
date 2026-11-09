@@ -17,13 +17,16 @@ MCPGate is the reference server implementation. It issues Sensitive References, 
 `oauth-resolver-1` and accepts `local-file-1`, `display-1` and `process-1`. Its source is not
 public. Revision R3 (versions 2.0.3824 and 2.0.3826 of 2026-11-08) is the revision of Concept 0.7. Revision R4
 (version 2.0.3830 of 2026-11-08) adds two changes to R3: the identifier `process-1`, and the binding of the
-stored approval to resource and scope set.
+stored approval to resource and scope set. Revision R5 (version 2.0.3837 of 2026-11-09) adds two changes
+to R4: a missing resolve scope names the whole scope set of the sink, and the consent page has a new layout
+and new wording, with a test for the time of the request.
 
-What R3 and R4 do, as their tests and their source show (read at the release tags of 2.0.3826 and
-2.0.3830, not run by this repository):
+What R3, R4 and R5 do, as their tests and their source show (read at the release tags of 2.0.3826,
+2.0.3830 and 2.0.3837, not run by this repository):
 
 - **Discovery.** The live metadata document of the base URL at R4, fetched on 2026-11-08 from version
-  2.0.3831. Between the release tags of 2.0.3830 and 2.0.3831 no server source file changed. The object
+  2.0.3831. Between the release tags of 2.0.3830 and 2.0.3831 no server source file changed. The same
+  document, fetched on 2026-11-09 from version 2.0.3837 (R5), has the same members and values. The object
   is formatted, and the host is replaced with `mcp.example.com`. Nothing else is left out:
 
   ```json
@@ -101,18 +104,25 @@ What R3 and R4 do, as their tests and their source show (read at the release tag
   commands. Sign in again and allow commands on the consent page." The answer carries
   `Cache-Control: no-store`. Since R4, a token without the resolve scope gets the same shape with
   `scope="sensitive-references.resolve"` and the text "This sign-in does not allow real values. Sign in
-  again and allow the program on the consent page." The server checks the resolve scope when it reads
-  the token, before it knows the sink, so this answer names only the resolve scope, also for a process
-  or a display request. Another `sink_type` gets `403 ineligible_sink`. A display request with another
-  destination than `screen`, or with not exactly one reference, gets `400`.
-- **Consent.** A consent page at every authorization request. The page shows "Signed in as <account>"
-  with a "Use another account" button, the client name, the loopback host and port, the "Resource"
-  (since R4) and the "Requested" time. The sink lines are: "This program may also put real values into commands it runs on this computer
-  (the program says it masks the command output before the AI sees it)." and "This program may also show
-  real values on your screen; it says it never gives them to the AI." The button shows only where the
-  server has its own sign-in page; else the page names the account and offers no switch. Since R4 the
-  code and the stored approval are bound to subject, client, resource and the exact scope set that the
-  page named. A token request that names another resource gets `invalid_target`, and a `scope` in the
+  again and allow the program on the consent page." At R4 this answer named only the resolve scope, also
+  for a process or a display request. Since R5 the server then reads the body, for at most 2 seconds, and
+  names the resolve scope and the scope of the sink in the body: for `process`
+  `scope="sensitive-references.resolve sensitive-references.resolve.process"`, for `display` the same with
+  the display scope. A body without a known sink, or a body that does not arrive in time, gets the resolve
+  scope only. No value, no lookup and no audit event. Another `sink_type` gets `403 ineligible_sink`. A
+  display request with another destination than `screen`, or with not exactly one reference, gets `400`.
+- **Consent.** A consent page at every authorization request. At R5 the title is "Allow this program to
+  use your real values?", with the lead line "The values go to this computer, never to the AI model." One
+  line per requested sink scope follows: "Write values into files", "Use values in commands it runs — it
+  says it masks the command output before the AI sees it" and "Show values on your screen — it says it
+  never gives them to the AI". The rows are "Signed in as" (the account, with a "Use another account"
+  button in the same row), "Program" (the name the client gave itself, tagged "self-declared"), "Client"
+  (the client id), "Resource", "Returns to" (the loopback host and port) and "Requested" (the time of the
+  request in UTC). The line "Only allow this if you just started a sign-in from this program." stands
+  directly above the Allow and Deny buttons. The title does not carry the name of the client. The button
+  to use another account shows only where the server has its own sign-in page; else the page names the
+  account and offers no switch. Since R4 the code and the stored approval are bound to subject, client,
+  resource and the exact scope set that the page named. A token request that names another resource gets `invalid_target`, and a `scope` in the
   token request adds nothing. A token and a refresh work only while an approval for their own resource
   and scope set holds, for at most 180 days from the grant time of that approval. One record keeps at
   most 8 approvals per person and client.
@@ -160,12 +170,8 @@ Limits:
   E12 do not record the challenge.
 - The binding of the stored approval to resource and scope set, and the resource on the consent page,
   are covered by R4 tests (protocol-package/PROFILE-oauth-resolver-1.md, C5 and C7). The names of account,
-  client, loopback host and port and the sink lines on the page are covered by R3 tests. The time on the
-  page is in the page template at R4, but no test that this repository read covers it.
-- A token without the resolve scope gets `403 insufficient_scope` with an `error_description` (R4 test,
-  for `local_file`). For `process` and `display` the answer names only the resolve scope, not the whole
-  scope set of the sink that row R11 asks for. This repository read that in the source; no test covers
-  it.
+  client, loopback host and port and the sink lines on the page are covered by R3 tests, with the wording
+  of R5. The time on the page is covered by R5 tests.
 - The `WWW-Authenticate` header on a 401 of the resolve endpoint is not verified.
 - PKCE S256 enforcement at the server and the audit event are not covered by a test.
 - The SC-20 rules for `form-action` and for `[::1]` are covered by R3 tests. The rule "any loopback port"

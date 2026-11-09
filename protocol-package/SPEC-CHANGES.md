@@ -15,13 +15,14 @@ Each entry has four parts:
 **Concept 0.7.** SC-01 to SC-20 were the proposals for Concept 0.6 (SC-18 stays open as OQ-3). SC-21 to SC-26 are the changes of
 Concept 0.7. Concept 0.7 also amends SC-03 and SC-06; each of these entries ends with a paragraph
 "Concept 0.7". All of SC-21 to SC-26 and both amendments are in the normative text of Concept 0.7
-(RESOLVER-PROFILE.md, PROCESS-PROFILE.md and DISPLAY-PROFILE.md). Their evidence is at revisions R3 and R4 of the
+(RESOLVER-PROFILE.md, PROCESS-PROFILE.md and DISPLAY-PROFILE.md). Their evidence is at revisions R3, R4 and R5 of the
 reference server and at release 0.9.1 of the second host ([README.md](README.md#sources-and-versions)).
 
 Notation. "Reference server test `x`" means a test of the reference server at revision R1, or at revision
-R2, R3 or R4 where the text says so. R1 to R4 are labels for four revisions of the reference server; R3 is
-the revision of Concept 0.7, and R4 adds the identifier `process-1` and the binding of the approval to
-resource and scope set ([README.md](README.md#sources-and-versions)).
+R2, R3, R4 or R5 where the text says so. R1 to R5 are labels for five revisions of the reference server; R3 is
+the revision of Concept 0.7, R4 adds the identifier `process-1` and the binding of the approval to
+resource and scope set, and R5 adds the whole scope set in the answer to a missing resolve scope and the
+consent page of R5 ([README.md](README.md#sources-and-versions)).
 This package read that test and did not run it. "Host test `x`" means a test in `prototype/tests/` at the
 tested commit (see [CONFORMANCE-RESULTS.md](CONFORMANCE-RESULTS.md#test-run)).
 
@@ -542,8 +543,9 @@ authorization with a live approval gets the page again and no code. Reference se
 `test_a_token_for_a_resource_that_was_never_approved_resolves_nothing`,
 `test_a_token_request_that_names_another_resource_than_the_code_gets_invalid_target` and
 `test_the_consent_page_names_the_resource_the_code_is_issued_for` show the binding to resource and scope
-set and the resource on the page. No reference server test that this package read shows the time on the
-page.
+set and the resource on the page. Reference server tests (R5)
+`test_the_consent_page_names_the_time_of_the_request` and
+`test_the_rows_name_the_account_client_host_resource_and_time` show the time on the page.
 
 *Compatibility.* A host that relied on a code without a page now shows the page at each authorization. A
 host with a token cache and refresh does not see a page more often (E9, E10).
@@ -1103,7 +1105,10 @@ also had a field name that the reference server called provisional.
   `test_discovery_and_server_settings_name_exactly_the_three_sinks`.
 - Reference server test (R4) `test_a_token_without_the_resolve_scope_gets_insufficient_scope_with_a_reason`:
   a token without the resolve scope gets `403 insufficient_scope` with `scope` and `error_description` in
-  header and body. For `process` and `display` the answer names only the resolve scope (read in the source).
+  header and body. At R4 the answer named only the resolve scope, also for `process` and `display`.
+- Reference server test (R5) `test_a_token_without_the_resolve_scope_is_told_the_whole_scope_set_of_its_sink`:
+  for `local_file`, `process` and `display` the answer names the whole scope set of the sink, and the server
+  writes no audit event and makes no lookup.
 - Second host: it asks for the process scope where it masks command output, and for the display scope
   (`maisecrets/sref_client.py`, `login_scope`; test
   `test_the_process_scope_is_asked_for_on_top_where_command_output_is_masked`).
