@@ -301,7 +301,8 @@ tests (`test_a_configured_parent_resource_is_the_issuer`, `test_a_resource_the_m
 
 - Concept 0.7: the reference server tests of R3 were read, not run. E13 is one operator run. The reference
   host and the prototype issuer implement Concept 0.7 at demo level and ran offline only, not against R3.
-  The second host declares no extension and does not read `sinks`.
+  The second host declares no extension. It reads `sinks`, but `process_scope` and `display_scope` take
+  precedence, and it does not refuse an object without `sinks` (PR2).
 - Prototype gaps of Concept 0.7: the rule that every person with an account may use the issuer, with a
   block list and without service accounts (A7), is not tested; the issuer has fixture accounts and a
   block list only. The minimum audit content and the rate limits (OQ-18) are not implemented beyond a

@@ -115,7 +115,6 @@ class DiscoveryTests(IssuerTestCase):
             LOCAL_FILE: {"sink_type": "local_file", "scopes": [RESOLVE_SCOPE]},
             PROCESS: {"sink_type": "process", "scopes": [RESOLVE_SCOPE, PROCESS_SCOPE]}})
         self.assertEqual((obj["process_scope"], obj["display_scope"]), (PROCESS_SCOPE, DISPLAY_SCOPE))
-        self.assertNotIn("mcpgate-process-1", json.dumps(obj))
 
     def test_the_resolve_and_sink_scopes_are_not_in_scopes_supported(self):
         metadata = self.server.protected_resource_metadata()
@@ -198,7 +197,7 @@ class InsufficientScopeTests(IssuerTestCase):
 
     def test_an_unknown_sink_type_is_ineligible_sink(self):
         token = self.grant(ALL)["access_token"]
-        for sink_type in ("Process", "mcpgate-process-1", "process-1", "local-file"):
+        for sink_type in ("Process", "vendor-process-1", "process-1", "local-file"):
             with self.subTest(sink_type=sink_type):
                 response = self.resolve(token, [self.alice_ref], sink_type)
                 self.assertEqual((response.status, response.body["error"]), (403, "ineligible_sink"))

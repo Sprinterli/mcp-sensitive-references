@@ -268,8 +268,8 @@ OQ-19.
 
 A product name does not belong in a profile identifier.
 
-**Decided in Concept 0.7.** The identifier is `process-1`. There is no transition and no second
-identifier: a server publishes `process-1`, and a host asks for `process-1`.
+**Decided in Concept 0.7.** The identifier is `process-1`. A server publishes `process-1`, and a host
+asks for `process-1`.
 
 ## Questions of Concept 0.5
 
