@@ -16,7 +16,7 @@ Each entry has four parts:
 Concept 0.7. Concept 0.7 also amends SC-03 and SC-06; each of these entries ends with a paragraph
 "Concept 0.7". All of SC-21 to SC-26 and both amendments are in the normative text of Concept 0.7
 (RESOLVER-PROFILE.md, PROCESS-PROFILE.md and DISPLAY-PROFILE.md). Their evidence is at revisions R3, R4 and R5 of the
-reference server and at release 0.9.1 of the second host ([README.md](README.md#sources-and-versions)).
+reference server and at release 0.9.4 of the second host ([README.md](README.md#sources-and-versions)).
 
 Notation. "Reference server test `x`" means a test of the reference server at revision R1, or at revision
 R2, R3, R4 or R5 where the text says so. R1 to R5 are labels for five revisions of the reference server; R3 is
@@ -52,9 +52,9 @@ Several findings of the two lists describe the same gap. This table shows which 
 | SC-18 | The issuer-side sink | P1 |
 | SC-19 | Hosts that cannot verify negotiation | P11, P6 |
 | SC-20 | Loopback redirect URIs of the resolver client | F5, production lessons L-a to L-c (2026-10-26) |
-| SC-21 | Sink scopes, and the fixed name of the discovery object | R3, second host 0.9.0 and 0.9.1 |
-| SC-22 | The sink profile `process-1` | R3, R4 (the identifier), second host 0.9.0 |
-| SC-23 | The sink profile `display-1` | R3, second host 0.9.1 |
+| SC-21 | Sink scopes, and the fixed name of the discovery object | R3, R5, second host 0.9.0, 0.9.1 and 0.9.4 |
+| SC-22 | The sink profile `process-1` | R3, R4 (the identifier), second host 0.9.0 and 0.9.4 (the identifier) |
+| SC-23 | The sink profile `display-1` | R3, second host 0.9.1 and 0.9.4 (DS21) |
 | SC-24 | References per principal (account), and the account hint | R3, run E13 |
 | SC-25 | No value without its audit event | R3 |
 | SC-26 | Revocation per device | R3 |
@@ -1147,6 +1147,8 @@ person that finds the channel can open it first, and the destination is advisory
 published the profile under a vendor-prefixed identifier. Since R4 it publishes `process-1`, with no alias
 for the identifier of R3 (PROFILE-process-1.md). A host that selects the sink by `sink_type` is not
 affected. A host that looks for the identifier of R3 in `sink_profiles` does not find the process sink.
+The second host did that at release 0.9.1; since release 0.9.4 it reads the `sink_type` from `sinks` and
+accepts `process-1` (PROFILE-process-1.md).
 
 ## SC-23. The sink profile `display-1`
 

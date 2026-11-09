@@ -54,7 +54,8 @@ The information is from 2026-11-08.
   ([github.com/Mcpgate-de/maisecrets](https://github.com/Mcpgate-de/maisecrets)). It resolves references
   into the content of a file tool (`local_file`), into a shell command (`process`) and onto the screen
   (`display`).
-- Version: releases 0.9.0 and 0.9.1 (2026-11-08), read at commit `4f9fd34` of its main branch.
+- Version: releases 0.9.0 and 0.9.1 (2026-11-08) and 0.9.4 (2026-11-09). The evidence reads release 0.9.4 at
+  the tag `v0.9.4` (commit `03a51ef`). Run E13 used release 0.9.1.
 - Maturity: released. It declares no extension to the server and applies its own session rule, so it is
   not a supporting host (SPEC-DRAFT.md, section 6.2).
 - Coverage: the "Second host" columns of the profile files. Run E13 ran it against the reference server.
@@ -111,6 +112,8 @@ This revision records Concept 0.7. The normative text of each change is in the r
   to T15, R5, R10, R11, R15, R16, and section 5a, V1 to V7).
 - **Revision R4** of the reference server: the identifier `process-1` (PROFILE-process-1.md, row D1) and the
   binding of the approval to resource and scope set (rows C5, C7 and R11, TM-1).
+- **Release 0.9.4** of the second host: it accepts `process-1` and reads `sinks` (PROFILE-process-1.md),
+  and it labels a reference on the screen with the display of the server (PROFILE-display-1.md, DS21).
 - **Revision R5** of the reference server: a missing resolve scope names the whole scope set of the sink
   (row R11), a test covers the time on the consent page (row C5, TM-1), and the consent page has a new
   layout and new wording.
@@ -139,7 +142,7 @@ with `local-file-1`. This package is milestone M6.
 | The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `6cdd658` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`); for Concept 0.7, branch `concept-0.7`, commit `65f17e5` |
 | The reference server plan, sections 4 to 8 | reference server revision R1 (not public) |
 | The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2, rows marked "(R3)" tests of revision R3, rows marked "(R4)" tests of revision R4, rows marked "(R5)" tests of revision R5. |
-| The second host | release 0.9.1 of maisecrets (section "Implementations"), commit `4f9fd34` of its main branch |
+| The second host | release 0.9.4 of maisecrets (section "Implementations"), the tag `v0.9.4`, commit `03a51ef`; run E13 used release 0.9.1 |
 
 **Evidence labels R1 to R5.** The source of the reference server is not public, so its commit
 identifiers do not help a reader. This package uses short labels instead. **R1** is the revision of the plan and the

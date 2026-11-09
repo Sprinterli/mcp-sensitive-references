@@ -324,14 +324,16 @@ target, a URL or markup, and no text that the model wrote as the label of the ac
 reveal, counted in the daily quota. A separate display scope.
 
 **Evidence.** [PROFILE-display-1.md](PROFILE-display-1.md): server tests at R3 (DS3, DS5, DS8, DS9, DS16,
-DS17); second host test DS10 and source DS13 to DS15, DS20 and DS21; run E13 (observed).
+DS17); second host tests DS10 and DS21 (release 0.9.4) and source DS13 to DS15 and DS20; run E13
+(observed).
 
 **Residual risk.** Any local process of the person that holds a token with the display scope gets the full
 value. Anyone who sees the screen sees the value, also in a screen share or a recording. A copied value is
 in the clipboard of the system. The host cannot always verify that the surface is local: at the second
 host, a remote client that reports a local surface gets the drawing (its threat model, C32). A pasted value
-is masked back only as a whole value and in known encodings. At the second host, the label of the click
-target can be text that the model wrote (DS21).
+is masked back only as a whole value and in known encodings. Until release 0.9.4 the second host used the
+display part that the model wrote as the label of the click target; since 0.9.4 it uses the display of the
+server result (DS21).
 
 ## Accepted residual risks of the reference server
 

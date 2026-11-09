@@ -103,7 +103,7 @@ versions.
   It negotiates the extension, records provenance, gets its own resolver token and writes a local file.
   Since Concept 0.7 it also implements `process-1` (POSIX) and `display-1` at demo level, with a prototype
   issuer. 212 tests passed on 2026-11-08, offline only.
-- **Second host: maisecrets** (releases 0.9.0 and 0.9.1). A plugin for coding agents. It resolves into
+- **Second host: maisecrets** (releases 0.9.0, 0.9.1 and 0.9.4). A plugin for coding agents. It resolves into
   files, commands and the screen. It declares no extension, so it is not a supporting host (SPEC-DRAFT.md,
   section 6.2).
 

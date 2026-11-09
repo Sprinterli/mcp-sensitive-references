@@ -92,8 +92,9 @@ What R3, R4 and R5 do, as their tests and their source show (read at the release
   the request does not change. The audit row names `process-1`. Reference server tests (R4)
   `test_discovery_names_the_process_sink_process_1_and_not_the_former_name`,
   `test_a_process_resolve_is_audited_as_process_1` and
-  `test_a_profile_identifier_sent_as_the_sink_type_is_refused`. The second host at release 0.9.1 looks for
-  the identifier of R3 in `sink_profiles`, so it refuses the process sink of R4 before any request
+  `test_a_profile_identifier_sent_as_the_sink_type_is_refused`. The second host at release 0.9.1 looked for
+  the identifier of R3 in `sink_profiles`, so it refused the process sink of R4 before any request. Since
+  release 0.9.4 it accepts `process-1`
   ([protocol-package/PROFILE-process-1.md](protocol-package/PROFILE-process-1.md)).
   The code of the server still calls the field name provisional; Concept 0.7 fixes it.
 - **Sink scopes.** A token without the scope of the sink gets `403 insufficient_scope` before any lookup,
@@ -122,8 +123,8 @@ What R3, R4 and R5 do, as their tests and their source show (read at the release
   directly above the Allow and Deny buttons. The title does not carry the name of the client. The button
   to use another account shows only where the server has its own sign-in page; else the page names the
   account and offers no switch. Since R4 the code and the stored approval are bound to subject, client,
-  resource and the exact scope set that the page named. A token request that names another resource gets `invalid_target`, and a `scope` in the
-  token request adds nothing. A token and a refresh work only while an approval for their own resource
+  resource and the exact scope set that the page named. A token request that names another resource gets
+  `invalid_target`, and a `scope` in the token request adds nothing. A token and a refresh work only while an approval for their own resource
   and scope set holds, for at most 180 days from the grant time of that approval. One record keeps at
   most 8 approvals per person and client.
 - **People.** Every person with an account (members and guests) may use the resolver. Administrators keep
@@ -269,8 +270,11 @@ probes do not apply the fetch policy. The reference host does not use them.
 ## Second host: maisecrets
 
 [maisecrets](https://github.com/Mcpgate-de/maisecrets) is a public plugin for coding agents. Release 0.9.0
-added the process sink; release 0.9.1 added the display click (both 2026-11-08). This repository read its
-source and its test names at commit `4f9fd34` of its main branch (release 0.9.1). It did not run its tests.
+added the process sink; release 0.9.1 added the display click (both 2026-11-08). Release 0.9.4 (2026-11-09)
+accepts `process-1`, reads `sinks` and labels a reference on the screen with the display of the server.
+This repository read its source and its test names at the tag `v0.9.4` (commit `03a51ef`). The package
+of release 0.9.4 on PyPI holds only the detection library of the plugin, not the code below, so the
+citations refer to that tag. This repository did not run its tests.
 
 What the source and the tests show:
 
@@ -295,21 +299,29 @@ Limits:
   reference resolves only if a result of a server in the user scope showed it in the same session in the
   last 24 hours. So it is not a supporting host (SPEC-DRAFT.md, section 6.2).
 - It reads the discovery object from the path-inserted well-known URL only, not from the challenge first
-  (RESOLVER-PROFILE.md, section 3). It reads `process_scope` and `display_scope`, not `sinks`.
+  (RESOLVER-PROFILE.md, section 3; `maisecrets/sref_client.py`, line 103). It reads `sinks`, but the members
+  `process_scope` and `display_scope` win over the scope set of `sinks`, and it does not refuse an object
+  without `sinks` (lines 113 to 127). So it does not meet the host rules of RESOLVER-PROFILE.md, section 4,
+  for `sinks`.
 - It masks the output of a failed command in one client through an EXIT trap that ends the command with
   status 0. Its threat model (C27) lists the paths where a printed value still reaches the model: a
   command with its own EXIT trap, `exec`, a killed command and a command past the timeout of the client.
   On these paths it does not meet PROCESS-PROFILE.md, section 5, rule 2.
-- It does not read `account_hint`.
+- Since release 0.9.3 it keeps `account_hint` from the token and the refresh answer and prints it in the
+  output of its status and login command (`maisecrets/sref_client.py`, lines 237, 241 to 247 and 328;
+  `maisecrets/cli.py`, lines 983 to 984 and 1010 to 1011; test
+  `test_the_login_keeps_the_masked_account_and_a_refresh_keeps_it`). The coding agent runs that command
+  as a tool, so the hint is in a tool result that the model reads, unless the output masking of the host
+  replaces it. RESOLVER-PROFILE.md, section 11.2, says that a host MUST NOT give the hint to the model.
+  This repository read that in the source and did not run it.
 - A process of the same user can open the FIFO of a command before the command does: the FIFO has mode
   0600 in a per-user directory with mode 0700. That process then causes the resolve and reads the value
   (PROFILE-process-1.md, PR20).
 - It takes the program name from the first word at white space, without the quoting rules of the shell
   (PR11).
-- The label of a click target is the reference text as drawn, with a display part if it has one, also in
-  a reply of the model (PROFILE-display-1.md, DS21).
-- Its login asks for the display scope also in a client where it draws no value. It does not meet
-  DISPLAY-PROFILE.md, section 1, rule 4 (PROFILE-display-1.md, DS4).
+- Its login asks for the display scope also in a client where it draws no value
+  (`maisecrets/sref_client.py`, lines 88 to 90). It does not meet DISPLAY-PROFILE.md, section 1, rule 4
+  (PROFILE-display-1.md, DS4).
 
 ## End-to-end runs
 

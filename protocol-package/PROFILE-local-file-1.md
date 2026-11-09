@@ -55,7 +55,7 @@ model does not see the file content.
 ## 5a. Evidence of Concept 0.7
 
 The evidence columns use the terms of [PROFILE-process-1.md](PROFILE-process-1.md): a server test at R3,
-read and not run, and the second host at release 0.9.1, read and not run.
+read and not run, and the second host at release 0.9.4, read and not run.
 
 | ID | Rule | Server (R3) | Second host |
 |---|---|---|---|

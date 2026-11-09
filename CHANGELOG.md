@@ -5,7 +5,7 @@
 Concept 0.7 describes what runs in the implementations and has proven itself there. Each line names its
 source: an SC entry of [protocol-package/SPEC-CHANGES.md](protocol-package/SPEC-CHANGES.md), an OQ item of
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), or a profile file of the package. The evidence is revisions R3, R4 and R5 of
-the reference server, releases 0.9.0 and 0.9.1 of the second host, and run E13.
+the reference server, releases 0.9.0, 0.9.1 and 0.9.4 of the second host, and run E13.
 
 ### Structure
 
@@ -88,6 +88,9 @@ the reference server, releases 0.9.0 and 0.9.1 of the second host, and run E13.
 - Revision R5 of the reference server (version 2.0.3837): a missing resolve scope names the whole scope
   set of the sink (R11), and the consent page has a new layout and new wording, with a test for the time
   of the request (C5, TM-1).
+- Release 0.9.4 of the second host: it accepts `process-1` and reads `sinks`, and the screen labels a
+  reference with the display of the server (DS21, now met). The second host evidence reads the tag
+  `v0.9.4`. DS4, PR2/DS2 and the use of `account_hint` stay deviations.
 - OPEN-QUESTIONS.md: OQ-8 decided; OQ-16 names the second host; new OQ-19 (safe metadata of a reference),
   OQ-20 (a "tokenize" profile) and OQ-21 (the identifier of the process profile, decided: `process-1`).
 - protocol-package/: SC-21 to SC-26, amendments of SC-03 and SC-06, the R3 evidence rows, TM-14 and TM-15,
