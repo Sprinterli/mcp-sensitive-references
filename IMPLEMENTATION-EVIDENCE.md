@@ -314,6 +314,12 @@ Limits:
   as a tool, so the hint is in a tool result that the model reads, unless the output masking of the host
   replaces it. RESOLVER-PROFILE.md, section 11.2, says that a host MUST NOT give the hint to the model.
   This repository read that in the source and did not run it.
+  A change after release 0.9.4, not released yet and so not evidence here, takes the hint out of the
+  tool result: the command says only that the account is shown to the person, and the hint comes as a
+  message of a client hook. The maintainer of the second host measured that channel with one client: the
+  message reached no model request, but it stays in the local transcript and the debug log of that
+  client. So the hint is not sent to the model, but it is kept on the disk of the person. A client
+  without such a channel does not show the hint at all.
 - A process of the same user can open the FIFO of a command before the command does: the FIFO has mode
   0600 in a per-user directory with mode 0700. That process then causes the resolve and reads the value
   (PROFILE-process-1.md, PR20).
