@@ -66,7 +66,7 @@ Not normative:
 | [IMPLEMENTATION-EVIDENCE.md](IMPLEMENTATION-EVIDENCE.md) | The two implementations, the evidence and the known gaps |
 | [STATUS.md](STATUS.md) | The current state |
 | [PRIOR-ART.md](PRIOR-ART.md) | Adjacent mechanisms |
-| [protocol-package/](protocol-package/) | Supporting rationale, implementation evidence and history (SC-01 to SC-26) |
+| [protocol-package/](protocol-package/) | Supporting rationale, implementation evidence and history (SC-01 to SC-27) |
 | [prototype/](prototype/) | The reference host and the feasibility prototype |
 
 ## Changes in this revision

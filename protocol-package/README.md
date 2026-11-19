@@ -4,7 +4,7 @@
 Enhancement Proposal (SEP), and not a product specification.
 
 **Concept 0.7.** The normative text is in the repository root. This package keeps the history of the
-proposals (SPEC-CHANGES.md, SC-01 to SC-26) and the evidence for each rule. The conformance gap of E11
+proposals (SPEC-CHANGES.md, SC-01 to SC-27) and the evidence for each rule. The conformance gap of E11
 (P16) ended with a server fix on 2026-10-27; run E12 ran without a deviation option
 ([IMPLEMENTATION-EVIDENCE.md](../IMPLEMENTATION-EVIDENCE.md)).
 
@@ -76,7 +76,7 @@ The information is from 2026-11-08.
 
 | File | Content |
 |---|---|
-| [SPEC-CHANGES.md](SPEC-CHANGES.md) | The history of the proposals: each change (SC-01 to SC-26), with the problem, the evidence, the normative text and the compatibility impact. |
+| [SPEC-CHANGES.md](SPEC-CHANGES.md) | The history of the proposals: each change (SC-01 to SC-27), with the problem, the evidence, the normative text and the compatibility impact. |
 | [PROFILE-oauth-resolver-1.md](PROFILE-oauth-resolver-1.md) | The proposed OAuth resolver profile with implementation evidence. Each rule names its test or says "not yet tested", "not verified" or "not conformant". |
 | [PROFILE-local-file-1.md](PROFILE-local-file-1.md) | The local-file sink profile with the evidence of the test host, the reference server and the second host. |
 | [PROFILE-process-1.md](PROFILE-process-1.md) | The process sink profile with the evidence of the reference server and the second host. |
@@ -141,7 +141,7 @@ with `local-file-1`. This package is milestone M6.
 | Concept 0.5 (the root files) | this repository. Unchanged on this branch. |
 | The test host, the prototype and their tests | this repository, branch `m7-consolidation`, the tested commit `6cdd658` (`prototype/demo/mcp_host.py`, `prototype/src/`, `prototype/tests/`); for Concept 0.7, branch `concept-0.7`, commit `65f17e5` |
 | The reference server plan, sections 4 to 8 | reference server revision R1 (not public) |
-| The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2, rows marked "(R3)" tests of revision R3, rows marked "(R4)" tests of revision R4, rows marked "(R5)" tests of revision R5. |
+| The reference server tests that this package cites | revision R1: the test module for resolver consent (25 test functions) and the test module for negotiated canonical references (26 test functions). Rows marked "(R2)" cite tests of revision R2, rows marked "(R3)" tests of revision R3, rows marked "(R4)" tests of revision R4, rows marked "(R5)" tests of revision R5, rows marked "(R6)" tests of revision R6. |
 | The second host | release 0.9.4 of maisecrets (section "Implementations"), the tag `v0.9.4`, commit `03a51ef`; run E13 used release 0.9.1 |
 
 **Evidence labels R1 to R5.** The source of the reference server is not public, so its commit
@@ -157,7 +157,10 @@ read the tests and the source of R4 at the release tag of 2.0.3830 and did not r
 server version 2.0.3837 of 2026-11-09. It adds two changes to R4: a token without the resolve scope gets a
 `403 insufficient_scope` that names the whole scope set of the sink in the request, and the consent page has
 a new layout and new wording, with a test for the time of the request. This package read the tests, the
-source and the page template of R5 at the release tag of 2.0.3837 and did not run them.
+source and the page template of R5 at the release tag of 2.0.3837 and did not run them. **R6** is the server
+version 2.0.3986 of 2026-11-19. It adds the reuse window of SC-27 (30 seconds) and announces it as
+`refresh_reuse_interval`. This package read the names of its tests at the merge of that change and did not
+run them.
 
 This package did not run the reference server tests. It read their names and assertions at the revision
 above. A row that cites a reference server test is "read, not re-run".

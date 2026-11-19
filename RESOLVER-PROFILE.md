@@ -86,6 +86,7 @@ requests.
 | `process_scope` | non-empty string | required if `sink_profiles` lists `process-1` |
 | `display_scope` | non-empty string | required if `sink_profiles` lists `display-1` |
 | `max_references` | integer of 100 or more | optional (section 12.3) |
+| `refresh_reuse_interval` | positive integer, seconds | optional (section 11.1, item 6) |
 | `status` | string | optional |
 
 `sinks` has one member for each entry of `sink_profiles`, with the profile identifier as its name. Each
@@ -481,7 +482,23 @@ second 401 answer, the host MUST stop and MUST NOT write the sink.
    refresh and the resolve endpoint answers 401 (section 10). The host recovers as in item 1. A new
    authorization needs a new approval of the user.
 6. **Lost rotated refresh token.** If the host stops after the server rotated a refresh token and before
-   the host stored the new one, the host continues as for a refused refresh. The user authorizes again.
+   the host stored the new one, or if the answer of the refresh did not reach the host, the host
+   continues as for a refused refresh. The user authorizes again. The exception is a reuse window:
+   - An authorization server MAY accept the refresh token that it replaced last once more, for a short
+     window after the rotation. If it does, it MUST announce the window in seconds as
+     `refresh_reuse_interval` in the discovery object (section 4), and the window MUST NOT be longer than
+     60 seconds. Inside the window, the server MUST answer that one reuse with the same access token and
+     the same refresh token as the rotation, and MUST NOT issue a new pair.
+   - The window ends at its end, at the answer to the one reuse, and at the first use of the new access
+     token, whichever comes first. A reuse after the window, a second reuse, a reuse of an older refresh
+     token and a reuse by another client MUST revoke every token that descends from the same
+     authorization. A withdrawn approval and a revoked device (section 10) leave no window.
+   - A host MAY send the same refresh token once more only if the discovery object announces the window,
+     the host did not get the answer to the refresh, and the host did not use an access token from that
+     answer. The host MUST NOT send it sooner than 2 seconds after the failed attempt, because a reuse
+     while the server still runs the first refresh is a second use. The host MUST send it so that it can
+     arrive inside the window. The host MUST record the attempt before it sends it, and MUST NOT send that
+     refresh token a third time. If the reuse fails, the host continues as for a refused refresh.
 
 In every case of this section, a host MUST NOT write the sink with values from an earlier, failed attempt.
 

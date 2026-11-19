@@ -182,7 +182,9 @@ only for its own client (SC-07).
 matches the limit in `SECURITY-MODEL.md`, "Limits". The tokens are not sender-constrained (OQ-5). A stolen
 refresh token works until the next rotation or until the consent ends. If the host stops after the server
 rotated the token and before the host wrote the cache, the refresh token is lost and the user must
-authorize again (F6).
+authorize again (F6), unless the server announces a reuse window (SC-27). Inside that window, a thief
+with the spent refresh token gets the pair once, if the legitimate host did not take it first and did
+not use the new access token; the next use by either side then revokes the family.
 
 ### TM-9. Plugin hosts that cannot verify negotiation
 

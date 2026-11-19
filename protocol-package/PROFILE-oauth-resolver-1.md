@@ -94,7 +94,7 @@ It is not part of this profile.
 | T2 | A resolver token does not authorize an MCP request. | `test_a_resolver_token_is_refused_where_an_agent_token_is_expected`, `test_a_resolver_token_never_reaches_the_agent_suffix_lookup` | — |
 | T3 | An agent token does not authorize a resolve request. The host never sends the agent token to the resolve endpoint. | `test_an_agent_token_is_refused_at_the_resolve_endpoint` | `test_the_agent_token_is_never_sent` |
 | T4 | The server enforces the expiry of an access token. | `test_an_expired_resolver_token_resolves_nothing` | — |
-| T5 | A refresh token rotates. The old refresh token stops working. | `test_refresh_rotates_and_the_old_refresh_token_is_dead` | `test_an_expired_token_is_refreshed_and_rotated`. Observed: E10 (renewal through refresh after expiry; rotation not observed). |
+| T5 | A refresh token rotates. The old refresh token stops working, except for one reuse inside the announced reuse window, which gets the same pair (SC-27). | `test_refresh_rotates_and_the_old_refresh_token_is_dead`; (R6) `test_one_reuse_gets_the_same_pair_and_a_second_revokes`, `test_a_reuse_after_the_window_revokes_the_family` | `test_an_expired_token_is_refreshed_and_rotated`. Observed: E10 (renewal through refresh after expiry; rotation not observed). |
 | T6 | A refresh token works only for its own client. | `test_a_refresh_token_works_only_for_its_own_client` | — |
 | T7 | The refresh token lives 30 days. | Read in the server source (`REFRESH_TTL_SECONDS`). **Not yet tested.** | — |
 | T8 | A token response without the resolve scope is refused (`scope_not_granted`). | Not applicable | `test_a_token_without_the_resolve_scope_is_refused` |

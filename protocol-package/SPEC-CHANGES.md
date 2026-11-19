@@ -3,7 +3,7 @@
 **Status: history of the proposals, experimental. Not concept text.** Each entry below proposed a change to
 the concept text. SC-01 to SC-20 proposed changes to concept 0.5. SC-21 to SC-26 record the changes of
 Concept 0.7. The normative text is in the repository root. If an entry and the normative text differ, the
-normative text is correct.
+normative text is correct. SC-27 records a change after Concept 0.7.
 
 Each entry has four parts:
 
@@ -19,7 +19,7 @@ Concept 0.7. Concept 0.7 also amends SC-03 and SC-06; each of these entries ends
 reference server and at release 0.9.4 of the second host ([README.md](README.md#sources-and-versions)).
 
 Notation. "Reference server test `x`" means a test of the reference server at revision R1, or at revision
-R2, R3, R4 or R5 where the text says so. R1 to R5 are labels for five revisions of the reference server; R3 is
+R2, R3, R4, R5 or R6 where the text says so. R1 to R6 are labels for six revisions of the reference server; R3 is
 the revision of Concept 0.7, R4 adds the identifier `process-1` and the binding of the approval to
 resource and scope set, and R5 adds the whole scope set in the answer to a missing resolve scope and the
 consent page of R5 ([README.md](README.md#sources-and-versions)).
@@ -58,6 +58,7 @@ Several findings of the two lists describe the same gap. This table shows which 
 | SC-24 | References per principal (account), and the account hint | R3, run E13 |
 | SC-25 | No value without its audit event | R3 |
 | SC-26 | Revocation per device | R3 |
+| SC-27 | A reuse window for a lost refresh answer | R6, second host (the release after 0.9.19) |
 
 P2 (two issuers) and P3 (where the display travels) get no normative text in this package. They are in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) as OQ-1 and OQ-2.
@@ -1223,3 +1224,34 @@ pair, checked in the same atomic step as the write of a new credential, is one w
 
 **Compatibility.** A server must keep a record per device. A host sees a revoked device as `401
 invalid_token` and recovers as in RESOLVER-PROFILE.md, section 11.1, item 5.
+
+## SC-27. A reuse window for a lost refresh answer
+
+**Problem.** SC-07 requires a rotating refresh token, and RESOLVER-PROFILE.md, section 11.1, item 6, sent the
+person back to the consent page when the host lost a rotated token. On a poor network that is common: the
+server rotates, the answer does not reach the host, and the host keeps only the spent token. The second host
+saw it on 2026-11-18 and 2026-11-19: one person had to authorize again in every session, twice in one
+morning, on a mobile connection. RFC 9700 requires rotation or sender-constrained refresh tokens and says
+nothing about a window. Several authorization servers offer one (a "grace period" or "reuse interval", in the
+range of 0 to 60 seconds).
+
+**Evidence.** Reference server tests (R6) `test_a_lost_answer_is_answered_again_with_the_same_pair_and_the_family_lives`,
+`test_only_one_pair_exists_after_the_reuse`, `test_a_second_reuse_revokes_the_family`,
+`test_an_older_token_revokes_the_family_inside_the_window`, `test_a_reuse_after_the_window_revokes_the_family`,
+`test_a_reuse_after_the_new_access_token_was_used_revokes_the_family`,
+`test_a_reuse_by_another_client_gets_nothing_and_revokes`,
+`test_two_reuses_at_the_same_moment_get_one_answer_and_revoke_the_family`,
+`test_a_token_revoked_for_another_reason_gets_no_window`, `test_the_window_is_thirty_seconds` and
+`test_the_metadata_announces_the_reuse_interval`. Second host tests (`tests/test_sref_client.py`)
+`test_a_lost_answer_is_sent_once_more_inside_the_reuse_window_and_the_login_stays`,
+`test_without_a_reuse_window_a_lost_answer_is_never_sent_again`,
+`test_a_renewal_killed_inside_the_window_is_finished_by_the_next_one`,
+`test_a_renewal_killed_before_the_window_ended_is_never_retried_after_it` and
+`test_a_token_is_retried_once_and_never_a_third_time`.
+
+**Text.** RESOLVER-PROFILE.md, section 4 (the member `refresh_reuse_interval`) and section 11.1, item 6.
+
+**Compatibility.** A server without a window and a host that does not read the member work as before. A host
+that reuses a token without the announcement still revokes its family. The window widens the use of a
+stolen refresh token only to the one reuse that the legitimate host did not make, inside at most 60
+seconds, and only before the new access token is used (TM-8).

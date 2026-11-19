@@ -1,5 +1,11 @@
 # Changelog
 
+## After Concept 0.7
+
+- `oauth-resolver-1`: an authorization server MAY accept the refresh token it replaced last once more, for
+  at most 60 seconds, and answers with the same pair; it announces the window as `refresh_reuse_interval`.
+  A host retries once, not sooner than 2 seconds after the failed attempt. (SC-27)
+
 ## Concept 0.7 (draft)
 
 Concept 0.7 describes what runs in the implementations and has proven itself there. Each line names its
