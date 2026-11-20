@@ -58,7 +58,7 @@ Several findings of the two lists describe the same gap. This table shows which 
 | SC-24 | References per principal (account), and the account hint | R3, run E13 |
 | SC-25 | No value without its audit event | R3 |
 | SC-26 | Revocation per device | R3 |
-| SC-27 | A reuse window for a lost refresh answer | R6, second host (the release after 0.9.19) |
+| SC-27 | A reuse window for a lost refresh answer | R6, second host (maisecrets 0.9.20) |
 
 P2 (two issuers) and P3 (where the display travels) get no normative text in this package. They are in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) as OQ-1 and OQ-2.
