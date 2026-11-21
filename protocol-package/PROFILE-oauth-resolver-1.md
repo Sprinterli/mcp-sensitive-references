@@ -133,7 +133,10 @@ Content-Type: application/json
  "destination": "<see SC-10>"}
 ```
 
-Success: `200` with `{"values": {"<reference>": "<value>"}}` and `Cache-Control: no-store`.
+Success: `200` with `{"values": {"<reference>": "<value>"}, "audit_id": "<id>"}` and `Cache-Control: no-store`.
+`audit_id` names the server's audit event for this release (RESOLVER-PROFILE.md, sections 12.4 and 15); a host
+keeps it in its own record and accepts an answer without it from an earlier server. No conformance test covers
+`audit_id` yet.
 
 | ID | Rule | Server | Host |
 |---|---|---|---|

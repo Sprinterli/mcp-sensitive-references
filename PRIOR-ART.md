@@ -8,6 +8,12 @@ maisecrets ([protocol-package/README.md](protocol-package/README.md#implementati
 avoid displaying a stored secret. Sensitive References focus on issuer-held values and authenticated issuer
 provenance in an MCP workflow.
 
+[Open Pseudonym](https://github.com/Ishan2036924/open-pseudonym) (0.3.0) replaces values the client holds with
+stand-ins and fills secret handles locally, with signed release records. Its section 10.5 states the boundary
+to this draft: it leaves a reference unchanged and does not resolve, check or issue references. A host can use
+both. Its release record and the resolve audit event record the same kind of decision (OPEN-QUESTIONS.md,
+OQ-18).
+
 ## Context redaction and message transformation
 
 [MCP Python SDK interceptor API](https://py.sdk.modelcontextprotocol.io/advanced/middleware/) can observe,

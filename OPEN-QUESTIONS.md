@@ -231,7 +231,23 @@ The minimum content of the audit event and the rate limits are not decided. RESO
 11.1, defines the minimum recovery of `oauth-resolver-1`. Recovery beyond it is not decided, for example a
 grace period for a rotated refresh token that the host lost before it wrote its cache.
 
-No provisional decision.
+Provisional field set of the audit event (not a decision). Each field holds no value, no reference in
+canonical form and no credential:
+
+| Field | Meaning |
+|---|---|
+| `audit_id` | The identifier the server returns in the success answer (RESOLVER-PROFILE.md, section 12.4). |
+| time | When the server wrote the event, before the release. |
+| subject | The principal the references belong to (section 14). |
+| client | The resolver client, as an identifier of the registration. |
+| authority | The token scopes the server checked and the sink profile of the request. |
+| sink | What the sink profile permits the event to keep of `destination`. |
+| count | The number of released values. |
+| outcome | `released`, or `withheld` when a last check refused the values after the event. |
+
+A refusal of the whole request writes no release event; a server MAY record it with counts per reason.
+Input for this list: the release record of Open Pseudonym 0.3.0, section 10.4, which records the same kind of
+decision for client-held values; its section 10.5 suggests a field-by-field match with this event.
 
 ## OQ-19. Safe metadata of a reference
 

@@ -3,7 +3,7 @@
 **Status: history of the proposals, experimental. Not concept text.** Each entry below proposed a change to
 the concept text. SC-01 to SC-20 proposed changes to concept 0.5. SC-21 to SC-26 record the changes of
 Concept 0.7. The normative text is in the repository root. If an entry and the normative text differ, the
-normative text is correct. SC-27 records a change after Concept 0.7.
+normative text is correct. SC-27 and SC-28 record changes after Concept 0.7.
 
 Each entry has four parts:
 
@@ -1255,3 +1255,22 @@ range of 0 to 60 seconds).
 that reuses a token without the announcement still revokes its family. The window widens the use of a
 stolen refresh token only to the one reuse that the legitimate host did not make, inside at most 60
 seconds, and only before the new access token is used (TM-8).
+
+## SC-28. `audit_id` in the resolve answer, and the authority in the audit event
+
+**Problem.** The server writes its audit event before it releases a value (RESOLVER-PROFILE.md, section 15),
+but the answer does not name that event. A host that keeps its own record of the release cannot point to the
+server's event, so the two records cannot be matched. The event also did not say under which authority the
+release was allowed. Both points came up on MCP PR 1913 on 2026-11-21: the author of Open Pseudonym asked for
+an `audit_id` on the resolve answer, and another participant asked that a release record name the authority it
+was allowed under.
+
+**Evidence.** Discussion only, no test yet: modelcontextprotocol/modelcontextprotocol#1913, comments of
+2026-11-21. Tracked in issue #1 of this repository.
+
+**Text.** RESOLVER-PROFILE.md, section 12.4 (`audit_id`) and section 15 (authority, `audit_id` in the event);
+OPEN-QUESTIONS.md, OQ-18 (a provisional field set).
+
+**Compatibility.** The field is additive. A host that reads only `values` works as before, and a host MUST NOT
+reject an answer without `audit_id` from an earlier server. The reference server and the second host do not
+implement it yet.

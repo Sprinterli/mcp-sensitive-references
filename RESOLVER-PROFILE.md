@@ -593,7 +593,14 @@ reference as one reference.
 ### 12.4 Success
 
 A server MUST answer a successful request with `200` and a JSON object `{"values": {"<reference>":
-"<value>"}}`. The answer MUST carry `Cache-Control: no-store`.
+"<value>"}, "audit_id": "<id>"}`. The answer MUST carry `Cache-Control: no-store`.
+
+`audit_id` names the audit event that the server wrote for this release (section 15). It is an opaque string
+of 1 to 128 characters from the set `A-Z a-z 0-9 . _ -`. It is unique per release event, and it has no
+meaning outside the issuing server. It MUST NOT be, contain or derive from a value, a reference, a
+destination or a credential. A host SHOULD keep `audit_id` in its own record of the release, so that the
+two records can be matched. A host MUST NOT reject an answer without `audit_id`: a server of an earlier
+version of this profile does not send it.
 
 A host MUST accept a `200` answer only if the key set of `values` is exactly the set of references of the
 request, and each value is a string. Else the host MUST discard the answer and MUST NOT write the sink.
@@ -660,11 +667,16 @@ sink profile permits, or a credential. The event SHOULD name the subject, the cl
 the number of values. A sink profile can say what the event keeps of `destination` (for example
 PROCESS-PROFILE.md, section 6).
 
+The event SHOULD name the authority the release was allowed under: the scopes of the resolver token that the
+server checked (section 5) and the sink profile the request named. A reader of the event can then tell a
+release under the resolve scope alone from one under a sink scope that the person granted separately. The
+event carries the identifier the server returns as `audit_id` (section 12.4).
+
 A server MAY limit the number of values per principal and period. It answers with `429 quota_exceeded`
 after the limit. Every released value counts toward the limit, in every sink profile.
 
 **Open (OQ-18).** The minimum content of the audit event beyond this section and the rate limits are not
-decided. Recovery beyond section 11.1 is not decided.
+decided; OPEN-QUESTIONS.md, OQ-18, lists a provisional field set. Recovery beyond section 11.1 is not decided.
 
 ## 16. Not in this profile
 
